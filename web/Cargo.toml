@@ -1,0 +1,34 @@
+[package]
+name = "miningpool-observer-web"
+version = "0.1.0"
+authors = ["0xb10c <0xb10c@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+
+miningpool_observer_shared = { path="../shared" }
+
+log = "0.4"
+simple_logger = "1.9.0"
+
+actix-http = "2"
+actix-web = "3"
+actix-files = "0.5.0"
+
+diesel = { version = "1.4.4", features = ["postgres", "r2d2", "chrono"] }
+r2d2 = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+
+serde = "1"
+hex = "0.4"
+
+tera = "1.7"
+
+# svg to png image rendering
+resvg = "0.14.1"
+usvg = "0.14.1"
+tiny-skia = "0.5.1"
+
+[build-dependencies]
+serde = "1"
+serde_json = "1"

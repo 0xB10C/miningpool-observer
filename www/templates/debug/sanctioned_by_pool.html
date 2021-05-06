@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="DEBUG - Sanctioned by Pool",
+        description="Block Inclusion of Sanctioned Transactions by Pool",
+        url="/debug/sanctioned",
+        image_url="/og_image/index.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<div class="mx-0 p-3 bg-white shadow-sm">
+    <h2>Sanctioned by Pool</h2>
+    <h3 class="text-muted">
+        Block Inclusion of Sanctioned Transactions by Pool
+    </h3>
+
+    This table shows the number of sanctioned transactions included or not included in blocks by pool.
+    When a pool <strong>repeatedly</strong> doesn't include sanctioned transactions in his block, then it's likely that the mining pool filters and blocks sanctioned transactions.
+    <table class="table table-sm text-center my-2">
+        <thead>
+        <tr>
+            <th class="text-start" scope="col">Pool</th>
+            <th scope="col">included in block</th>
+            <th scope="col">not included in block</th>
+        </tr>
+        </thead>
+        <tbody>
+            {% for row in sanctioned_table %}
+            <tr">
+                <th scope="row" class="text-start">{{ row.pool_name }}</th>
+                <td>{{ row.in_both + row.only_in_block }}</td>
+                <td class="{% if row.only_in_template > 0%}table-danger{%endif%}">{{ row.only_in_template }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock content %}

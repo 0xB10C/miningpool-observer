@@ -1,0 +1,13 @@
+FROM rust as builder
+WORKDIR app
+COPY . .
+RUN cargo build --release --bin miningpool-observer-web
+
+FROM debian:stable-slim as runtime
+RUN apt-get -y update
+RUN apt-get -y install libpq-dev
+WORKDIR /app
+COPY --from=builder /app/target/release/miningpool-observer-web /app/web
+COPY --from=builder /app/www /app/www
+ENV CONFIG_FILE=/app/web-config.toml
+ENTRYPOINT ["/app/web"]

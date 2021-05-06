@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% import "macro/template_and_block.html" as block %}
+{% import "macro/pagination.html" as pagination %}
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="DEBUG - Template Selection",
+        description="Shows debug information about the template selection process",
+        url="/debug/template-selection",
+        image_url="/og_image/index.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<div class="mx-0 p-3 bg-white shadow-sm">
+    <h1>Template Selection</h1>
+    <h2 class="text-muted">
+        Information about the template selection process
+    </h2>
+    <p>
+        <span class="text-danger">This is a debug page.</span>
+        It lists per block information about the template selection process.
+        For more information about the template selection methodology see <a href="{{CONFIG.base_url}}/faq#general-template">FAQ: Methodology - How is the best template for the template to block comparison selected?</a>
+    </p>
+
+    {% for infos_and_block in template_selection_infos %}
+    <div class="m-3 border p-3">
+        <strong>Templates and Block {{ infos_and_block.block.hash }}</strong>
+        <br>
+        <span>height {{ infos_and_block.block.height }}</span>
+        <br>
+        <span>mined by</span>
+        {% if infos_and_block.block.pool_name == "Unknown"%}
+            <strong class="mark text-danger">Unknown pool</strong>
+        {% else %}
+            <strong class=" text-primary">{{ infos_and_block.block.pool_name }}</strong>
+        {% endif %}
+        <br>
+        <span>block header time <strong>{{ infos_and_block.block.block_time | date(format="%H:%M:%S") }} UTC</strong></span>
+        <br>
+        <span>block seen time <strong>{{ infos_and_block.block.block_seen_time | date(format="%H:%M:%S") }} UTC</strong></span>
+        
+        <table class="table table-sm caption-top my-3">
+            <caption>Avaliable Templates. The selected template is bold.</caption>
+            <thead>
+              <tr>
+                <td class="text-start">#</td>
+                <td class="text-start">Template Time</td>
+                <td class="text-end">Missing</td>
+                <td class="text-end">Extra</td>
+                <td class="text-end">Missing + Extra</td>
+                <td class="text-end">Shared</td>
+              </tr>
+            </thead>
+            <tbody>
+            {% for info in infos_and_block.infos %}
+                <tr class="{% if info.selected %}fw-bold bg-light{% endif %}">
+                    <td class="text-start">{{ loop.index }}</th>
+                    <td class="text-start">{{ info.template_time | date(format="%H:%M:%S") }} UTC</th>
+                    <td class="text-end">{{ info.count_missing }}</td>
+                    <td class="text-end">{{ info.count_extra }}</td>
+                    <td class="text-end">{{ info.count_extra + info.count_missing }}</td>
+                    <td class="text-end">{{ info.count_shared }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <span>{{ block::explorers(hash=infos_and_block.block.hash) }}</span>
+    </div>
+    {% endfor %}
+    {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE) }}
+</div>
+
+{% endblock content %}

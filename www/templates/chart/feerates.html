@@ -1,0 +1,134 @@
+
+<script src="/static/js/d3.v6.min.js"></script>
+<script>
+
+var margin = ({top: 10, right: 15, bottom: 40, left: 50})
+var width = 900;
+var height = 300;
+
+var x = function(d) { return d[0]; };
+var y = function(d) { return d[1]; };
+
+// append the svg object to the body of the page
+var svg = d3.select("#feerate-chart")
+  .append("svg")
+    .attr("viewBox", "0 0 " + width + " " + height )
+
+var g = svg.append("g")
+
+var block = null
+var template = null
+
+function draw(template_data, block_data) {
+    let template_and_block_data = template_data.concat(block_data);
+    
+    let computed_yMin = d3.min(template_and_block_data, d => y(d));
+    let yMin = Math.max(1, computed_yMin - (computed_yMin * 0.15));
+    var yMaxQuantile = d3.quantile(template_and_block_data, 0.998, d => y(d));
+    let xMax = Math.max(4_000_000);
+
+    let xPadding = xMax * 0.01 // %
+
+    // X Scale and Axis
+    var xScale = d3.scaleLinear()
+      .domain([-xPadding, xMax+xPadding])
+      .range([margin.left, width - margin.right])
+
+    svg.append("g")
+        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")))
+
+    // Y Scale and Axis
+    var yScale = d3.scaleLog()
+      .domain([yMin, yMaxQuantile])
+      .range([height - margin.bottom, margin.top])
+
+    svg.append("g")
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(yScale).ticks(10, "~s"))
+
+    var template = svg.append("path")
+        .datum(template_data)
+        .attr("id", "feerates-template")
+        .attr("stroke", "blue")
+        .attr("fill", "blue")
+        .attr("fill-opacity", 0.66)
+        .attr("stroke-opacity", 1)
+        .attr("stroke-width", 1)
+        .attr("d",
+            d3.area().curve(d3.curveStepAfter)
+                .x(d => xScale(x(d)) )
+                .y(d => yScale(y(d)) )
+        )
+
+    d3.select("#checkbox-show-template").on("change", function() {
+        template.attr("stroke-opacity", this.checked ? 0.0 : 1)
+    });
+
+    d3.select("#checkbox-show-block").on("change", function() {
+        block.attr("fill-opacity", this.checked ? 0 : 0.66)
+    });
+
+    var block = svg.append("path")
+        .datum(block_data)
+        .attr("id", "feerates-block")
+        .attr("stroke", "red")
+        .attr("fill", "red")
+        .attr("fill-opacity", 0.66)
+        .attr("stroke-opacity", 1)
+        .attr("stroke-width", 0)
+        .attr("d",
+            d3.area().curve(d3.curveStepAfter)
+                .x(d => xScale(x(d)) )
+                .y0(yScale(yMin))
+                .y1(d => yScale(y(d)) )
+        )
+
+    svg.append("text")
+        .attr("class", "fw-light")
+        .attr("text-anchor", "middle")
+        .attr("x", width/2)
+        .attr("y", height - 6)
+        .text("template and block weight in WU");
+
+    svg.append("text")
+        .attr("class", "fw-light")
+        .attr("text-anchor", "middle")
+        .attr("y", 15 )
+        .attr("x", -(height - margin.bottom)/2 )
+        .text("feerate in sat/vByte")
+        .attr("transform", "rotate(-90)");
+
+}
+
+d3.select("#nRadius").on("input", function() {
+  update(+this.value);
+});
+
+const zip = (a, b) => a.map((k, i) => [k, b[i]]);
+const accumulate = (weights) => {
+    acc_w = 0;
+    acc_weights = []; 
+    for(w in weights) {
+        acc_w = acc_w + weights[w];
+        acc_weights.push(acc_w);
+    }
+    return acc_weights;
+}
+
+template_pkg_weights_acc = accumulate(template_pkg_weights)
+template_data = zip(template_pkg_weights_acc, template_pkg_feerates)
+
+block_pkg_weights_acc = accumulate(block_pkg_weights)
+block_data = zip(block_pkg_weights_acc, block_pkg_feerates)
+
+// remove the coinbase transaction as it has a fee of 0 which
+// would break the log y-scale.
+block_data_without_coinbase = block_data.slice(1)
+
+draw(
+    template_data,
+    block_data_without_coinbase
+);
+
+</script>

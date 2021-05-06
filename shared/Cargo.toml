@@ -1,0 +1,19 @@
+[package]
+name = "miningpool_observer_shared"
+version = "0.1.0"
+authors = ["0xb10c <0xb10c@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+log = "0.4"
+diesel = { version = "1.4.4", features = ["postgres", "r2d2", "chrono"] }
+serde = "1"
+toml = "0.5"
+chrono = { version = "0.4", features = ["serde"] }
+prometheus = "0.12.0"
+
+# Requirements to switch to upstream rust-bitcoincore-rpc:
+# 1. merging https://github.com/rust-bitcoin/rust-bitcoincore-rpc/pull/163
+# 2. Bitcoin Core v22 release
+# 3. some way of getting the fees from getblock with verbosity 2, currently only a minimal implementation in the mpo branch
+bitcoincore-rpc = { git = "https://github.com/0xb10c/rust-bitcoincore-rpc", branch = "mpo" }

@@ -1,0 +1,37 @@
+<svg width="230" height="230" version="1.1" viewBox="0 0 60.855 60.854" xmlns="http://www.w3.org/2000/svg">
+ <g transform="translate(-34.778 -34.628)" stroke="#000" stroke-linecap="round">
+  <g transform="translate(-16.522 -6.5701)" stroke-width="2.3" style="paint-order:stroke fill markers">
+   <g transform="translate(-4.7302 9.9297)" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+    <g fill="#f04b4b" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+     <g transform="translate(-21.682 -4.325)" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+      <path d="m123.68 48.356 7.961 4.5963v27.444l-23.767 13.722-15.857-9.1551" fill="none" style="paint-order:stroke fill markers"/>
+      <path d="m107.87 94.119 0.0165-27.443" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+      <path d="m107.89 66.676 23.751-13.724" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+     </g>
+    </g>
+   </g>
+  </g>
+  <g transform="translate(-42.466 -20.977)" fill="none" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+   <g transform="translate(-11.036 6.2362)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+    <g fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+     <g transform="translate(2.3231 .20229)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+      <g transform="translate(-18.774 -6.6742)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+       <path d="m134.91 86.923-23.784-13.724m7.9159 32.014-7.9159-4.5703v-27.444l23.767-13.722 15.804 9.1243" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke"/>
+      </g>
+     </g>
+    </g>
+   </g>
+  </g>
+  <g transform="translate(-33.05 5.0533)" fill="#0f0f0f" stroke-linejoin="round" stroke-width="4.8001" style="paint-order:stroke fill markers">
+   <g transform="translate(-123.55 -18.25)" fill-opacity=".9988" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="4.8001" style="paint-order:stroke fill markers">
+    <path d="m222.16 95.246 5.193-2.1713-0.18456 2.6853 4.6169-6.2074-4.6327-0.55215 0.19748 2.28z" fill="#080808" stroke-width="1.2294" style="paint-order:stroke fill markers"/>
+    <path d="m244.25 82.398-5.193 3.8251 0.18455 2.4722-4.6169-0.87625 4.6327-5.9015-0.19747 2.5081z" fill="#080808" stroke-width="1.2294" style="paint-order:stroke fill markers"/>
+    <g fill="#080000">
+     <path d="m227.88 84.072 2.4935 1.2727" stroke-width="1.7057" style="paint-order:stroke fill markers"/>
+     <path d="m233.25 83.342v-3.7088" stroke-width="1.7057" style="paint-order:stroke fill markers"/>
+     <path d="m238.92 77.642-2.4935 4.152" stroke-width="1.7057" style="paint-order:stroke fill markers"/>
+    </g>
+   </g>
+  </g>
+ </g>
+</svg>

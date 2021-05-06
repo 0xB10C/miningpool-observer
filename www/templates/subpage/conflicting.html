@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% import "macro/transaction.html" as transaction %}
+{% import "macro/template_and_block.html" as block %}
+{% import "macro/conflicting.html" as conflicting %}
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{% set var_count = single_block_with_conflicting_transactions.conflicting_transaction_sets | length %}
+{% set var_pluralize = single_block_with_conflicting_transactions.conflicting_transaction_sets | length | pluralize %}
+{% set var_pluralize_is = single_block_with_conflicting_transactions.conflicting_transaction_sets | length | pluralize(singular="is", plural="are") %}
+{{
+    opengraph::og(
+        title="Conflicts between Template & Block " ~ single_block_with_conflicting_transactions.block.hash,
+        description="There " ~ var_pluralize_is ~ " " ~ var_count ~ " conflict" ~ var_pluralize ~ " between the template and the block.",
+        url="/conflicting/" ~ single_block_with_conflicting_transactions.block.hash,
+        image_url="/og_image/conflicting/" ~ single_block_with_conflicting_transactions.block.hash ~ ".png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<div class="mx-0 p-3 bg-white shadow-sm">
+    {{ conflicting::block(block_with_conflicting_transaction=single_block_with_conflicting_transactions, short=false) }}
+</div>
+{% endblock content %}
+

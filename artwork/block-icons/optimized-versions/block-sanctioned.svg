@@ -1,0 +1,30 @@
+<svg width="230" height="230" version="1.1" viewBox="0 0 60.854 60.854" xmlns="http://www.w3.org/2000/svg">
+ <g transform="matrix(.57977 .24504 -.57977 .91451 39.922 -6.7519)">
+  <circle cx="44.037" cy="37.402" r="8.599" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="3.1759" style="paint-order:stroke markers fill"/>
+  <rect x="42.401" y="28.336" width="3.2738" height="18.131" fill="#0b0100" fill-rule="evenodd" style="paint-order:stroke markers fill"/>
+  <g transform="matrix(1.0558 0 0 1.0558 -83.996 9.8998)" stroke="#000" stroke-linecap="round">
+   <g transform="matrix(1.3603 -.36449 .8624 .8624 -74.584 -8.539)" stroke-width="2.3" style="paint-order:stroke fill markers">
+    <g transform="translate(-4.7302 9.9297)" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+     <g fill="#f04b4b" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+      <g transform="translate(-21.682 -4.325)" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+       <path d="m123.68 48.356 7.961 4.5963v27.444l-23.767 13.722-15.857-9.1551" fill="none" style="paint-order:stroke fill markers"/>
+       <path d="m107.87 94.119 0.0165-27.443" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+       <path d="m107.89 66.676 23.751-13.724" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+      </g>
+     </g>
+    </g>
+   </g>
+   <g transform="matrix(1.3603 -.36449 .8624 .8624 -125.45 -11.465)" fill="none" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+    <g transform="translate(-9.1852 6.9701)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+     <g fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+      <g transform="translate(2.3231 .20229)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+       <g transform="translate(-18.774 -6.6742)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+        <path d="m134.91 86.923-23.784-13.724m7.9159 32.014-7.9159-4.5703v-27.444l23.767-13.722 15.804 9.1243" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke"/>
+       </g>
+      </g>
+     </g>
+    </g>
+   </g>
+  </g>
+ </g>
+</svg>

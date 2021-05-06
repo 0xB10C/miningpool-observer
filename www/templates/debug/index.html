@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="DEBUG - Index",
+        description="Lists the debug pages",
+        url="/debug/unknown",
+        image_url="/og_image/index.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<div class="mx-0 p-3 bg-white shadow-sm">
+    <h2>Debug pages</h2>
+    <h3 class="text-muted">
+        Lists the debug pages
+    </h3>
+
+    <ul>
+        <li>
+            <a href="{{CONFIG.base_url}}/debug/fees">Fees per Pool</a>
+        </li>
+        <li>
+            <a href="{{CONFIG.base_url}}/debug/unknown">Blocks by 'Unknown' miners</a>
+        </li>
+        <li>
+            <a href="{{CONFIG.base_url}}/debug/sanctioned-utxo-scans">Information about the UTXO set scans for sanctioned UTXOs</a>
+        </li>
+        <li>
+            <a href="{{CONFIG.base_url}}/debug/template-selection">Per block information about the template selection</a>
+        </li>
+    </ul>
+
+    
+</div>
+
+
+{% endblock content %}

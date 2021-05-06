@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% import "macro/template_and_block.html" as block %}
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="DEBUG - Unknown Pools",
+        description="Shows blocks where the mining pool couldn't be identified ",
+        url="/debug/unknown",
+        image_url="/og_image/index.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<div class="mx-0 p-3 bg-white shadow-sm">
+    <h1>Unknown Pools</h1>
+    <h2 class="text-muted">
+        Blocks where the mining pool couldn't be identified 
+    </h2>
+    <p>
+        <span class="text-danger">This is a debug page.</span>
+        The mining pools for the listed blocks could not be identified.
+        
+        The mining pool identifiers are listed in <a href="https://github.com/0xB10C/known-mining-pools">github.com/0xB10C/known-mining-pools</a>.
+        Identifiers for unknown pools can be added there.
+
+        The miningpool-observer uses the Rust crate <code>bitcoin_pool_identification</code>
+        (<a target="_blank" rel="noopener" href="https://crates.io/crates/bitcoin-pool-identification">crates.io</a>, <a target="_blank" rel="noopener" href="https://docs.rs/bitcoin-pool-identification/">docs.rs</a>, <a target="_blank" rel="noopener" href="https://github.com/0xB10C/rust-bitcoin-pool-identification">GitHub</a>).
+    </p>
+
+    <table class="table">
+        <thead>
+            <tr>
+            <th scope="col">Height</th>
+            <th scope="col">Hash</th>
+            <th scope="col">Explorers</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for block in unknown_pool_blocks %}
+            <tr>
+                <td scope="row">{{ block.height }}</td>
+                <td>{{ block.hash }}</td>
+                <td>{{ block::explorers(hash=block.hash) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% endblock content %}

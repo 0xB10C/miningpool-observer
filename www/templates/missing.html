@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% import "macro/transaction.html" as transaction %}
+{% import "macro/missing.html" as missing %}
+{% import "macro/pagination.html" as pagination %}
+{% import "macro/opengraph.html" as opengraph %}
+{% import "macro/template_and_block.html" as block %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="Missing Transactions",
+        description="A transaction is considered missing from a block, when the block template includes it, but the block mined by a mining pool does not. This page lists transactions that are missing from multiple blocks.",
+        url="/missing",
+        image_url="/og_image/missing.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+
+<div class="mx-0 p-3 bg-white shadow-sm">
+    <h1 class="fs-2">
+        Missing Transactions
+        <img class="d-inline-block d-lg-none float-end p-3" width=100 height=100 src="/static/img/block-missing.svg"/>
+    </h1>
+    <h3 class="text-muted fs-3">
+        Template Transactions repeatedly not included by Pools
+    </h3>
+
+    <p>
+        A transaction is considered <i>missing</i> from a block when the block template includes it, but the block mined by a mining pool does not.
+        This page lists transactions that are missing from multiple blocks.
+        <br>
+        Transactions can be missing from blocks for different reasons: 
+        For example, a transaction has not propagated to us or the pool yet, a template transaction conflicts with a block transaction, the mining pool prioritizes, or even filters transactions.
+        For more details, read: <a href="{{CONFIG.base_url}}/faq#missing-tx-reasons">FAQ: Why can a transaction be missing from a block?</a>
+    </p>
+
+    {% if MAX_PAGES == 0 %}
+        <div class="alert alert-warning border" role="alert">
+            <h4 class="alert-heading">No Missing Transactions in the database yet!</h4>
+            <span>There don't seem to be any transactions missing from multiple blocks in the the database yet.</span>
+            <span>Please check back later.</span>
+        </div>
+    {% else %}
+        <h3>
+            Transactions missing from three or more Blocks {% if CURRENT_PAGE != 0 %}(page {{CURRENT_PAGE}}){% endif %}
+        </h3>
+
+        {% for missing in missing_transactions %}
+            <div class="my-3 p-3 shadow-sm border">
+                {{ missing::missing(missing=missing, short=true) }}
+            </div>
+        {% endfor %}
+        {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE) }}
+    {% endif %}
+</div>
+
+
+{% endblock content %}

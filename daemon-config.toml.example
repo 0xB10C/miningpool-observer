@@ -1,0 +1,33 @@
+# miningpool.observer deamon configuration file
+
+# PostgreSQL database URL
+database_url = "postgres://<user>:<password>@<host>:<port>/<dbname>"
+
+# Log Level: error, warn, info, debug, trace
+log_level = "info"
+
+# Host of Bitcoin Core RPC server
+rpc_host = "127.0.0.1"
+
+# Port of the Bitcoin Core RPC server
+rpc_port = 8332
+
+# RPC Authentication
+# Use either the RPC .cookie file or the rpc_user and rpc_password!
+#
+# Path to the Bitcoin Core RPC .cookie file
+# rpc_cookie_file = "~/.bitcoin/.cookie"
+#
+# OR
+#
+# RPC user and password
+# Generate with https://github.com/bitcoin/bitcoin/tree/master/share/rpcauth !
+# rpc_user = ""
+# rpc_password = ""
+
+
+# Prometheus Metric Server
+# Don't expose this publicly.
+[prometheus]
+    enable = false
+    address = "127.0.0.1:23842"

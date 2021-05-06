@@ -1,0 +1,108 @@
+
+<script src="/static/js/d3.v6.min.js"></script>
+<style>
+.grid line {
+  stroke: lightslategray;
+  stroke-opacity: 0.4;
+  shape-rendering: crispEdges;
+}
+
+.grid path {
+  stroke-width: 0;
+}
+</style>
+<script>
+
+var margin = ({top: 10, right: 15, bottom: 40, left: 50})
+var width = 900;
+var height = 300;
+
+var x = function(d) { return d.pool; };
+var y = function(d) { return d.median; };
+var q1 = function(d) { return d.q1 };
+var q3 = function(d) { return d.q3 };
+
+// append the svg object to the body of the page
+var svg = d3.select("#fee-chart")
+  .append("svg")
+    .attr("viewBox", "0 0 " + width + " " + height )
+
+var g = svg.append("g");
+
+function draw(data) {
+
+    let ymin = d3.min(data, d => q1(d));
+    let ymax = d3.max(data, d => q3(d)) ;
+
+    let y_scale = d3.scaleLinear()
+        .domain([ymin - 0.01, ymax +0.0099])
+        .range([height - margin.bottom, margin.top])
+
+    let x_scale = d3.scaleBand()
+        .domain(data.map(d => x(d)))
+        .range([margin.left, width - margin.right])
+        .padding(0.1)
+
+    svg.append("g")
+        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x_scale))
+    svg.append("g")
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(
+            d3.axisLeft(y_scale).tickFormat(d3.format(".0%"))
+        )
+
+    // y-grid
+    svg.append("g")			
+        .attr("class", "grid")
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(
+            d3.axisLeft(y_scale)
+                .ticks(4)
+                .tickSize(-width-margin.left)
+                .tickFormat("")
+        )
+
+    svg.selectAll('.bar')
+        .data(data)
+        .enter()
+            .append('rect')
+            .attr('fill', d => (x(d) == 'template') ? "skyblue" : "#b10c00" )
+            .attr('fill-opacity', 0.5)
+            .attr('x', (d) => x_scale(x(d)))
+            .attr('y', (d) => y_scale(y(d)))
+            .attr("width", x_scale.bandwidth())
+            .attr('height', d => height - margin.bottom - y_scale(y(d)))
+
+
+    svg.selectAll('line.q1')
+        .data(data).enter().append('line')
+        .attr('stroke', '#555')
+        .attr('class', 'error')
+        .attr('x1', d => x_scale(x(d)) + (2*x_scale.bandwidth()/6))
+        .attr('x2', d => x_scale(x(d)) + (4*x_scale.bandwidth()/6))
+        .attr('y1', d => y_scale(q1(d)) )
+        .attr('y2', d => y_scale(q1(d)) )
+
+    svg.selectAll('line.bar')
+        .data(data).enter().append('line')
+        .attr('stroke', '#555')
+        .attr('class', 'error')
+        .attr('x1', d => x_scale(x(d)) + (x_scale.bandwidth()/2))
+        .attr('x2', d => x_scale(x(d)) + (x_scale.bandwidth()/2))
+        .attr('y1', d => y_scale(q1(d)) )
+        .attr('y2', d => y_scale(q3(d)) )
+
+    svg.selectAll('line.q3')
+        .data(data).enter().append('line')
+        .attr('stroke', '#555')
+        .attr('class', 'error')
+        .attr('x1', d => x_scale(x(d)) + (2*x_scale.bandwidth()/6))
+        .attr('x2', d => x_scale(x(d)) + (4*x_scale.bandwidth()/6))
+        .attr('y1', d => y_scale(q3(d)) )
+        .attr('y2', d => y_scale(q3(d)) )
+}
+
+draw(data);
+
+</script>

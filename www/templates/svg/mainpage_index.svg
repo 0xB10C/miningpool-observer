@@ -1,0 +1,81 @@
+
+<svg width="800" height="418" version="1.1" viewBox="0 0 211.67 110.6" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:xlink="http://www.w3.org/1999/xlink">
+ <defs>
+  <linearGradient id="a" x1="-43.568" x2="263.31" y1="-41.929" y2="-161.89" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#4b1248" offset="0"/>
+   <stop stop-color="#ff6b6b" offset="1"/>
+  </linearGradient>
+ </defs>
+ <metadata>
+  <rdf:RDF>
+   <cc:Work rdf:about="">
+    <dc:format>image/svg+xml</dc:format>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:title/>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <text transform="matrix(.8235 0 0 .8235 .034272 1.214)" fill="#000000" font-family="sans-serif" font-size="10.583px" style="line-height:0.9;shape-inside:url(#rect1669);white-space:pre" xml:space="preserve"/>
+ <text transform="matrix(.8235 0 0 .8235 .034272 1.214)" fill="#000000" font-family="sans-serif" font-size="10.583px" style="line-height:0.9;shape-inside:url(#rect1681);white-space:pre" xml:space="preserve"/>
+ <text transform="matrix(1.2345 0 0 1.2345 37.637 21.064)" fill="#ffffff" fill-opacity=".10335" font-family="sans-serif" font-size="2.8222px" style="line-height:1.25;shape-inside:url(#rect9649);white-space:pre" xml:space="preserve"><tspan x="105.21875" y="71.082941"><tspan fill="#ffffff" fill-opacity=".10335">{{ now(utc=true) | date(format="%Y-%m-%d %H:%M:%S UTC") }}</tspan></tspan></text>
+ <text transform="matrix(.8235 0 0 .8235 .034272 1.214)" font-family="sans-serif" font-size="2.8222px" style="line-height:1.25;shape-inside:url(#rect11123);white-space:pre" xml:space="preserve"/>
+ <rect width="211.67" height="110.6" fill="#fefefe" fill-rule="evenodd" style="paint-order:stroke markers fill"/>
+ <rect transform="scale(1,-1)" x="-1.7764e-15" y="-110.6" width="211.67" height="16" fill="url(#a)" fill-rule="evenodd" style="paint-order:markers fill stroke"/>
+ <g transform="matrix(.61725 0 0 .61725 .19417 -1.6619)">
+  <g transform="matrix(.56497 0 0 .56497 5.1975 157.51)" stroke="#fff" stroke-linecap="round">
+   <g transform="matrix(.4614 0 0 .4614 -18.074 -13.326)" stroke-width="2.3" style="paint-order:stroke fill markers">
+    <g transform="translate(-4.7302 9.9297)" stroke="#fff" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+     <g fill="#f04b4b" stroke="#fff" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+      <g transform="translate(-21.682 -4.325)" stroke="#fff" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+       <path d="m123.68 48.356 7.961 4.5963v27.444l-23.767 13.722-15.857-9.1551" fill="none" style="paint-order:stroke fill markers"/>
+       <path d="m107.87 94.119 0.0165-27.443" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+       <path d="m107.89 66.676 23.751-13.724" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+      </g>
+     </g>
+    </g>
+   </g>
+   <g transform="matrix(.4614 0 0 .4614 -30.044 -19.974)" fill="none" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+    <g transform="translate(-11.036 6.2362)" fill="none" stroke="#fff" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+     <g fill="none" stroke="#fff" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+      <g transform="translate(2.3231 .20229)" fill="none" stroke="#fff" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+       <g transform="translate(-18.774 -6.6742)" fill="none" stroke="#fff" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+        <path d="m134.91 86.923-23.784-13.724m7.9159 32.014-7.9159-4.5703v-27.444l23.767-13.722 15.804 9.1243" fill="none" stroke="#fff" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke"/>
+       </g>
+      </g>
+     </g>
+    </g>
+   </g>
+  </g>
+  <text transform="translate(-6.6414 158.14)" fill="#ffffff" font-family="sans-serif" font-size="10.583px" style="line-height:1.25;shape-inside:url(#rect1675-6-3);white-space:pre" xml:space="preserve"><tspan x="33.34375" y="14.080537"><tspan>{{ config.title }}</tspan></tspan></text>
+ </g>
+ <g transform="matrix(.61725 0 0 .61725 15.8 -31.844)" font-family="sans-serif" font-size="22.578px" style="line-height:1.25;shape-inside:url(#rect835-3);white-space:pre" aria-label="Missing Transaction">
+  <g transform="translate(-5.6792 49.202)" font-family="sans-serif" font-size="22.861px" style="line-height:1.25;shape-inside:url(#rect16190);white-space:pre" aria-label="Missing Transactions">
+   <text font-family="sans-serif" font-size="4.5722px" style="line-height:1.25;shape-inside:url(#rect32091);white-space:pre" xml:space="preserve"/>
+  </g>
+ </g>
+ <g transform="matrix(.6905 0 0 .6905 33.962 -12.211)" stroke="#000" stroke-linecap="round">
+  <g transform="matrix(.99999 0 0 .99999 22.656 -9.7174)" stroke-width="2.3" style="paint-order:stroke fill markers">
+   <g transform="translate(-4.7302 9.9297)" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+    <g fill="#f04b4b" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+     <g transform="translate(-21.682 -4.325)" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+      <path d="m123.68 48.356 7.961 4.5963v27.444l-23.767 13.722-15.857-9.1551" fill="none" style="paint-order:stroke fill markers"/>
+      <path d="m107.87 94.119 0.0165-27.443" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+      <path d="m107.89 66.676 23.751-13.724" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+     </g>
+    </g>
+   </g>
+  </g>
+  <g transform="matrix(.99999 0 0 .99999 -3.2878 -24.124)" fill="none" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+   <g transform="translate(-11.036 6.2362)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+    <g fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+     <g transform="translate(2.3231 .20229)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+      <g transform="translate(-18.774 -6.6742)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+       <path d="m134.91 86.923-23.784-13.724m7.9159 32.014-7.9159-4.5703v-27.444l23.767-13.722 15.804 9.1243" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke"/>
+      </g>
+     </g>
+    </g>
+   </g>
+  </g>
+ </g>
+ <text transform="matrix(1.1816 0 0 1.1816 32.37 54.121)" x="43.728458" fill="#ffffff" font-family="sans-serif" font-size="16.719px" text-align="center" style="line-height:1.25;shape-inside:url(#rect1675-6-3-3-3);white-space:pre" xml:space="preserve"><tspan x="60.488164" y="19.509193"><tspan fill="#000000" font-size="16.719px" text-align="center" text-anchor="middle">{{ config.title }}</tspan></tspan></text>
+</svg>

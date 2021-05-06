@@ -1,0 +1,201 @@
+{% macro diff(block) %}
+    <div class="row row-cols-1 row-cols-md-2">
+        {% set var_tx_diff = block.block_tx - block.template_tx %}
+        {% set var_pkgs_block = block.block_pkg_feerates | length %}
+        {% set var_pkgs_template = block.template_pkg_feerates | length %}
+        {% set var_pkgs_diff = (var_pkgs_block - var_pkgs_template) %}
+        {% set var_fees_diff = (block.block_cb_fees - block.template_cb_fees) / 100000 %}
+        {% set var_weight_diff = block.block_weight - block.template_weight %}
+        {% set var_sanctioned_diff = block.block_sanctioned - block.template_sanctioned %}
+
+        <div class="col my-2 my-md-0">
+            <div class="row row-cols-1">
+                <span class="col-12">
+                    <img class="d-inline-block align-middle" width=32 height=32 src="/static/img/template.svg"/>
+                    <span class="text-end">Template</span>
+                    <hr class="my-1">
+                </span>
+                {{ block::info_col(label="transactions", value=block.template_tx, value_extra="") }}
+                {{ block::info_col(label="packages", value=var_pkgs_template, value_extra="") }}
+                {{ block::info_col(label="fees", value=block.template_cb_fees / 100000000, value_extra=" BTC") }}
+                {{ block::info_col(label="creation time", value=block.template_time | date(format="%Y-%m-%d %H:%M:%S UTC"), value_extra="") }}
+            </div>
+        </div>
+
+        <div class="col my-2 my-md-0">
+            <div class="row row-cols-1">
+                <span class="col-12">
+                    <img class="d-inline-block align-bottom" width=32 height=32 src="/static/img/block.svg"/>
+                    <span>Block</span>
+                    <hr class="my-1">
+                </span>
+                {{ block::info_col_with_diff(label="transactions", value=block.block_tx, value_extra="", diff=var_tx_diff, diff_extra="") }}
+                {{ block::info_col_with_diff(label="packages", value=var_pkgs_block, value_extra="", diff=var_pkgs_diff, diff_extra="") }}
+                {{ block::info_col_with_diff(label="fees", value=block.block_cb_fees / 100000000, value_extra=" BTC", diff=var_fees_diff, diff_extra=" mBTC") }}
+                {{ block::info_col(label="miner-set time", value=block.block_time | date(format="%Y-%m-%d %H:%M:%S UTC"), value_extra="") }}
+            </div>
+        </div>
+
+    </div>
+{% endmacro diff %}
+
+{% macro info_col(label, value, value_extra) %}
+<div class="col">
+    <span class="row">
+        <span class="text-muted small col">{{label}}</span>
+        <span class="col-auto">{{value}}{{value_extra}}</span>
+    </span>
+</div>
+{% endmacro info_col %}
+
+{% macro info_col_with_diff(label, value, value_extra, diff, diff_extra) %}
+<div class="col">
+    <span class="row">
+        <span class="text-muted small col">{{label}}</span>
+        <span class="col-auto">{{value}}{{value_extra}}
+            {% if diff > 0 %}
+                <span class="text-secondary">(+{{diff}}{{diff_extra}})</span>
+            {% elif diff < 0 %}
+                <span class="text-secondary">({{diff}}{{diff_extra}})</span>
+            {% endif %}
+        </span>
+    </span>
+</div>
+{% endmacro info_col %}
+
+{% macro info(block, show_previous) %}
+    <div class="row row-cols-1 row-cols-md-2 mb-3">
+        <div class="col">
+            <span class="row">
+                <span class="small text-muted col">mined by</span>
+                {% if block.pool_name == "Unknown"%}
+                    <a href="{{CONFIG.base_url}}/faq#general-miningpool-unknown" class="text-decoration-none col-auto"><strong class="mark text-danger">Unknown pool</strong></a>
+                {% else %}
+                    <strong class="col-auto text-primary">{{ block.pool_name }}</strong>
+                {% endif %}
+            </span>
+        </div>
+        {{ block::info_col(label="height", value=block.height, value_extra="") }}
+        {{ block::info_col(label="coinbase reward", value=block.block_cb_value / 100000000, value_extra=" BTC") }}
+        {{ block::info_col(label="last package feerate", value=block.block_pkg_feerates | last | round(precision=2), value_extra=" sat/vByte") }}
+        {{ block::info_col(label="weight", value= block.block_weight / 1000, value_extra="kWU") }}
+        {% set var_fullness = (block.block_weight / 4000000) * 100 | round(precision=2) %}
+        <div class="col">
+            <span class="row">
+                <span class="small text-muted col">full</span>
+                <span class="col-auto {% if var_fullness < 95 %}text-danger{%endif%}">{{ var_fullness }}%</span>
+            </span>
+        </div>
+        {{ block::info_col(label="seen time", value=block.block_seen_time | date(format="%Y-%m-%d %H:%M:%S UTC"), value_extra="") }}
+        {% if show_previous %}
+        <div class="col">
+            <span class="row">
+                <span class="small text-muted col">parent block</span>
+                <a type="button" href="{{CONFIG.base_url}}/template-and-block/{{block.prev_hash}}" class="btn btn-sm btn-outline-secondary col-auto">goto parent block</a>
+            </span>
+        </div>
+        {% endif %}
+    </div>
+{% endmacro info %}
+
+{% macro sanctioned(block) %}
+    {% if block.sanctioned_missing_tx > 0 %}
+        <div class="alert alert-warning text-center mt-2" role="alert">
+            <p class="mb-0">
+                The block template includes <strong>{{block.sanctioned_missing_tx}} sanctioned transaction{{ block.sanctioned_missing_tx | pluralize }}</strong> which {{ block.sanctioned_missing_tx | pluralize(singular="is", plural="are") }} not present in the block.
+                <br>
+                <br>
+                This does <strong>not necessarily mean</strong> that {{ block.pool_name }} filters transactions based on US sanction programs.
+                Transactions can be missing from blocks for multiple reasons, including, for example, bad propagation or conflicts with other unconfirmed transactions.
+                However, the probability that {{ block.pool_name }} filters sanctioned transactions increases when sanctioned transactions are repeatedly missing from blocks mined by {{ block.pool_name }}.
+            </p>
+        </div>
+    {% endif %}
+{% endmacro sanctioned %}
+
+{% macro explorers(hash) %}
+<div class="row mt-2">
+    <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center border btn btn-sm m-1" target="_blank" rel="noopener" href="https://blockstream.info/block/{{hash}}"><img width=28 height=28 src="/static/img/explorers/blockstream.png"/></a></div>
+    <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center border btn btn-sm m-1" target="_blank" rel="noopener" href="https://blockchair.com/bitcoin/block/{{hash}}"><img width=28 height=28 src="/static/img/explorers/blockchair.ico"/></a></div>
+    <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center border btn btn-sm m-1" target="_blank" rel="noopener" href="https://mempool.space/block/{{hash}}"><img width=28 height=28 src="/static/img/explorers/mempool-space.ico"/></a></div>
+    <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center border btn btn-sm m-1" target="_blank" rel="noopener" href="https://explorer.btc.com/btc/block/{{hash}}"><img width=28 height=28 src="/static/img/explorers/btccom.ico"/></a></div>
+    <!--div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center border btn btn-sm m-1" href="https://entropy.rocks/block/{{hash}}"><img width=28 height=28 src="/static/img/explorers/entropy-rocks.ico"/></a></div-->
+    <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center border btn btn-sm m-1" target="_blank" rel="noopener" href="https://oxt.me/block/{{hash}}"><img width=28 height=28 src="/static/img/explorers/oxt.png"/></a></div>
+    <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center border btn btn-sm m-1" target="_blank" rel="noopener" href="https://www.blockchain.com/btc/block/{{hash}}"><img width=28 height=28 src="/static/img/explorers/blockchaincom.ico"/></a></div>
+    <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center border btn btn-sm m-1 fs-5" onclick="copyHashToClipboard('{{hash}}')">&#x2398;</a></div>
+    <script>
+        function copyHashToClipboard(hash) {
+          window.prompt("Block Hash: ", hash);
+        }
+    </script>
+</div>
+{% endmacro explorers %}
+
+{% macro missing_shared_extra(missing, shared, extra) %}
+<div class="row">
+    <div class="col-4">
+        <div class="row">
+            <span class="text-center {% if missing > 50 %} text-danger {% endif %}"><img width="40" height="40" src="/static/img/block-missing.svg"> {{missing}}&nbsp;missing transaction{{missing | pluralize}}</span>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="row">
+            <span class="text-center"><img width="40" height="40" src="/static/img/template_and_block.svg"> {{shared}}&nbsp;shared transaction{{shared | pluralize}}</span>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="row">
+            <span class="text-center"><img width="40" height="40" src="/static/img/block-extra.svg"> {{extra}}&nbsp;extra transaction{{shared | pluralize}}</span>
+        </div>
+    </div>
+</div>
+{% endmacro info_col %}
+
+{% macro sanctioned_transaction(tx, template_tx_count) %}
+<div class="list-group-item p-0 rounded">
+    <div class="row p-3">
+        <span class="col-12">
+            {% for tag_id in tx.transaction.tags %}
+            {% if tx.missing_info.mempool_age_seconds >= 0 and tx.missing_info.mempool_age_seconds < THRESHOLD_TRANSACTION_CONSIDERED_YOUNG %}
+                {{ transaction::tag(tag=tx_tag_id_to_tag(id=TAG_ID_YOUNG)) }}
+            {% endif %}
+                {{ transaction::tag(tag=tx_tag_id_to_tag(id=tag_id)) }}
+            {% endfor %}
+        </span>
+        <span class="col-12">
+            {{ transaction::txid(txid=tx.transaction.txid, half_width=false) }}
+        </span>
+        <div class="row row-cols-1 row-cols-md-2">
+            {{ transaction::info_col(label="fee", value=tx.transaction.fee, value_extra=" sat") }}
+            {{ transaction::info_col(label="feerate", value=tx.transaction.fee / tx.transaction.vsize | round(method="ceil", precision=2), value_extra=" sat/vByte") }}
+            {{ transaction::info_col(label="vsize", value=tx.transaction.vsize, value_extra=" vByte") }}
+            {{ transaction::info_col(label="mempool age", value=seconds_to_duration(seconds=tx.missing_info.mempool_age_seconds), value_extra="") }}
+            {{ transaction::inputs(ins=tx.transaction.inputs, count=tx.transaction.input_count) }}
+            {{ transaction::outputs(outs=tx.transaction.outputs, count=tx.transaction.output_count) }}
+        </div>
+        <span class="col-12">
+            <span class="text-muted small">transaction position in template (<span>{{ tx.missing_info.position + 1 }} of {{ template_tx_count }}</span>)</span>
+            <div class="progress" title="position in template: {{ tx.missing_info.position + 1 }} of {{ template_tx_count }}" style="height: 5px;">
+                <div class="progress-bar" role="progressbar" style="width: {{ (tx.missing_info.position + 1) /template_tx_count * 100 | round(n=2)}}%; background-color: lightgray;" aria-valuenow="{{ tx.missing_info.position + 1 }}" aria-valuemin="0" aria-valuemax="{{ template_tx_count }}"></div>
+                <div class="progress-bar" role="progressbar" style="width: 1%; background-color: #0077ff;" aria-valuenow="2" aria-valuemin="0" aria-valuemax="1"></div>
+                <div class="progress-bar d-lg-none" role="progressbar" style="width: 1%; background-color: #0077ff;" aria-valuenow="2" aria-valuemin="0" aria-valuemax="1"></div>
+                <div class="progress-bar" role="progressbar" style="width: {{ 100 - ((tx.missing_info.position + 1)/template_tx_count * 100) | round(n=2)}}%; background-color: lightgray;" aria-valuenow="{{ tx.missing_info.position + 1 }}" aria-valuemin="0" aria-valuemax="{{ template_tx_count }}"></div>
+            </div>
+        </span>
+        <div class="col-12 mt-2">
+            <span class="text-muted small">Sanctioned Address{{ tx.addresses | length | pluralize(singular="", plural="es") }}</span>
+            {% for addr in tx.addresses %}
+                <li><code>{{addr}}</code> (<a target="_blank" rel="noopener" href="https://search.treasury.gov/search?affiliate=treas&query={{addr}}">lookup on treasury.gov</a>)</li>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endmacro sanctioned_transaction %}
+
+{% macro tag(tag) %}
+    <a href='{{CONFIG.base_url}}/faq#block-tag-{{tag.name | lower | replace(from=" ", to="-")}}'
+    title="{{tag.description | first}}"
+    class="badge bg-{{tag.color}} text-{{tag.text_color}} rounded-1 text-decoration-none">
+        {{tag.name}}
+    </a>
+{% endmacro tag %}

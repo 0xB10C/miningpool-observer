@@ -1,0 +1,7 @@
+{% macro question(id, question) %}
+<dt class="col-12">
+    <h5>
+        <a class="text-decoration-none text-dark" id='{{id}}' href='{{CONFIG.base_url}}/faq#{{id}}'><span class="text-muted fw-light">#</span>&nbsp;<span class="border-bottom">{{question | safe}}</span></a>
+    </h5>
+</dt>
+{% endmacro question %}

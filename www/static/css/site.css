@@ -1,0 +1,11 @@
+html {
+    scroll-behavior: smooth;
+}
+
+.grow-on-hover {
+    transition: transform .2s;
+}
+  
+.grow-on-hover:hover {
+    transform: scale(1.007);
+}

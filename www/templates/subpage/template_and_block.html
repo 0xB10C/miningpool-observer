@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% import "macro/transaction.html" as transaction %}
+{% import "macro/template_and_block.html" as block %}
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="Template and Block " ~ block_with_tx.block.hash,
+        description="Template and Block for " ~ block_with_tx.block.hash ~ " mined by " ~ block_with_tx.block.pool_name,
+        url="/template-and-block/" ~ block_with_tx.block.hash,
+        image_url="/og_image/template-and-block/" ~ block_with_tx.block.hash ~ ".png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<div class="mx-0 p-3 bg-white shadow-sm">
+    {% for tag_id in block_with_tx.block.tags %}
+        {{ block::tag(tag=block_tag_id_to_tag(id=tag_id)) }}
+    {% endfor %}
+    <h1 class="text-break fs-4">
+        Template&nbsp;&&nbsp;Block&nbsp;<span>{{block_with_tx.block.hash}}</span>
+    </h1>
+    {{ block::info(block=block_with_tx.block, show_previous=true) }}
+    {{ block::diff(block=block_with_tx.block) }}
+    <div class="my-3">
+        {{ block::missing_shared_extra(missing=block_with_tx.block.missing_tx, shared=block_with_tx.block.shared_tx, extra=block_with_tx.block.extra_tx )}}
+    </div>
+    {{ block::explorers(hash=block_with_tx.block.hash) }}
+</div>
+
+{% if sanctioned_missing_tx | length > 0 %}
+<div class="bg-white border border-danger mx-0 p-3 shadow-sm my-3 rounded-0 border-3">
+    <h4>
+        <img class="d-inline-block float-end p-3" width=100 height=100 src="/static/img/block-sanctioned.svg"/>
+        Sanctioned Transaction{{ sanctioned_missing_tx | length | pluralize }} missing from Block
+    </h4>
+    <p>
+        The block does not contain {{ sanctioned_missing_tx | length | pluralize(singular=" a ", plural="") }} sanctioned transaction{{ sanctioned_missing_tx | length | pluralize }} present in the block template.
+        A transaction is considered as sanctioned when it pays to a sanctioned address or spends from an Unspent Transaction Output (UTXO) belonging to a sanctioned address.
+        Details about sanctioned <a href="{{CONFIG.base_url}}/faq#sanctioned-tx-addresses">Addresses</a> and <a href="{{CONFIG.base_url}}/faq#sanctioned-tx-utxos">UTXOs</a> can be found in the FAQ.
+        <br>
+        <br>
+        <strong>{{ block_with_tx.block.pool_name }} does not necessarily filter transactions based on US sanction programs.</strong>
+        Transactions can be missing from blocks for multiple reasons, including, for example, bad propagation or conflicts with other unconfirmed transactions.
+        For more details, read: <a href="{{CONFIG.base_url}}/faq#missing-tx-reasons">FAQ: Why can a transaction be missing from a block?</a>
+        However, the likelihood that {{ block_with_tx.block.pool_name }} filters sanctioned transactions increases when sanctioned transactions are repeatedly missing from blocks mined by {{ block_with_tx.block.pool_name }}.
+    </p>
+    <div class="text-dark">
+        {% for tx in sanctioned_missing_tx %}
+            {{ block::sanctioned_transaction(tx=tx, template_tx_count=block_with_tx.block.template_tx) }}
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="bg-white shadow-sm p-3 my-3 mx-0" >
+    <h4>Feerate Distribution in Template and Block</h4>
+    <p>
+        This graph shows the feerates of transaction packages in the template and the block.
+        The package <a target="_blank" rel="noopener" href="https://en.bitcoin.it/wiki/Weight_units">weight</a> in <dfn>Weight Units</dfn> (<abbr>WU</abbr>) is used for the x-Axis.
+        A full template or block can have a maximum weight of 4,000,000 WU (4 MWU).
+        <br>
+        <div>
+            <input type="checkbox" class="btn-check" name="checkbox-show-template" id="checkbox-show-template">
+            <label for="checkbox-show-template" class="btn btn-sm btn-outline-primary">Hide Template</label>
+            <input type="checkbox" class="btn-check" name="checkbox-show-block" id="checkbox-show-block">
+            <label for="checkbox-show-block" class="btn btn-sm btn-outline-danger">Hide Block</label>
+        </div>
+    </p>
+
+    <div id="feerate-chart">
+        <noscript>
+            <div class=" m-3 text-center">
+                <span class="m-3 p-3 border border-warning border-5">
+                    Activate JavaScript to see the feerate distribution in the template and block.
+                </span>
+            </div>
+        </noscript>
+    </div>
+    <span class="text-muted small">Note: The graph might contain package ordering artifacts from transaction package construction. The packages are purposefully not sorted by feerate to show custom pool prioritizations (if present).</span>
+</div>
+
+<div class="my-3 p-3 bg-white shadow-sm"> 
+    <div class="row">
+        <div class="col-xl-6 order-1">
+            <h4>
+                <img class="d-inline-block align-middle" width="40" height="40" src="/static/img/block-missing.svg"/>
+                Missing Transactions&nbsp;({{ block_with_tx.txns_only_in_template | length }})
+            </h4>
+            <h5 class="text-muted">Transactions only included in the Template</h5>
+            <p>
+                This list includes all transactions that the mining pool
+                ({{ block_with_tx.block.pool_name }}) did not include in the block but which were in the block template.
+                The pool might have favored transactions paying a higher feerate, which the node generating the block template did not know about.
+                Alternatively, a missing transaction could have not propagated to the pool yet or was filtered by the pool.
+            </p>
+        </div>
+        <div class="list-group col-xl-6 pb-4 pb-xl-0 order-2 order-xl-3 m-0 p-0">
+                {% for tx in block_with_tx.txns_only_in_template %}
+                    {% if loop.index == 16 %}
+                        <details>
+                            <summary class="list-item btn btn-outline-primary m-2">
+                                Show {{ block_with_tx.txns_only_in_template | length - 15}} more
+                            </summary>
+                    {% endif %}
+
+                    {{ transaction::block_transaction(tx=tx, place="template", tx_count=block_with_tx.block.block_tx) }}
+            
+                    {% if loop.last and loop.index >= 16 %}
+                        </details>
+                    {% endif %}
+                {% endfor %}
+        </div>
+        <div class="col-xl-6 order-3 order-xl-2">
+            <h4>
+                <img class="d-inline-block align-middle" width="40" height="40" src="/static/img/block-extra.svg"/>
+                Extra Transactions&nbsp;({{ block_with_tx.txns_only_in_block | length }})
+            </h4>
+            <h5 class="text-muted">Transactions only included in the Block</h5>
+            <p>
+                This list includes all transactions that the mining pool
+                ({{ block_with_tx.block.pool_name }}) did include in the block but which weren't
+                in the block template. The transaction could, for example,
+                have been transmitted to the miner in private, the miner could have
+                received an out-of-band payment for the transaction, or it didn't
+                propagate to the Bitcoin Core node generating the block template yet.
+            </p>
+        </div>
+        <div class="list-group col-xl-6 order-4 m-0 p-0">
+            {% for tx in block_with_tx.txns_only_in_block %}
+                {% if loop.index == 16 %}
+                    <details>
+                        <summary class="btn btn-outline-primary m-2">
+                            Show {{ block_with_tx.txns_only_in_block | length - 15}} more
+                        </summary>
+                {% endif %}
+
+                    {{ transaction::block_transaction(tx=tx, place="block", tx_count=block_with_tx.block.block_tx) }}
+                
+                {% if loop.last and loop.index >= 16 %}
+                    </details>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- data and script for the feerate chart -->
+<script>
+
+    const template_pkg_feerates = [{% for feerate in block_with_tx.block.template_pkg_feerates -%}{{ feerate | round(precision=1) }}{%if not loop.last %}, {% endif %}{% endfor %}];
+    const template_pkg_weights = [{% for weight in block_with_tx.block.template_pkg_weights -%}{{ weight }}{%if not loop.last %}, {% endif %}{% endfor %}];
+    const block_pkg_feerates = [{% for feerate in block_with_tx.block.block_pkg_feerates -%}{{ feerate | round(precision=1) }}{%if not loop.last %}, {% endif %}{% endfor %}];
+    const block_pkg_weights = [{% for weight in block_with_tx.block.block_pkg_weights -%}{{ weight }}{%if not loop.last %}, {% endif %}{% endfor %}];
+    
+</script>
+    
+{% include "chart/feerates.html" %}
+
+{% endblock content %}
+

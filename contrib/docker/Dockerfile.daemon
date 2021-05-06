@@ -1,0 +1,12 @@
+FROM rust as builder
+WORKDIR app
+COPY . .
+RUN cargo build --release --bin miningpool-observer-daemon
+
+FROM debian:stable-slim as runtime
+RUN apt-get -y update
+RUN apt-get -y install libpq-dev
+WORKDIR /app
+COPY --from=builder /app/target/release/miningpool-observer-daemon /app/daemon
+ENV CONFIG_FILE=/app/daemon-config.toml
+ENTRYPOINT ["/app/daemon"]

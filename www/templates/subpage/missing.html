@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% import "macro/transaction.html" as transaction %}
+{% import "macro/template_and_block.html" as block %}
+{% import "macro/missing.html" as missing %}
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{% set var_block_count = missing_transaction.blocks | length %}
+{% set var_pools = missing_transaction.blocks | map(attribute='pool') | unique | join(sep=', ') %}
+{{
+    opengraph::og(
+        title="Missing Transaction " ~ missing_transaction.transaction.txid,
+        description="The transaction was present in " ~ var_block_count ~ " templates but wasn't included in blocks by " ~  var_pools  ~ ".",
+        url="/missing/"~missing_transaction.transaction.txid,
+        image_url="/og_image/missing/" ~ missing_transaction.transaction.txid ~ ".png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<div class="mx-0 p-3 bg-white shadow-sm">
+    {{ missing::missing(missing=missing_transaction, short=false) }}
+</div>
+{% endblock content %}
+

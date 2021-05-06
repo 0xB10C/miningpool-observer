@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% import "macro/template_and_block.html" as block %}
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="DEBUG - Fees by Pool",
+        description="Shows the difference beetween template and block fees by pool",
+        url="/debug/unknown",
+        image_url="/og_image/index.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<div class="mx-0 p-3 bg-white shadow-sm">
+    <h2>Fees by Pool</h2>
+    <h3 class="text-muted">
+        Shows the difference between template and block fees by pool
+    </h3>
+
+    <div class="alert alert-danger" role="alert">
+        <strong">Don't use this data to reason about pool fee gathering capabilities.</strong>
+        <span>The data shown here is likely biased by the template selection methodology.</span>
+    </div>
+
+    <div id="fee-chart">
+        <noscript>
+            <div class=" m-3 text-center">
+                <span class="m-3 p-3 border border-warning border-5">
+                    Activate JavaScript to see the fees by pool chart.
+                </span>
+            </div>
+        </noscript>
+    </div>
+        
+    <script>
+        let data = [
+            {'pool': "template", 'avgfees': 1.0, 'count': 1, median: 1,  'q1': 1 , 'q3': 1 },
+            {% for i in avgfees -%}
+                {'pool': "{{i.pool_name}}", 'count': {{i.count}}, 'median': {{i.median}}, 'q1': {{i.q1}}, 'q3': {{i.q3}} },
+            {% endfor -%}
+        ]
+    </script>
+</div>
+
+{% include "chart/fee_per_pool.html" %}
+
+{% endblock content %}

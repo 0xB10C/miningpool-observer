@@ -1,0 +1,47 @@
+# miningpool-observer-web configuration file
+
+# PostgreSQL database URL
+database_url = "postgres://<user>:<password>@<host>:<port>/<dbname>"
+
+# Webserver address
+# Host and port the web-server listens on.
+address = "127.0.0.1:8080"
+
+# Log Level: error, warn, info, debug, trace
+log_level = "info"
+
+# Path to the `www` directory.
+# This directory contains the HTML templates and static resources
+# When using the docker image, the image already contains these under "/app/www".
+# Use "/app/www" when using docker.
+www_dir_path = "./www"
+
+[site]
+
+    # Base URL of the Site
+    # Specify with 'https://' but without trailing slash.
+    # e.g. 'https://miningpool.observer'
+    # FIXME:
+    base_url = "https://fill.your.domain/in"
+
+    # Your custom site wide title.
+    # Displayed, for example, in the navigation bar next to the logo.
+    # Don't make this too long or things might become ugly.
+    title = "FIXME: YOUR TITLE HERE"
+
+    # Custom Footer
+    # You can include a custom HTML footer here which is rendered
+    # in the bottom right of each page. You can use Bootstrap 5 CSS classes.
+    # Below is an placeholder example.
+    footer = """
+        <div class="my-2">
+            <div>
+                <span class="text-muted">This site is hosted by</span>
+                <br>
+                <!-- uncomment this -->
+                <!-- span>YOUR NAME / PSEUDONYM</span-->
+                <!--remove this-->
+                <span class="badge bg-danger">FIXME: PLACEHOLDER in web-config.toml</span>
+            </div>
+        </div>
+    """

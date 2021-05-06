@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% import "macro/template_and_block.html" as block %}
+{% import "macro/pagination.html" as pagination %}
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="Templates & Blocks",
+        description="Comparing Block Templates to Mining Pool Blocks",
+        url="/template-and-block",
+        image_url="/og_image/template-and-block.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<section>
+    <div class="bg-white p-3 mb-4">
+        <h1>
+            Templates and Blocks
+            <img class="d-inline-block d-lg-none float-end p-3" width=100 height=100 src="/static/img/template_and_block.svg"/>
+        </h1>
+        <h3 class="text-muted">
+            Comparing Block Templates to Mining Pool Blocks
+        </h3>
+
+        <p>
+            This page lists recently mined template and block pairs.
+            By comparing the template and block, the differences between them can be highlighted.
+            Select a template and block pair to view detailed information about missing and extra transactions. 
+
+        </p>
+
+        {% if MAX_PAGES == 0 %}
+            <div class="alert alert-light" role="alert">
+                <h4 class="alert-heading">No blocks in the database yet!</h4>
+                <span>There don't seem to be any blocks in the database yet.</span>
+                <span>Please check back later when a new block has been mined.</span>
+            </div>
+        {% else %}
+
+            <h3>
+                {% if CURRENT_POOL == ""%}
+                    Recent Templates and Blocks {% if CURRENT_PAGE != 0 %}(page {{CURRENT_PAGE}}){% endif %}
+                {% else %}
+                    Recent Templates and Blocks mined by 
+                    {% if CURRENT_POOL == "Unknown" %}
+                        <a href="{{CONFIG.base_url}}/faq#general-miningpool-unknown" class="text-decoration-none"><strong class="mark text-danger">Unknown pool</strong></a>
+                    {% else %}
+                        <strong class="text-primary">{{ CURRENT_POOL }}</strong>
+                    {% endif %}
+                    {% if CURRENT_PAGE != 0 %}(page {{CURRENT_PAGE}}){% endif %}
+                {% endif %}
+            </h3>
+
+            <details>
+                <summary class="btn btn-outline-secondary btn-sm">
+                    Filter by Pool
+                </summary>
+                <div class="row px-3 justify-content-between">
+                    {% for pool in POOLS %}
+                        <div class="col-auto border m-1 rounded">
+                            <a class="text-decoration-none p-2" href="?{{QUERY_POOL}}={{pool}}">
+                                {% if pool == "Unknown" %}
+                                    <span class="mark text-danger">Unknown pool</span>
+                                {% else %}
+                                    <span class="text-primary">{{ pool }}</span>
+                                {% endif %}
+                            </a>
+                        </div>
+                    {% endfor %}
+                </p>
+            </details>
+
+            <div>
+                {% for block in blocks %}
+                    <div class="border my-3 px-3 py-2 position-relative grow-on-hover shadow-sm">
+                        {% for tag_id in block.tags %}
+                            {{ block::tag(tag=block_tag_id_to_tag(id=tag_id)) }}
+                        {% endfor %}
+                        <h5 class="text-break fs-5">
+                            Template&nbsp;and&nbsp;Block&nbsp;for&nbsp;<span>{{block.hash}}</span>
+                        </h5>
+                        {{ block::info(block=block, show_previous=false) }}
+                        {{ block::diff(block=block) }}
+                        <hr class="my-2">
+                        {{ block::missing_shared_extra(missing=block.missing_tx, shared=block.shared_tx, extra=block.extra_tx )}}
+                        {{ block::sanctioned(block=block) }}
+
+                        <a href="{{CONFIG.base_url}}/template-and-block/{{block.hash}}" class="stretched-link"></a>
+                    </div>
+                {% endfor %}
+            <div>
+
+            {% if CURRENT_POOL == "" %}
+                {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE) }}
+            {% else %}
+                {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE, EXTRA_QUERY="&"~QUERY_POOL~"="~CURRENT_POOL) }}
+            {% endif %}
+
+    {% endif %}
+
+    </div>
+</section>
+
+{% endblock content %}

@@ -1,0 +1,19 @@
+{%- macro og(title, description, url, image_url) %}
+    <title>{{ title }}</title>
+
+    <meta property="og:title" content="{{ title }}">
+    <meta name="twitter:title" content="{{ title }}">
+
+    <meta name="description" content="{{ description }}">
+    <meta property="og:description" content="{{ description }}">
+    <meta name="twitter:description" content="{{ description }}">
+
+    <meta property="og:image" content="{{ CONFIG.base_url | safe }}{{ image_url | safe }}">
+    <meta name="twitter:image" content="{{ CONFIG.base_url | safe }}{{ image_url | safe }}">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:creator" content="@0xB10C">
+
+    <meta property="og:url" content="{{ CONFIG.base_url | safe }}{{ url | safe }}">
+    <meta property="og:type" content="website">
+{% endmacro og %}

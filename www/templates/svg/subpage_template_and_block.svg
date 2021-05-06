@@ -1,0 +1,157 @@
+
+<svg width="800" height="418" version="1.1" viewBox="0 0 211.67 110.6" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:xlink="http://www.w3.org/1999/xlink">
+ <defs>
+  <linearGradient id="a" x1="-88.979" x2="279.49" y1="-16.4" y2="-134.52" gradientTransform="translate(3.7579e-7 -.0031725)" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#004eff" offset="0"/>
+   <stop stop-color="#49ffac" offset="1"/>
+  </linearGradient>
+ </defs>
+ <metadata>
+  <rdf:RDF>
+   <cc:Work rdf:about="">
+    <dc:format>image/svg+xml</dc:format>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:title/>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <text transform="matrix(.8235 0 0 .8235 .034272 1.214)" fill="#000000" font-family="sans-serif" font-size="10.583px" style="line-height:0.9;shape-inside:url(#rect1669);white-space:pre" xml:space="preserve"/>
+ <text transform="matrix(.8235 0 0 .8235 .034272 1.214)" fill="#000000" font-family="sans-serif" font-size="10.583px" style="line-height:0.9;shape-inside:url(#rect1681);white-space:pre" xml:space="preserve"/>
+ <text transform="matrix(1.2345 0 0 1.2345 37.637 21.064)" fill="#ffffff" fill-opacity=".10335" font-family="sans-serif" font-size="2.8222px" style="line-height:1.25;shape-inside:url(#rect9649);white-space:pre" xml:space="preserve"><tspan x="105.21875" y="71.082941"><tspan fill="#ffffff" fill-opacity=".10335">{{ now(utc=true) | date(format="%Y-%m-%d %H:%M:%S UTC") }}</tspan></tspan></text>
+ <text transform="matrix(.8235 0 0 .8235 .034272 1.214)" font-family="sans-serif" font-size="2.8222px" style="line-height:1.25;shape-inside:url(#rect11123);white-space:pre" xml:space="preserve"/>
+ <rect width="211.67" height="110.6" fill="#fefefe" fill-rule="evenodd" style="paint-order:stroke markers fill"/>
+ <rect transform="scale(1,-1)" x="-1.7764e-15" y="-110.6" width="211.67" height="16" fill="url(#a)" fill-rule="evenodd" style="paint-order:markers fill stroke"/>
+ <g transform="matrix(.61725 0 0 .61725 .19417 -1.6619)">
+  <g transform="matrix(.56497 0 0 .56497 5.1975 157.51)" stroke="#fff" stroke-linecap="round">
+   <g transform="matrix(.4614 0 0 .4614 -18.074 -13.326)" stroke-width="2.3" style="paint-order:stroke fill markers">
+    <g transform="translate(-4.7302 9.9297)" stroke="#fff" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+     <g fill="#f04b4b" stroke="#fff" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+      <g transform="translate(-21.682 -4.325)" stroke="#fff" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+       <path d="m123.68 48.356 7.961 4.5963v27.444l-23.767 13.722-15.857-9.1551" fill="none" style="paint-order:stroke fill markers"/>
+       <path d="m107.87 94.119 0.0165-27.443" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+       <path d="m107.89 66.676 23.751-13.724" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+      </g>
+     </g>
+    </g>
+   </g>
+   <g transform="matrix(.4614 0 0 .4614 -30.044 -19.974)" fill="none" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+    <g transform="translate(-11.036 6.2362)" fill="none" stroke="#fff" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+     <g fill="none" stroke="#fff" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+      <g transform="translate(2.3231 .20229)" fill="none" stroke="#fff" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+       <g transform="translate(-18.774 -6.6742)" fill="none" stroke="#fff" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+        <path d="m134.91 86.923-23.784-13.724m7.9159 32.014-7.9159-4.5703v-27.444l23.767-13.722 15.804 9.1243" fill="none" stroke="#fff" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke"/>
+       </g>
+      </g>
+     </g>
+    </g>
+   </g>
+  </g>
+  <text transform="translate(-6.6414 158.14)" fill="#ffffff" font-family="sans-serif" font-size="10.583px" style="line-height:1.25;shape-inside:url(#rect1675-6-3);white-space:pre" xml:space="preserve"><tspan x="33.34375" y="14.080537"><tspan>{{ config.title }}</tspan></tspan></text>
+ </g>
+ <g transform="matrix(1.0509 0 0 1.0509 -15.756 -22.887)" fill="none" stroke="#000" stroke-linecap="round">
+  <g transform="matrix(.451 0 0 .451 -4.8432 6.2634)" stroke-width="2.3" style="paint-order:stroke fill markers">
+   <g transform="translate(-4.7302 9.9297)" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+    <g fill="#f04b4b" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+     <g transform="translate(-21.682 -4.325)" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+      <path d="m123.68 48.356 7.961 4.5963v27.444l-23.767 13.722-15.857-9.1551" fill="none" style="paint-order:stroke fill markers"/>
+      <path d="m107.87 94.119 0.0165-27.443" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+      <path d="m107.89 66.676 23.751-13.724" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+     </g>
+    </g>
+   </g>
+  </g>
+  <g transform="matrix(.451 0 0 .451 -16.544 -.234)" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+   <g transform="translate(-11.036 6.2362)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+    <g fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+     <g transform="translate(2.3231 .20229)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+      <g transform="translate(-18.774 -6.6742)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+       <path d="m134.91 86.923-23.784-13.724m7.9159 32.014-7.9159-4.5703v-27.444l23.767-13.722 15.804 9.1243" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke"/>
+      </g>
+     </g>
+    </g>
+   </g>
+  </g>
+ </g>
+ <text transform="matrix(.61725 0 0 .61725 5.7999 -52.417)" fill="#000000" font-family="sans-serif" font-size="11.431px" style="line-height:0.9;shape-inside:url(#rect1065-8);white-space:pre" xml:space="preserve"><tspan x="49.126953" y="131.86305" font-family="sans-serif" font-size="11.431px"><tspan fill="#000000">mined by </tspan><tspan fill="#0100fe" font-weight="bold">{{ data.pool }}</tspan></tspan></text>
+ <g transform="matrix(.61725 0 0 .61725 7.8152 -8.7889)">
+  <text transform="translate(-61.661 -8.0032)" x="297.45364" fill="#6f6f6f" font-family="sans-serif" font-size="9.1445px" style="line-height:1.25;shape-inside:url(#rect1687-5-1);white-space:pre" xml:space="preserve"><tspan x="57.457031" y="87.077059"><tspan fill="#6f6f6f" font-family="sans-serif" font-size="9.1445px">block hash
+</tspan></tspan><tspan x="57.457031" y="98.507669"><tspan fill="#000000">{{ data.hash }}</tspan></tspan></text>
+ </g>
+ <g transform="translate(-1.0583 19.05)" style="shape-inside:url(#rect15860);white-space:pre" aria-label="Template &amp; Block">
+  <path d="m45.293-8.8025h-3.073v8.3578h-2.0671v-8.3578h-3.0317v-1.6743h8.1718z"/>
+  <path d="m49.158-0.30687q-1.6399 0-2.6734-1.006-1.0266-1.006-1.0266-2.6803v-0.19293q0-1.1231 0.43408-2.005 0.43408-0.88883 1.2265-1.3643 0.79926-0.48231 1.819-0.48231 1.5296 0 2.4047 0.96463 0.88194 0.96463 0.88194 2.7354v0.81304h-4.7473q0.09646 0.73036 0.57878 1.1713 0.4892 0.44097 1.2333 0.44097 1.1507 0 1.7983-0.83371l0.97841 1.0955q-0.44786 0.6339-1.2127 0.99219-0.76481 0.3514-1.695 0.3514zm-0.22738-6.1185q-0.59256 0-0.96463 0.39963-0.36518 0.39963-0.46853 1.1438h2.7699v-0.15847q-0.01378-0.66146-0.35829-1.0197-0.34451-0.36518-0.97841-0.36518z"/>
+  <path d="m55.222-7.8999 0.06201 0.83371q0.79237-0.97152 2.1428-0.97152 1.44 0 1.9775 1.1369 0.78548-1.1369 2.2393-1.1369 1.2127 0 1.8052 0.70969 0.59256 0.7028 0.59256 2.1222v4.7611h-1.9982v-4.7542q0-0.6339-0.24805-0.92328-0.24805-0.29628-0.87505-0.29628-0.89572 0-1.2402 0.85438l0.0069 5.1194h-1.9913v-4.7473q0-0.64768-0.25494-0.93707t-0.86816-0.28939q-0.84749 0-1.2265 0.7028v5.271h-1.9913v-7.4552z"/>
+  <path d="m72.282-4.1034q0 1.7225-0.78548 2.763-0.77859 1.0335-2.1084 1.0335-1.13 0-1.8259-0.78548v3.514h-1.9913v-10.321h1.8466l0.0689 0.73036q0.72347-0.86816 1.8879-0.86816 1.378 0 2.1428 1.0197 0.76481 1.0197 0.76481 2.8112zm-1.9913-0.14469q0-1.0404-0.37207-1.6054-0.36518-0.565-1.068-0.565-0.93706 0-1.2885 0.71658v3.0524q0.36518 0.73725 1.3022 0.73725 1.4263 0 1.4263-2.3358z"/>
+  <path d="m75.617-0.44467h-1.9982v-10.583h1.9982z"/>
+  <path d="m81.577-0.44467q-0.1378-0.26872-0.19982-0.66835-0.72347 0.80615-1.881 0.80615-1.0955 0-1.819-0.6339-0.71658-0.6339-0.71658-1.5985 0-1.1851 0.87505-1.819 0.88194-0.6339 2.5425-0.64079h0.9164v-0.42719q0-0.51676-0.26872-0.82682-0.26183-0.31006-0.83371-0.31006-0.50298 0-0.79237 0.24116-0.2825 0.24116-0.2825 0.66146h-1.9913q0-0.64768 0.39963-1.1989 0.39963-0.55121 1.13-0.86127 0.73036-0.31695 1.6399-0.31695 1.378 0 2.1842 0.69591 0.81304 0.68902 0.81304 1.943v3.2315q0.0069 1.0611 0.29628 1.6054v0.11713zm-1.6468-1.3849q0.44097 0 0.81304-0.19293 0.37207-0.19982 0.55122-0.53054v-1.2816h-0.74414q-1.4952 0-1.5916 1.0335l-0.0069 0.11713q0 0.37207 0.26183 0.61323t0.71658 0.24116z"/>
+  <path d="m87.206-9.7326v1.8328h1.2747v1.4607h-1.2747v3.7207q0 0.41341 0.15847 0.59256t0.60634 0.17914q0.33073 0 0.58567-0.048231v1.509q-0.58567 0.17914-1.2058 0.17914-2.0946 0-2.136-2.1153v-4.017h-1.0886v-1.4607h1.0886v-1.8328z"/>
+  <path d="m93.021-0.30687q-1.6399 0-2.6734-1.006-1.0266-1.006-1.0266-2.6803v-0.19293q0-1.1231 0.43408-2.005 0.43408-0.88883 1.2265-1.3643 0.79926-0.48231 1.819-0.48231 1.5296 0 2.4047 0.96463 0.88194 0.96463 0.88194 2.7354v0.81304h-4.7473q0.09646 0.73036 0.57878 1.1713 0.4892 0.44097 1.2333 0.44097 1.1507 0 1.7983-0.83371l0.97841 1.0955q-0.44786 0.6339-1.2127 0.99219-0.76481 0.3514-1.695 0.3514zm-0.22738-6.1185q-0.59256 0-0.96463 0.39963-0.36518 0.39963-0.46853 1.1438h2.7699v-0.15847q-0.01378-0.66146-0.35829-1.0197-0.34451-0.36518-0.97841-0.36518z"/>
+  <path d="m100.46-3.1456q0-0.69591 0.38585-1.2885 0.39274-0.59256 1.4332-1.316-0.44787-0.59945-0.7028-1.1231-0.25494-0.53054-0.25494-1.1024 0-1.1713 0.73725-1.9017 0.74414-0.73725 1.9982-0.73725 1.1231 0 1.8397 0.66835 0.72347 0.66835 0.72347 1.6674 0 1.1989-1.2127 2.1153l-0.7717 0.5581 1.7294 2.0119q0.40652-0.79926 0.40652-1.7639h1.695q0 1.9568-0.90261 3.1695l1.5021 1.7432h-2.26l-0.51677-0.59256q-1.1093 0.73036-2.5494 0.73036-1.4883 0-2.384-0.77859-0.89572-0.78548-0.89572-2.0602zm3.3762 1.2402q0.71658 0 1.3574-0.39963l-1.9775-2.2875-0.14469 0.10335q-0.61323 0.52365-0.61323 1.2333 0 0.59945 0.37896 0.97841 0.38585 0.37207 0.99908 0.37207zm-0.73036-6.0978q0 0.51676 0.60633 1.3022l0.53055-0.3514q0.40652-0.26183 0.5581-0.50987 0.15848-0.24805 0.15848-0.59256 0-0.34451-0.25494-0.59945t-0.65457-0.25494q-0.42719 0-0.68901 0.27561-0.25494 0.27561-0.25494 0.73036z"/>
+  <path d="m113.64-0.44467v-10.032h3.514q1.8259 0 2.7698 0.7028 0.94396 0.69591 0.94396 2.0464 0 0.73725-0.37896 1.3022-0.37897 0.55811-1.0542 0.81993 0.7717 0.19293 1.2127 0.77859 0.44786 0.58567 0.44786 1.4332 0 1.4469-0.92328 2.1911-0.92329 0.74414-2.632 0.75792zm2.0671-4.3684v2.7078h1.7708q0.73036 0 1.1369-0.34451 0.41342-0.3514 0.41342-0.96463 0-1.378-1.4263-1.3987zm0-1.4607h1.5296q1.5641-0.027561 1.5641-1.2471 0-0.68213-0.39963-0.97841-0.39274-0.30317-1.2471-0.30317h-1.4469z"/>
+  <path d="m124.61-0.44467h-1.9982v-10.583h1.9982z"/>
+  <path d="m125.94-4.2412q0-1.1093 0.42719-1.9775t1.2264-1.3436q0.80615-0.47542 1.8672-0.47542 1.509 0 2.4598 0.92328 0.95773 0.92328 1.068 2.508l0.0138 0.50987q0 1.7157-0.95774 2.7561-0.95773 1.0335-2.57 1.0335-1.6123 0-2.5769-1.0335-0.95773-1.0335-0.95773-2.8112zm1.9913 0.14469q0 1.0611 0.39963 1.6261 0.39963 0.5581 1.1438 0.5581 0.72347 0 1.13-0.55121 0.40652-0.5581 0.40652-1.7777 0-1.0404-0.40652-1.6123-0.40652-0.57189-1.1438-0.57189-0.73036 0-1.13 0.57189-0.39963 0.565-0.39963 1.757z"/>
+  <path d="m137.33-1.9123q0.55121 0 0.89572-0.30317 0.34451-0.30317 0.35829-0.80615h1.8672q-7e-3 0.75792-0.41341 1.3918-0.40652 0.62701-1.1162 0.97841-0.7028 0.34451-1.5572 0.34451-1.5985 0-2.5218-1.0129-0.92328-1.0197-0.92328-2.8112v-0.13091q0-1.7225 0.91639-2.7492 0.9164-1.0266 2.5149-1.0266 1.3987 0 2.2393 0.79926 0.84749 0.79237 0.86127 2.1153h-1.8672q-0.0138-0.57878-0.35829-0.93707-0.34451-0.36518-0.9095-0.36518-0.69591 0-1.0542 0.50987-0.3514 0.50298-0.3514 1.6399v0.20671q0 1.1507 0.3514 1.6536 0.3514 0.50298 1.068 0.50298z"/>
+  <path d="m144.3-3.435-0.71658 0.71658v2.2738h-1.9913v-10.583h1.9913v5.8635l0.38585-0.49609 1.9086-2.2393h2.3909l-2.6941 3.1075 2.9283 4.3477h-2.2875z"/>
+ </g>
+ <g transform="translate(-3.4817e-5 3.175)">
+  <g transform="matrix(.93792 0 0 .9361 .38419 3.9267)" stroke="#000" stroke-linecap="round">
+   <g transform="matrix(.22616 0 0 .22616 -6.5863 51.581)" stroke-width="2.3" style="paint-order:stroke fill markers">
+    <g transform="translate(-4.7302 9.9297)" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+     <g fill="#f04b4b" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+      <g transform="translate(-21.682 -4.325)" stroke="#000" stroke-linecap="round" stroke-width="2.3" style="paint-order:stroke fill markers">
+       <path d="m123.68 48.356 7.961 4.5963v27.444l-23.767 13.722-15.857-9.1551" fill="none" style="paint-order:stroke fill markers"/>
+       <path d="m107.87 94.119 0.0165-27.443" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+       <path d="m107.89 66.676 23.751-13.724" fill="#f04b4b" style="paint-order:stroke fill markers"/>
+      </g>
+     </g>
+    </g>
+   </g>
+   <g transform="matrix(.22616 0 0 .22616 -12.454 48.323)" fill="none" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+    <g transform="translate(-11.036 6.2362)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+     <g fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+      <g transform="translate(2.3231 .20229)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+       <g transform="translate(-18.774 -6.6742)" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke">
+        <path d="m134.91 86.923-23.784-13.724m7.9159 32.014-7.9159-4.5703v-27.444l23.767-13.722 15.804 9.1243" fill="none" stroke="#000" stroke-dasharray="4.836, 4.836" stroke-dashoffset="13.299" stroke-linecap="round" stroke-linejoin="round" stroke-miterlimit="0" stroke-width="2.418" style="paint-order:markers fill stroke"/>
+       </g>
+      </g>
+     </g>
+    </g>
+   </g>
+  </g>
+  <text transform="translate(4.8459 -12.36)" x="98.904716" font-family="sans-serif" font-size="6.35px" style="line-height:1.25;shape-inside:url(#rect17413);white-space:pre" xml:space="preserve"><tspan x="15.857422" y="82.19834"><tspan font-size="6.35px">{{ data.shared }} shared transactions</tspan></tspan></text>
+ </g>
+ <g transform="translate(-.36484)">
+  <g transform="matrix(.8999 0 0 .90407 -34.347 10.689)" fill="none" stroke="#000">
+   <g transform="matrix(.40505 0 0 .40505 14.718 53.092)" stroke-linecap="square" stroke-linejoin="bevel" style="paint-order:markers fill stroke">
+    <path d="m104.4 78.485-14.016 8.0923-14.016-8.0923v-16.185l14.016-8.0923 14.016 8.0923z" style="paint-order:markers fill stroke"/>
+    <g style="paint-order:markers fill stroke">
+     <path d="m76.372 62.301 14.082 8.0998 13.951-8.0998-13.958 8.1374z" style="paint-order:markers fill stroke"/>
+     <path d="m90.454 70.401-0.06529 16.177z" style="paint-order:markers fill stroke"/>
+    </g>
+   </g>
+   <g transform="matrix(.20675 -.11937 0 .20675 45.233 80.677)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.265">
+    <path d="m35.42 38.127h15.667"/>
+    <path d="m43.254 30.294v15.667"/>
+   </g>
+  </g>
+  <text transform="translate(4.8459 4.3028)" x="258.85309" font-family="sans-serif" font-size="6.35px" style="line-height:1.25;shape-inside:url(#rect17413-9);white-space:pre" xml:space="preserve"><tspan x="15.857422" y="82.19834"><tspan font-size="6.35px" text-align="justify">{{ data.extra }} extra transactions</tspan></tspan></text>
+ </g>
+ <g transform="translate(-.00074865 5.8208)">
+  <g>
+   <g transform="matrix(.90616 0 0 .90925 .5814 4.0896)" fill="none" stroke="#000">
+    <g transform="matrix(.40222 0 0 .40222 -24.33 23.443)" stroke-linecap="square" stroke-linejoin="bevel" style="paint-order:markers fill stroke">
+     <path d="m104.4 78.485-14.016 8.0923-14.016-8.0923v-16.185l14.016-8.0923 14.016 8.0923z" style="paint-order:markers fill stroke"/>
+     <g style="paint-order:markers fill stroke">
+      <path d="m76.372 62.301 14.082 8.0998 13.951-8.0998-13.958 8.1374z" style="paint-order:markers fill stroke"/>
+      <path d="m90.454 70.401-0.06529 16.177z" style="paint-order:markers fill stroke"/>
+     </g>
+    </g>
+    <g transform="matrix(.14486 .061226 -.14486 .2285 14.056 42.137)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.265">
+     <path d="m35.42 38.127h15.667"/>
+     <path d="m43.254 30.294v15.667"/>
+    </g>
+   </g>
+   <text transform="translate(4.8459 -28.69)" x="387.49948" font-family="sans-serif" font-size="6.35px" style="line-height:1.25;shape-inside:url(#rect17413-9-2);white-space:pre" xml:space="preserve"><tspan x="15.857422" y="82.19834"><tspan font-size="6.35px">{{ data.missing }} missing transactions</tspan></tspan></text>
+  </g>
+ </g>
+</svg>

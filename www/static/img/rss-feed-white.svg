@@ -1,0 +1,10 @@
+<svg width="200" height="200" version="1.1" viewBox="0 0 52.917 52.917" xmlns="http://www.w3.org/2000/svg">
+ <g fill-rule="evenodd">
+  <rect x=".81452" y="1.1552" width="51.299" height="50.834" rx="6" ry="6" fill="#f26522" style="paint-order:stroke fill markers"/>
+  <g fill="#fff">
+   <circle cx="14.629" cy="38.069" r="4.8374" style="paint-order:stroke fill markers"/>
+   <path d="m9.747 23.034c12.966 0.050839 20.452 8.8694 20.595 19.869l-5.5452-5.28e-4c0.015018-8.2318-5.8543-14.602-15.048-14.574z" style="paint-order:stroke fill markers"/>
+   <path d="m9.7424 11.718c20.458 0.083077 32.127 13.21 32.352 31.184 0 0-4.4615-0.02299-6.5915 0.0047 0.023714-13.452-11.174-24.843-25.68-24.794z" style="paint-order:stroke fill markers"/>
+  </g>
+ </g>
+</svg>

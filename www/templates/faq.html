@@ -1,0 +1,327 @@
+{% extends "base.html" %}
+{% import "macro/faq.html" as faq %}
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="Frequently Asked Questions",
+        description="Answering questions about " ~ CONFIG.title,
+        url="/faq",
+        image_url="/og_image/faq.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+
+<div class="mx-0 p-3 bg-white shadow-sm">
+    <h1 class="fs-2">
+        Frequently Asked Questions
+        <img class="d-inline-block d-lg-none float-end p-3" width=100 height=100 src="/static/img/faq.svg"/>
+    </h1>
+    <h2 class="text-muted fs-3">
+        Answering questions about {{CONFIG.title}}
+    </h2>
+    <br>
+
+    <h4 id="general" name="general">General</h4>
+    <div class="px-1 px-md-3">
+        <dl class="row">
+            {{ faq::question(id="general-template", question="What is a block template?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                A list of unconfirmed transactions, profit maximized by the transaction feerate, while limited by the block size.
+                These transactions are used by a mining pool when constructing a new, still to be mined, block.
+                To maximize the block reward, the template includes the transaction packages paying the highest feerate.
+                <br>
+                Here, Bitcoin Core's <dfn>Remote Procedure Call</dfn> (<abbr>RPC</abbr>) named <code>getblocktemplate</code> is used to periodically request a new block template.
+                Some mining pools might use Bitcoin Core's RPC too, while others might have deployed their own transaction selection and template building algorithms and infrastructure.
+            </dd>
+
+            {{ faq::question(id="general-template-update-interval", question="How often do mining pools update their template?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                Mining pools update their template directly when they learn about a new block.
+                Additionally, most of the public mining pools update their block template about every 30 seconds to include newly received transactions in their blocks.
+            </dd>
+
+            {{ faq::question(id="general-miningpool-identification", question="How are the mining pools identified?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                Often, mining pools can be identified via their coinbase transaction they include in the block.
+                Two features of the coinbase output address can aid in pool identification.
+                Firstly, some pools use a static coinbase output address.
+                This address can be matched to the pool's identity.
+                Secondly, many pools put a distinct tag in the coinbase script with, for example, their name.
+                <br>
+                Here the <a target="_blank" rel="noopener" href="https://github.com/0xB10C/rust-bitcoin-pool-identification">rust-bitcoin-pool-identification</a> crate is used to identify pools.
+                This crate is based on the <a target="_blank" rel="noopener" href="https://github.com/0xB10C/known-mining-pools">github.com/0xB10C/known-mining-pools</a> project.
+            </dd>
+
+            {{ faq::question(id="general-miningpool-unknown", question="What does <span class='mark text-danger'>Unknown pool</span> mean?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                This marks the case when the pool which mined a block can't be identified.
+                Usually, the pool is newer and needs to be added to the <a target="_blank" rel="noopener" href="https://github.com/0xB10C/known-mining-pools">github.com/0xB10C/known-mining-pools</a> project.
+                <br>
+                Please open an <a target="_blank" rel="noopener" href="https://github.com/0xB10C/known-mining-pools/issues/new">issue</a> if you came across a block incorrectly marked with "Unknown pool".
+            </dd>
+
+        </dl>
+    </div>
+
+    <h4 id="methodology" name="methodology">Methodology</h4>
+    <div class="px-1 px-md-3">
+        <p class="mb-3">
+            The Mining Pool Observer compares a recent block template to a newly mined block.
+            For an ideal comparison, a template constructed at the same time as the mining pool's block is needed.
+            As this is not possible without actively capturing data from different mining pools (e.g. capturing the Stratum jobs), an assumption about template creation time is made.
+        </p>
+        <dl class="row">
+            {{ faq::question(id="general-template", question="How is the best template for the template to block comparison selected?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                A new block template is requested periodically via the <code>getblocktemplate</code> <abbr>RPC</abbr>, and the last block templates are kept in memory.
+                Once a new block is found, the best-fitting block template is selected for further comparison.
+                The best-fitting block template is the template with the minimum <code>missing_tx + extra_tx</code> where <code>missing_tx</code> are transactions only in the template (missing from the block) and <code>extra_tx</code> are transactions only in the block (not present in the template).
+                <br>
+                This methodology of selecting the best-fitting block is slightly biased in favor of the mining pools. 
+                If the time the pool created his block template was known, the comparison could be made against a template created at roughly the same time, which could be less biased.
+                The block timestamp can't be used as pool clocks might not always be accurate. 
+                Even if the pool-set timestamps were accurate, miners still engage in <a target="_blank" rel="noopener" href="https://bitcoin.stackexchange.com/a/75949/63817">nTime Rolling</a>, which changes the block timestamp.
+            </dd>
+        </dl>
+    </div>
+
+    <h4 id="missing" name="missing" >Missing Transactions</h4>
+    <div class="px-1 px-md-3">
+        <dl class="row">
+            {{ faq::question(id="missing-tx", question="What is a <i>Missing Transaction</i>?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                A transaction is <i>missing</i> from a block when the block template includes it, but the final block mined by a mining pool does not.
+            </dd>
+            {{ faq::question(id="missing-tx-reasons", question="Why can a transaction be missing from a block?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                Transactions can be missing from blocks for different reasons. 
+                <!-- Not propagated to us -->
+                Pools likely run multiple Bitcoin nodes to improve their network connectivity.
+                With better connectivity, a pool might know about transactions before we know about them, as they have <strong>not propagated to us</strong> yet.
+                Some of these transactions might be more profitable for the pool to include as they pay a higher feerate than the transactions our node would include.
+                The transactions we would have included are priced out, and we see them as missing from the block.
+                <!-- Not propagated to the pool -->
+                However, it's possible that a transaction just has <strong>not propagated to the pool</strong> yet, too.
+                <br>
+                <!-- Conflicting transactions -->
+                Multiple <strong>conflicting transactions</strong> spending the same UTXO(s) can exist in the Bitcoin network at the same time.
+                Bitcoin nodes reject transactions that conflict with already known transactions.
+                Thus, the node generating the template might have a different conflicting transaction than a mining pool does.
+                If the pool includes his conflicting transaction, our conflicting transaction is missing from the block.
+                <br>
+                <!-- Pool prioritization -->
+                Some mining pools <strong>prioritize transactions</strong> that would otherwise not be included in the block template.
+                Pools often prioritize, for example, their payout transactions. 
+                Third-party transactions can, for example, be prioritized via <a target="_blank" rel="noopener" href="https://en.bitcoin.it/wiki/Transaction_accelerator">Transaction Accelerators</a>, where the pool receives out-of-band fee payments.
+                Prioritized transactions often price out other template transactions, which are then missing from the block. 
+                <!-- Pool deprioritization-->
+                Furthermore, some mining pools might <strong>deprioritize or filter transactions</strong> based on pool preferences or, for example, state-level regulations like sanctions.
+            </dd>
+        </dl>
+    </div>
+
+    <h4 id="conflicting" name="conflicting">Conflicting Transactions</h4>
+    <div class="px-1 px-md-3">
+        <dl class="row">
+            {{ faq::question(id="conflicting-tx", question="What is a <i>Conflicting Transaction</i>?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                Two Bitcoin transactions conflict, when they both spend the same Unspent Transaction Output (UTXO).
+            </dd>
+    
+            {{ faq::question(id="conflicting-tx-identification", question="How are sets of <i>Conflicting Transactions</i> identified?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                Conflicting transactions conflict on their inputs.
+                Conflicts can be found by comparing the transactions missing from the block (only in the template) with the extra transactions (only in the block).
+                The sets of transactions spending the same inputs conflict. 
+            </dd>
+
+            {{ faq::question(id="conflicting-tx-double-spend-attempt", question="Is a <i>Conflicting Transaction</i> a double-spend attempt?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                No, not necessarily all conflicting transactions are double-spend attempts.
+                Most of the conflicts are between the replaced and replacement transaction created via Replace-by-Fee. 
+            </dd>
+        </dl>
+    </div>
+    
+    <h4 id="sanctioned" name="sanctioned">Sanctioned Transactions</h4>
+    <p>
+        A transaction is considered as sanctioned when it pays to a sanctioned address or spends from an Unspent Transaction Output (UTXO) belonging to a sanctioned address.
+
+        The <dfn>Office of Foreign Assets Control</dfn> (<abbr>OFAC</abbr>) of the U.S. Department of the Treasury first added digital currency addresses to the 
+        <dfn>Specially Designated Nationals And Blocked Persons</dfn> (<abbr>SDN</abbr>) list in <a target="_blank" rel="noopener" href="https://home.treasury.gov/news/press-releases/sm556">late November 2018</a>.
+        All <a target="_blank" rel="noopener" href="https://home.treasury.gov/policy-issues/financial-sanctions/faqs/11">U.S. persons</a> must comply with OFAC regulations by blocking transactions involving these addresses. 
+    </p>
+
+    <div class="px-1 px-md-3">
+        <dl class="row">
+            {{ faq::question(id="sanctioned-tx-sending-to", question="Can I test if a mining pool filters transactions to OFAC addresses?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                While <strong>not recommended</strong>, it is possible to test mining pool behavior by sending dust (very low value) outputs to sanctioned addresses.
+                Before doing so, consider the following questions:
+                <ul>
+                    <li>Do the U.S. sanctions and OFAC regulations apply to you (read e.g. <a class="alert-link" target="_blank" rel="noopener" href="https://home.treasury.gov/policy-issues/financial-sanctions/faqs/11">this</a>)?</li>
+                    <li>Could your actions harm the person or business you obtained your coins from?</li>
+                    <li>Did you consider that your change outputs might get tainted?</li>
+                    <li>Did you take the necessary privacy precautions?</li>
+                    <li>Did you consider whom you might send funds to?</li>
+                </ul>
+            </dd>
+
+            {{ faq::question(id="sanctioned-tx-addresses", question="Which addresses are sanctioned by the OFAC sanctions?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                This site currently tracks {{ SANCTIONED_ADDRESSES | length }} OFAC sanctioned addresses.
+                An automatically updated list of sanctioned Bitcoin addresses can be found <a target="_blank" rel="noopener" href="https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses/blob/lists/sanctioned_addresses_XBT.txt">here</a> (generated with <a href="https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses/">this Open Source tool</a>).
+                <details>
+                    <summary>
+                        Show all tracked sanctioned addresses.
+                    </summary>
+                    <ol>
+                        {% for addr in SANCTIONED_ADDRESSES %}
+                            <li><code>{{addr}}</code> (<a target="_blank" rel="noopener" href="https://search.treasury.gov/search?affiliate=treas&query={{addr}}">lookup on treasury.gov</a>)</li>
+                        {% endfor%}
+                    </ol>
+                </details>
+            </dd>
+            
+            {{ faq::question(id="sanctioned-tx-utxos", question="Which UTXOs are sanctioned by the OFAC sanction list?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                There are {{ recent_sanctioned_utxo_scan_info.utxo_count }} UTXOs with a total value of {{ recent_sanctioned_utxo_scan_info.utxo_amount / 100000000 }} BTC belonging to Sanctioned Addresses at height {{ recent_sanctioned_utxo_scan_info.end_height }} ({{ recent_sanctioned_utxo_scan_info.end_time | date(format="%Y-%m-%d %H:%M:%S UTC") }}).
+            
+                The individual Sanctioned UTXOs can, for example, be retrieved via the <code>scantxoutset</code> RPC of Bitcoin Core.
+                <details>
+                    <summary>
+                        Example <code>scantxoutset</code> RPC query using the {{ SANCTIONED_ADDRESSES | length }} Sanctioned Addresses.
+                    </summary>
+                    <code>
+                        bitcoin-cli scantxoutset start "[ 
+                        {% for addr in SANCTIONED_ADDRESSES %}
+                            \"addr({{addr}})\"{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                        ]"
+                    </code>
+                </details>
+            
+            </dd>
+
+            {{ faq::question(id="sanctioned-tx-utxos", question="How can I get notified on a Block with missing Sanctioned Transactions?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                There is a RSS feed for Sanctioned Transactions missing from Blocks!
+                <br>
+                RSS Feed:
+                <a href="{{CONFIG.base_url}}/template-and-block/sanctioned-feed.xml" class="text-decoration-none">
+                    <img height=20 width=20 alt="RSS feed icon" src="/static/img/rss-feed-white.svg">
+                    Sanctioned Transactions missing from Blocks
+                </a>
+            
+            </dd>
+
+            {{ faq::question(id="sanctioned-tx-other", question="Do other countries, besides the U.S., have sanctions on Bitcoin addresses?")}}
+            <dd class="col-12 mb-3 ms-md-4">
+                No, not to our knowledge.
+                If you know about other countries sanctioning Bitcoin addresses please open an issue <a target="_blank" rel="noopener" href="https://github.com/0xB10C/miningpool-observer/issues/new">on GitHub</a>. 
+            </dd>
+
+
+
+        </dl>
+    </div>
+
+    <h4 id="tx-tags" name="tx-tags">Transaction Tags</h4>
+    <div class="px-1 px-md-3">
+        <dl class="row">
+            {% for tag in TX_TAG_VECTOR %}
+                <dt class="col-md-3 col-xl-2">
+                    <a class="text-muted text-decoration-none fw-light" id='transaction-tag-{{tag.name | lower | replace(from=" ", to="-")}}' href='{{CONFIG.base_url}}/faq#transaction-tag-{{tag.name | lower | replace(from=" ", to="-")}}'>#</a>&nbsp;<span class="badge bg-{{tag.color}} text-{{tag.text_color}} rounded-1">{{tag.name}}</span>
+                </dt>
+                <dd class="col-md-9 col-xl-10">
+                    {{tag.description | join(sep=" ") | safe}}
+                </dd>
+            {% endfor %}
+        </dl>
+    </div>
+
+    <h4 id="tx-tags" name="block-tags">Block Tags</h4>
+    <div class="px-1 px-md-3">
+        <dl class="row">
+            {% for tag in BLOCK_TAG_VECTOR %}
+                <dt class="col-md-3 col-xl-2">
+                    <a class="text-muted text-decoration-none fw-light" id='block-tag-{{tag.name | lower | replace(from=" ", to="-")}}' href='{{CONFIG.base_url}}/faq#block-tag-{{tag.name | lower | replace(from=" ", to="-")}}'>#</a>&nbsp;<span class="badge bg-{{tag.color}} text-{{tag.text_color}} rounded-1">{{tag.name}}</span>
+                </dt>
+                <dd class="col-md-9 col-xl-10">
+                    {{tag.description | join(sep=" ") | safe}}
+                </dd>
+            {% endfor %}
+        </dl>
+    </div>
+
+    <br>
+
+    <h4 id="icons" name="icons">Icon Glossary</h4>
+    <div class="px-1 px-md-3">
+        <dl class="row">
+            <dt class="col-md-3 col-xl-2">
+                <img class='mx-auto d-block' width=75 height=75 src='/static/img/template.svg'/>
+            </dt>
+            <dd class="col-md-9 col-xl-10">
+                A template for a block. Provides a mining pool with a <i>suggestion</i> about which unconfirmed transactions to include in the next block.
+                Can be modified by the pool. 
+            </dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-md-3 col-xl-2">
+                <img class='mx-auto d-block' width=75 height=75 src='/static/img/block.svg'/>
+            </dt>
+            <dd class="col-md-9 col-xl-10">
+                A mined block. Has a Proof-of-Work and is valid under the consensus rules. Can't be modified.  
+            </dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-md-3 col-xl-2">
+                <img class='mx-auto d-block' width=75 height=75 src='/static/img/template_and_block.svg'/>
+            </dt>
+            <dd class="col-md-9 col-xl-10">
+                A template and block pair. Can be compared to each other.
+            </dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-md-3 col-xl-2">
+                <img class='mx-auto d-block' width=75 height=75 src='/static/img/block-missing.svg'/>
+            </dt>
+            <dd class="col-md-9 col-xl-10">
+                A block with missing transactions. Transactions that were present a block template for this block are not included in the mined block. See <a href="#missing">FAQ: Missing Transactions</a> for more information.
+            </dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-md-3 col-xl-2">
+                <img class='mx-auto d-block' width=75 height=75 src='/static/img/block-extra.svg'/>
+            </dt>
+            <dd class="col-md-9 col-xl-10">
+                A block with extra transactions. Transactions that were not present in the block template but are included in the mined block.
+            </dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-md-3 col-xl-2">
+                <img class='mx-auto d-block' width=75 height=75 src='/static/img/block-sanctioned.svg'/>
+            </dt>
+            <dd class="col-md-9 col-xl-10">
+                A template and block pair with sanctioned transactions. See <a href="#sanctioned">FAQ: Sanctioned Transactions</a> for more information.
+            </dd>
+        </dl>
+        <dl class="row">
+            <dt class="col-md-3 col-xl-2">
+                <img class='mx-auto d-block' width=75 height=75 src='/static/img/block-conflicting.svg'/>
+            </dt>
+            <dd class="col-md-9 col-xl-10">
+                A template and block pair with conflicting transactions. See <a href="#conflicting">FAQ: Conflicting Transactions</a> for more information.
+            </dd>
+        </dl>
+    </div>
+
+</div>
+
+
+{% endblock content %}

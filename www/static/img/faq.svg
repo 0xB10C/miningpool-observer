@@ -1,0 +1,11 @@
+<svg width="230" height="230" version="1.1" viewBox="0 0 60.854 60.854" xmlns="http://www.w3.org/2000/svg">
+ <g transform="matrix(1.782 0 0 1.782 -130.1 -95.023)" fill="none" stroke="#000" stroke-linecap="square" stroke-linejoin="bevel" style="paint-order:markers fill stroke">
+  <path d="m104.4 78.485-14.016 8.0923-14.016-8.0923v-16.185l14.016-8.0923 14.016 8.0923z" style="paint-order:markers fill stroke"/>
+  <g style="paint-order:markers fill stroke">
+   <path d="m76.372 62.301 14.082 8.0998 13.951-8.0998-13.958 8.1374z" style="paint-order:markers fill stroke"/>
+   <path d="m90.454 70.401-0.06529 16.177z" style="paint-order:markers fill stroke"/>
+  </g>
+ </g>
+ <text transform="matrix(1.1943 -.68952 0 1.1943 -124.85 93.373)" font-family="sans-serif" font-size="14.111px" style="line-height:1.25;shape-inside:url(#rect34283);white-space:pre" xml:space="preserve"><tspan x="139.02148" y="41.01195"><tspan font-family="Roboto" font-size="16.933px" font-weight="900">!</tspan></tspan></text>
+ <text transform="matrix(1.1943 .68952 0 1.1943 -152.28 -103.1)" font-family="sans-serif" font-size="14.111px" style="line-height:1.25;shape-inside:url(#rect34283-2);white-space:pre" xml:space="preserve"><tspan x="139.02148" y="41.01195"><tspan font-family="Roboto" font-size="16.933px" font-weight="900">?</tspan></tspan></text>
+</svg>

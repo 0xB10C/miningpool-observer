@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   inkscape:export-ydpi="150"
+   inkscape:export-xdpi="150"
+   inkscape:export-filename="/home/b10c/git/miningpool.observer/static/img/oxt.png"
+   sodipodi:docname="OXT.svg"
+   inkscape:version="1.0 (4035a4fb49, 2020-05-01)"
+   id="svg16"
+   version="1.1"
+   viewBox="0 0 23 23"
+   height="23mm"
+   width="23mm">
+  <defs
+     id="defs10">
+    <rect
+       id="rect20"
+       height="81.059608"
+       width="142.36404"
+       y="18.325224"
+       x="26.864038" />
+  </defs>
+  <sodipodi:namedview
+     inkscape:window-maximized="0"
+     inkscape:window-y="0"
+     inkscape:window-x="0"
+     inkscape:window-height="1078"
+     inkscape:window-width="1918"
+     showgrid="false"
+     inkscape:document-rotation="0"
+     inkscape:current-layer="layer1"
+     inkscape:document-units="mm"
+     inkscape:cy="49.097462"
+     inkscape:cx="119.09002"
+     inkscape:zoom="2.5989236"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base" />
+  <metadata
+     id="metadata13">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     id="layer1"
+     inkscape:groupmode="layer"
+     inkscape:label="Layer 1">
+    <text
+       transform="translate(-26.560636,-12.501261)"
+       style="font-style:normal;font-weight:normal;font-size:10.5833px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect20);fill:#000000;fill-opacity:1;stroke:none;"
+       id="text18"
+       xml:space="preserve"><tspan
+         x="26.863281"
+         y="27.689912"><tspan
+           style="fill:#ff5722;fill-opacity:1">O</tspan><tspan
+           style="fill:#00bfa5;fill-opacity:1">X</tspan><tspan
+           style="fill:#a939bd;fill-opacity:1">T</tspan></tspan></text>
+  </g>
+</svg>

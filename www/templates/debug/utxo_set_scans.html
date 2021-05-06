@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% import "macro/pagination.html" as pagination %}
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="DEBUG - UTXO Set scans",
+        description="Shows information about recent UTXO set scans for sanctioned UTXOS",
+        url="/debug/sanctioned-utxo-scans",
+        image_url="/og_image/index.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<div class="mx-0 p-3 bg-white shadow-sm">
+    <h1>UTXO Set Scans for Sanctioned UTXOs</h1>
+    <h2 class="text-muted">
+        Information about recent UTXO set scans for sanctioned UTXOs
+    </h2>
+    <p>
+        <span class="text-danger">This is a debug page.</span>
+    </p>
+
+
+    {% if MAX_PAGES == 0 %}
+        <div class="alert alert-light" role="alert">
+            <h4 class="alert-heading">No UTXO set scans in the database yet!</h4>
+            <span>There don't seem to be any scans in the database yet.</span>
+            <span>Please check back later when a scan completed.</span>
+        </div>
+    {% else %}
+
+        <h3>
+             {% if CURRENT_PAGE != 0 %}Page {{CURRENT_PAGE}}{% endif %}
+        </h3>
+
+        <table class="table text-center">
+            <thead>
+                <tr>
+                    <th scope="col">time (at end of scan)</th>
+                    <th scope="col">height (at end of scan)</th>
+                    <th scope="col">scan duration</th>
+                    <th scope="col">count of sanctioned UTXOs</th>
+                    <th scope="col">value of sanctioned UTXOs</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for scan in scans %}
+                    <tr>
+                        <td>{{ scan.end_time | date(format="%Y-%m-%d %H:%M:%S UTC") }}</td>
+                        <td>{{ scan.end_height }}</td>
+                        <td class="{% if scan.duration_seconds > 80 %} bg-warning {% endif %}">{{ scan.duration_seconds }} seconds</td>
+                        <td>{{ scan.utxo_count }}</td>
+                        <td style="background-color: rgba({{scan.utxo_amount * 12 % 255 }}, {{scan.utxo_amount * 3 % 255 }}, {{scan.utxo_amount * 4 % 255 }}, 0.2)">
+                            {{ scan.utxo_amount / 100000000 }} BTC
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    
+        {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE) }}
+        
+   
+    {% endif %}
+
+</div>
+
+{% endblock content %}

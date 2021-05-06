@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="Error: " ~ status_code ~ " " ~ error,
+        description="",
+        url="/error",
+        image_url="/og_image/error.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<div class="mx-0 p-3 bg-white shadow-sm">
+  <div class="alert alert-light" role="alert">
+    <h1 class="display-1">{{ status_code }}</h1>
+    <h2 class="display-4">{{ error }}</h2>
+  </div>
+</div>
+{% endblock content %}

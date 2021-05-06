@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+
+<channel>
+  <atom:link href="{{ CONFIG.base_url }}/debug/sanctioned/feed.xml" rel="self" type="application/rss+xml" />
+  <title>DEBUG All Sanctioned Transactions -- {{ CONFIG.title }}</title>
+  <link>{{ CONFIG.base_url }}</link>
+  <description>This feed lists template and block pairs containing Sanctioned Transactions.</description>
+    {% if templates_and_blocks_with_sanctioned_tx | length == 0 -%}
+    <!-- No Blocks with Sanctioned Transactions present in the database. -->
+    {%- endif -%}
+    {%- for template_and_block_with_sanctioned_tx in templates_and_blocks_with_sanctioned_tx %}
+    <item>
+        <title>Detected Sanctioned Transaction in {{template_and_block_with_sanctioned_tx.hash}}</title>
+        <link>{{ CONFIG.base_url }}/template-and-block/{{template_and_block_with_sanctioned_tx.hash}}</link>
+        <description>
+            {%- if template_and_block_with_sanctioned_tx.block_sanctioned > 0 and template_and_block_with_sanctioned_tx.template_sanctioned == 0 -%}
+                The block includes {{template_and_block_with_sanctioned_tx.template_sanctioned}} sanctioned transaction{{ template_and_block_with_sanctioned_tx.template_sanctioned | pluralize }} while the template does not include any. The mining pool ({{ template_and_block_with_sanctioned_tx.pool_name }}) does not seem to be filtering transactions based on US sanction programs.
+            {%- elif template_and_block_with_sanctioned_tx.block_sanctioned == 0 and template_and_block_with_sanctioned_tx.template_sanctioned > 0 -%}
+                The template includes {{template_and_block_with_sanctioned_tx.template_sanctioned}} sanctioned transaction{{ template_and_block_with_sanctioned_tx.template_sanctioned | pluralize }} while the block does not include any transactions to or from addresses sanctioned by the Office of Foreign Assets Control from the US Department of the Treasury. The mining pool ({{ template_and_block_with_sanctioned_tx.pool_name }}) might filter transactions based on US sanction programs.
+            {%- elif template_and_block_with_sanctioned_tx.block_sanctioned == template_and_block_with_sanctioned_tx.template_sanctioned -%}
+                The template and the block both include {{template_and_block_with_sanctioned_tx.template_sanctioned}} sanctioned transaction{{ template_and_block_with_sanctioned_tx.template_sanctioned | pluralize }} to or from addresses sanctioned by the Office of Foreign Assets Control from the US Department of the Treasury.
+            {%- else -%}
+                The template includes {{template_and_block_with_sanctioned_tx.template_sanctioned}} sanctioned transaction{{ template_and_block_with_sanctioned_tx.template_sanctioned | pluralize }} and the block includes {{template_and_block_with_sanctioned_tx.block_sanctioned}} sanctioned transaction{{ template_and_block_with_sanctioned_tx.block_sanctioned | pluralize }} to or from addresses sanctioned by the Office of Foreign Assets Control from the US Department of the Treasury.
+            {%- endif -%}
+        </description>
+        <pubDate>{{template_and_block_with_sanctioned_tx.block_seen_time | date(format="%a, %d %b %Y %H:%M:%S GMT")}}</pubDate>
+        <guid>{{ CONFIG.base_url }}/template-and-block/{{template_and_block_with_sanctioned_tx.hash}}</guid>
+    </item>
+    {% endfor %}
+    
+</channel>
+</rss>

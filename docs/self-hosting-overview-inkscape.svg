@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   inkscape:export-ydpi="120"
+   inkscape:export-xdpi="120"
+   inkscape:export-filename="/home/b10c/git/miningpool.observer/docs/self-hosting-overview.png"
+   sodipodi:docname="self-hosting-overview-inkscape.svg"
+   inkscape:version="1.0 (4035a4fb49, 2020-05-01)"
+   id="svg8"
+   version="1.1"
+   viewBox="0 0 210 120"
+   height="120mm"
+   width="210mm">
+  <defs
+     id="defs2">
+    <marker
+       inkscape:stockid="Arrow1Lend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="marker1436"
+       style="overflow:visible"
+       inkscape:isstock="true">
+      <path
+         id="path1434"
+         d="M 0,0 5,-5 -12.5,0 5,5 Z"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         transform="matrix(-0.8,0,0,-0.8,-10,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Lend"
+       orient="auto"
+       refY="0"
+       refX="0"
+       id="marker1414"
+       style="overflow:visible"
+       inkscape:isstock="true">
+      <path
+         id="path1412"
+         d="M 0,0 5,-5 -12.5,0 5,5 Z"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         transform="matrix(-0.8,0,0,-0.8,-10,0)" />
+    </marker>
+    <marker
+       inkscape:isstock="true"
+       style="overflow:visible"
+       id="Arrow1Lstart"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow1Lstart">
+      <path
+         transform="matrix(0.8,0,0,0.8,10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 Z"
+         id="path1028" />
+    </marker>
+    <rect
+       id="rect853"
+       height="48.400608"
+       width="69.333443"
+       y="24.515646"
+       x="110.02263" />
+    <rect
+       id="rect837"
+       height="30.228128"
+       width="146.5192"
+       y="1.3388349"
+       x="32.927944" />
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect853-6" />
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect883" />
+    <rect
+       id="rect853-6-5"
+       height="48.400608"
+       width="69.333443"
+       y="24.515646"
+       x="110.02263" />
+    <rect
+       id="rect929"
+       height="48.400608"
+       width="69.333443"
+       y="24.515646"
+       x="110.02263" />
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect853-2" />
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect983" />
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect853-6-5-7" />
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect1585" />
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect853-0" />
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect1637" />
+    <marker
+       inkscape:isstock="true"
+       style="overflow:visible"
+       id="marker1414-1"
+       refX="0"
+       refY="0"
+       orient="auto"
+       inkscape:stockid="Arrow1Lend">
+      <path
+         transform="matrix(-0.8,0,0,-0.8,-10,0)"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1"
+         d="M 0,0 5,-5 -12.5,0 5,5 Z"
+         id="path1412-8" />
+    </marker>
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect853-9" />
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect1831" />
+    <rect
+       id="rect853-2-2"
+       height="48.400608"
+       width="69.333443"
+       y="24.515646"
+       x="110.02263" />
+    <rect
+       id="rect1912"
+       height="48.400608"
+       width="69.333443"
+       y="24.515646"
+       x="110.02263" />
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect853-2-2-8" />
+    <rect
+       x="110.02263"
+       y="24.515646"
+       width="69.333443"
+       height="48.400608"
+       id="rect1977" />
+  </defs>
+  <sodipodi:namedview
+     inkscape:window-maximized="0"
+     inkscape:window-y="0"
+     inkscape:window-x="1720"
+     inkscape:window-height="1438"
+     inkscape:window-width="1718"
+     showgrid="false"
+     inkscape:document-rotation="0"
+     inkscape:current-layer="g1951"
+     inkscape:document-units="mm"
+     inkscape:cy="200.83335"
+     inkscape:cx="442.12762"
+     inkscape:zoom="1.4"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     borderopacity="1.0"
+     bordercolor="#666666"
+     pagecolor="#ffffff"
+     id="base" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     id="layer1"
+     inkscape:groupmode="layer"
+     inkscape:label="Layer 1">
+    <text
+       style="font-size:2.82222px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect837);"
+       id="text835"
+       xml:space="preserve" />
+    <g
+       style="stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none"
+       transform="matrix(0.76481908,0,0,0.76481908,-3.9515496,-91.469944)"
+       id="g912">
+      <rect
+         style="opacity:1;fill:#ffc789;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.622696;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:12.7176;stroke-opacity:1;paint-order:normal"
+         id="rect841"
+         width="66.538261"
+         height="29.698576"
+         x="18.654085"
+         y="133.14658" />
+      <text
+         xml:space="preserve"
+         id="text851"
+         style="font-size:8.46667px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect853);stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none;"
+         transform="translate(-84.176159,119.14562)"><tspan
+           x="110.02344"
+           y="32.006644"><tspan
+             style="shape-inside:url(#rect853)">Bitcoin Core </tspan></tspan></text>
+    </g>
+    <g
+       style="stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none"
+       transform="matrix(0.76481908,0,0,0.76481908,-67.860084,23.314793)"
+       id="g918">
+      <rect
+         y="31.4144"
+         x="102.21442"
+         height="29.698576"
+         width="66.538261"
+         id="rect841-3"
+         style="opacity:1;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.622696;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:12.7176;stroke-opacity:1;paint-order:normal" />
+      <text
+         transform="translate(-4.0112777,11.049658)"
+         style="font-size:8.46667px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect853-6);stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none;"
+         id="text851-7"
+         xml:space="preserve"><tspan
+           x="110.02344"
+           y="32.006644"><tspan
+             style="font-size:5.64444px;stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none">miningpool-observer</tspan><tspan
+             style="stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none"> </tspan></tspan><tspan
+           x="110.02344"
+           y="42.589979"><tspan
+             style="stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none">daemon</tspan></tspan></text>
+    </g>
+    <g
+       style="stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none"
+       transform="matrix(0.76481908,0,0,0.76481908,64.519409,40.555114)"
+       id="g918-3">
+      <g
+         style="stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none"
+         transform="translate(8.655341,-22.541698)"
+         id="g972">
+        <rect
+           y="31.4144"
+           x="102.21442"
+           height="29.698576"
+           width="66.538261"
+           id="rect841-3-5"
+           style="opacity:1;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.622696;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:12.7176;stroke-opacity:1;paint-order:normal" />
+        <text
+           transform="translate(-4.0112777,11.049658)"
+           style="font-size:8.46667px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect853-6-5);stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none;"
+           id="text851-7-6"
+           xml:space="preserve"><tspan
+             x="110.02344"
+             y="32.006644"><tspan
+               style="font-size:5.64444px;stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none">miningpool-observer</tspan><tspan
+               style="stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none"> </tspan></tspan><tspan
+             x="110.02344"
+             y="42.589979"><tspan
+               style="stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none">web</tspan></tspan></text>
+      </g>
+    </g>
+    <path
+       id="path1020"
+       d="M 35.760316,45.080109 V 35.793996"
+       style="fill:none;stroke:#000000;stroke-width:0.202677;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    <path
+       id="path1024"
+       d="m 65.842913,58.698145 h 9.334438"
+       style="fill:none;stroke:#000000;stroke-width:0.132279px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+    <g
+       id="g918-3-0"
+       transform="translate(-48.189128,96.549297)">
+      <g
+         id="g972-9"
+         transform="translate(8.655341,-22.541698)" />
+    </g>
+    <g
+       style="stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none"
+       id="g912-6"
+       transform="matrix(0.76481908,0,0,0.76481908,136.65623,-17.416595)">
+      <rect
+         y="133.14658"
+         x="18.654085"
+         height="29.698576"
+         width="66.538261"
+         id="rect841-2"
+         style="opacity:1;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.622696;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:1.24539, 1.24539;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal" />
+      <text
+         transform="translate(-76.737843,114.81658)"
+         style="font-size:8.46667px;line-height:1.05;font-family:sans-serif;white-space:pre;shape-inside:url(#rect853-0);stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none;"
+         id="text851-6"
+         xml:space="preserve"><tspan
+           x="110.02344"
+           y="31.159976"><tspan
+             style="shape-inside:url(#rect853-0);stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none">Proxy
+</tspan></tspan><tspan
+           x="110.02344"
+           y="40.04998"><tspan
+             style="font-size:6.35px;stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none">(e.g. Ngnix)</tspan></tspan></text>
+    </g>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.132279px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 135.34254,58.698145 h 9.33443"
+       id="path1024-5" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.202676;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 175.00847,82.022325 V 72.736214"
+       id="path1020-9" />
+    <g
+       id="g912-9"
+       transform="matrix(0.76481908,0,0,0.76481908,64.051854,-71.822783)"
+       style="fill:#ffffff;fill-opacity:1;stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none">
+      <g
+         transform="translate(18.348804,93.249133)"
+         id="g1012"
+         style="fill:#ffffff;fill-opacity:1;stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none">
+        <g
+           style="stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none"
+           id="g1951"
+           transform="translate(-22.795983,-90.194803)">
+          <rect
+             y="152.75233"
+             x="25.057573"
+             height="29.698576"
+             width="66.538261"
+             id="rect841-1"
+             style="opacity:1;fill:#a9c8ff;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.622696;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:12.7176;stroke-opacity:1;paint-order:normal" />
+          <text
+             transform="translate(-76.286456,137.85634)"
+             style="font-size:8.46667px;line-height:1.25;font-family:sans-serif;white-space:pre;shape-inside:url(#rect853-2-2-8);fill:#000000;fill-opacity:1;stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none;"
+             id="text851-2"
+             xml:space="preserve"><tspan
+               x="110.02344"
+               y="32.006644"><tspan
+                 style="shape-inside:url(#rect853-2-2-8);fill:#000000;fill-opacity:1;stroke-width:0.622696;stroke-miterlimit:4;stroke-dasharray:none">PostgreSQL </tspan></tspan></text>
+        </g>
+      </g>
+    </g>
+  </g>
+</svg>

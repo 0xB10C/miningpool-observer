@@ -1,0 +1,50 @@
+<style>
+/* show the collapse when navbar toggle is checked */
+#navbar-toggle-cbox:checked ~ .collapse {
+    display: flex;
+}
+
+/* the checkbox used only internally; don't display it */
+#navbar-toggle-cbox {
+  display:none
+}
+</style>
+
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+    <div class="container-xl">
+        <a class="navbar-brand mx-3" href="{{CONFIG.base_url}}/">
+            <img class="d-inline-block align-middle" width="44" height="44" alt="Logo for {{CONFIG.title}}" src="/static/img/template_and_block.svg">
+            <span>{{ CONFIG.title }}</span>
+        </a>
+        <input type="checkbox" id="navbar-toggle-cbox">
+        <label for="navbar-toggle-cbox" class="navbar-toggle d-lg-none border rounded" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="fw-1 fs-2 px-2">☰</span>
+        </label>
+        <div class="collapse navbar-collapse" id="navbar">
+            <div class="navbar-nav mb-2 mb-lg-0 my-lg-0 w-100 justify-content-lg-end">
+                
+                <a class="nav-link {%if NAV_PAGE_BLOCKS%}active{%endif%}" href="{{CONFIG.base_url}}/template-and-block">
+                    <img class="d-inline-block d-lg-none align-middle mx-2" width=32 height=32 src="/static/img/template_and_block.svg"/>
+                    Templates & Blocks
+                </a>
+                <a class="nav-link {%if NAV_PAGE_MISSING%}active{%endif%}" href="{{CONFIG.base_url}}/missing">
+                    <img class="d-inline-block d-lg-none align-middle mx-2" width=32 height=32 src="/static/img/block-missing.svg"/>
+                    Missing Transactions
+                </a>
+                <a class="nav-link {%if NAV_PAGE_CONFLICTING%}active{%endif%}" href="{{CONFIG.base_url}}/conflicting">
+                    <img class="d-inline-block d-lg-none align-middle mx-2" width=32 height=32 src="/static/img/block-conflicting.svg"/>
+                    Conflicting Transactions
+                </a>
+
+                <!-- separator -->
+                <li class="nav-item d-lg-none"><hr class="my-1"></li><li class="nav-item d-none d-lg-block mx-2 border-end"><wbr></li>
+                
+                 <a class="nav-link {%if nav_page_faq%}active{%endif%}" href="{{CONFIG.base_url}}/faq">
+                    <img class="d-inline-block d-lg-none align-middle mx-2" width=32 height=32 src="/static/img/faq.svg"/>
+                    FAQ
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>

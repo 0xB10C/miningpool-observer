@@ -1,0 +1,31 @@
+[package]
+name = "miningpool-observer-daemon"
+version = "0.1.0"
+authors = ["0xB10C <0xb10c@gmail.com>"]
+edition = "2018"
+
+
+[dependencies]
+
+miningpool_observer_shared = { path="../shared" }
+
+log = "0.4"
+simple_logger = "1.9.0"
+
+bitcoin = "0.26"
+bitcoin-pool-identification = "0.1.4"
+rawtx-rs = "0.1.0"
+
+hex = "0.4"
+
+diesel = { version = "1.4.4", features = ["postgres", "r2d2", "chrono"] }
+diesel_migrations = "1.4.0"
+chrono = { version = "0.4" }
+
+# prometheus metrics
+prometheus = "0.12.0"
+lazy_static = "1.4.0"
+
+[build-dependencies]
+serde = "1"
+serde_json = "1"

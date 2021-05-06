@@ -1,0 +1,166 @@
+{% macro block_transaction(tx, place, tx_count) %}
+    <div class="list-group-item mx-2 px-1 py-2">
+        <div class="row row-cols-2 m-0">
+            <span class="col-12">
+                {% if place == "template" %}
+                    {% if tx.0.mempool_age_seconds >= 0 and tx.0.mempool_age_seconds < THRESHOLD_TRANSACTION_CONSIDERED_YOUNG %}
+                        {{ transaction::tag(tag=tx_tag_id_to_tag(id=TAG_ID_YOUNG)) }}
+                    {% endif %}
+                {% endif %}
+                {% for tag_id in tx.1.tags | sort %}
+                    {{ transaction::tag(tag=tx_tag_id_to_tag(id=tag_id)) }}
+                {% endfor %}
+            </span>
+            <div class="col-12">
+                {{ transaction::txid(txid=tx.1.txid, half_width=true) }}
+            </div>
+            {{ transaction::info_col(label="fee", value=tx.1.fee, value_extra=" sat") }}
+            {{ transaction::info_col(label="feerate", value=tx.1.fee / tx.1.vsize | round(method="ceil", precision=2), value_extra=" sat/vByte") }}
+            {{ transaction::info_col(label="vsize", value=tx.1.vsize, value_extra=" vByte") }}
+            {{ transaction::info_col(label="output sum", value=tx.1.output_sum / 100000000, value_extra=" BTC") }}
+            {{ transaction::inputs(ins=tx.1.inputs, count=tx.1.input_count) }}
+            {{ transaction::outputs(outs=tx.1.outputs, count=tx.1.output_count) }}
+            {% if place == "template" %}
+                {{ transaction::info_col(label="mempool age", value=seconds_to_duration(seconds=tx.0.mempool_age_seconds), value_extra="") }}
+            {% endif %}
+            <span class="col-12">
+                <span class="text-muted small">transaction position in {{place}} (<span>{{ tx.0.position + 1 }} of {{ tx_count }}</span>)</span>
+                <div class="progress" title="position in template: {{ tx.0.position + 1 }} of {{ tx_count }}" style="height: 5px;">
+                    <div class="progress-bar" role="progressbar" style="width: {{ (tx.0.position + 1) /tx_count * 100 | round(n=2)}}%; background-color: lightgray;" aria-valuenow="{{ tx.0.position + 1 }}" aria-valuemin="0" aria-valuemax="{{ tx_count }}"></div>
+                    <div class="progress-bar" role="progressbar" style="width: 1%; background-color: #0077ff;" aria-valuenow="2" aria-valuemin="0" aria-valuemax="1"></div>
+                    <div class="progress-bar d-lg-none" role="progressbar" style="width: 1%; background-color: #0077ff;" aria-valuenow="2" aria-valuemin="0" aria-valuemax="1"></div>
+                    <div class="progress-bar" role="progressbar" style="width: {{ 100 - ((tx.0.position + 1)/tx_count * 100) | round(n=2)}}%; background-color: lightgray;" aria-valuenow="{{ tx.0.position + 1 }}" aria-valuemin="0" aria-valuemax="{{ tx_count }}"></div>
+                </div>
+            </span>
+        </div>
+    </div>
+{% endmacro block_transaction %}
+
+{% macro tag(tag) %}
+    <a href='{{CONFIG.base_url}}/faq#transaction-tag-{{tag.name | lower | replace(from=" ", to="-")}}'
+    title="{{tag.description | first}}"
+    class="badge bg-{{tag.color}} text-{{tag.text_color}} rounded-1 text-decoration-none">
+        {{tag.name}}
+    </a>
+{% endmacro tag %}
+
+{% macro inputs(ins, count) %}
+    <div class="col">
+        <span class="row">
+            <span class="text-muted small col">inputs</span>
+            <span class="col-auto">
+                <details>
+                    <summary style="color:lightsteelblue">
+                        <span class="text-dark">{{ count }}</span>
+                    </summary>
+                    <ul class="small">
+                        {% for input in ins %}
+                            <li>{{input | replace(from=" ", to="&nbsp;") | safe}}</li>
+                        {% endfor %}
+                    </ul>
+                </details>
+            </span>
+        </span>
+    </div>
+{% endmacro inputs %}
+
+{% macro outputs(outs, count) %}
+    <div class="col">
+        <span class="row">
+            <span class="text-muted small col">outputs</span>
+            <span class="col-auto">
+                <details>
+                    <summary style="color:lightsteelblue">
+                        <span class="text-dark">{{ count }}</span>
+                    </summary>
+                    <ul class="small">
+                        {% for output in outs %}
+                            <li>{{output | replace(from=" ", to="&nbsp;") | safe}}</li>
+                        {% endfor %}
+                    </ul>
+                </details>
+            </span>
+        </span>
+    </div>
+{% endmacro outputs %}
+
+{% macro transaction(tx, half_width) %}
+     <div class="list-group-item">
+        <div class="row row-cols-2">
+            <span class="col-12">
+                {% for tag_id in tx.tags | sort %}
+                    {{ transaction::tag(tag=tx_tag_id_to_tag(id=tag_id)) }}
+                {% endfor %}
+            </span>
+            <div class="col-12">
+                {{ transaction::txid(txid=tx.txid, half_width=half_width) }}
+            </div>
+            {{ transaction::info_col(label="fee", value=tx.fee, value_extra=" sat") }}
+            {{ transaction::info_col(label="feerate", value=tx.fee / tx.vsize | round(method="ceil", precision=2), value_extra=" sat/vByte") }}
+            {{ transaction::info_col(label="vsize", value=tx.vsize, value_extra=" vByte") }}
+            {{ transaction::info_col(label="output sum", value=tx.output_sum / 100000000, value_extra=" BTC") }}
+            {{ transaction::inputs(ins=tx.inputs, count=tx.input_count) }}
+            {{ transaction::outputs(outs=tx.outputs, count=tx.output_count) }}
+        </div>
+    </div>
+{% endmacro transaction %}
+
+{% macro info_col(label, value, value_extra) %}
+<div class="col">
+    <span class="row">
+        <span class="text-muted small col">{{label}}</span>
+        <span class="col-auto text-wrap">{{value}}{{value_extra}}</span>
+    </span>
+</div>
+{% endmacro info_col %}
+
+{% macro txid(txid, half_width) %}
+    <details>
+        <summary style="outline:none;">
+            {% if half_width %}
+                <span class="font-monospace d-inline d-sm-none">
+                    {{ txid | truncate(length=30) }}
+                </span>
+                <span class="font-monospace d-none d-sm-inline d-md-none">
+                    {{ txid | truncate(length=40) }}
+                </span>
+                <span class="font-monospace d-none d-md-inline d-lg-inline d-xl-none">
+                    {{ txid }}
+                </span>
+                <span class="font-monospace d-none d-xl-inline d-xxl-inline">
+                    {{ txid | truncate(length=45) }}
+                </span>
+            {% else %}
+                <span class="font-monospace d-inline d-sm-none">
+                    {{ txid | truncate(length=30) }}
+                </span>
+                <span class="font-monospace d-none d-sm-inline d-md-none">
+                    {{ txid | truncate(length=45) }}
+                </span>
+                <span class="font-monospace d-none d-md-inline">
+                    {{ txid }}
+                </span>
+            {% endif %}
+        </summary>
+        {{ transaction::explorers(txid=txid) }}
+    </details>
+{% endmacro txid %}
+
+
+{% macro explorers(txid) %}
+    <div class="row">
+        <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center btn btn-sm btn-light m-1" target="_blank" rel="noopener" href="https://blockstream.info/tx/{{txid}}"><img width=28 height=28 src="/static/img/explorers/blockstream.png"/></a></div>
+        <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center btn btn-sm btn-light m-1" target="_blank" rel="noopener" href="https://mempool.space/tx/{{txid}}"><img width=28 height=28 src="/static/img/explorers/mempool-space.ico"/></a></div>
+        <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center btn btn-sm btn-light m-1" target="_blank" rel="noopener" href="https://explorer.btc.com/btc/transaction/{{txid}}"><img width=28 height=28 src="/static/img/explorers/btccom.ico"/></a></div>
+        <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center btn btn-sm btn-light m-1" target="_blank" rel="noopener" href="https://oxt.me/transaction/{{txid}}"><img width=28 height=28 src="/static/img/explorers/oxt.png"/></a></div>
+        <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center btn btn-sm btn-light m-1" target="_blank" rel="noopener" href="https://blockchair.com/bitcoin/transaction/{{txid}}"><img width=28 height=28 src="/static/img/explorers/blockchair.ico"/></a></div>
+        <!--div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center btn btn-sm btn-light m-1" target="_blank" rel="noopener" href="https://entropy.rocks/transaction/{{txid}}"><img width=28 height=28 src="/static/img/explorers/entropy-rocks.ico"/></a></div-->
+        <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center btn btn-sm btn-light m-1" target="_blank" rel="noopener" href="https://www.blockchain.com/btc/tx/{{txid}}"><img width=28 height=28 src="/static/img/explorers/blockchaincom.ico"/></a></div>
+        <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center btn btn-sm btn-light m-1" onclick="copyToClipboard('{{txid}}')"><span class="fs-5">&#x2398;</span> txid</a></div>
+        <script>
+            function copyToClipboard(txid) {
+              window.prompt("Transaction ID: ", txid);
+            }
+        </script>
+    </div>
+{% endmacro explorers %}

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+
+<channel>
+  <atom:link href="{{ CONFIG.base_url }}/template-and-block/sanctioned-feed.xml" rel="self" type="application/rss+xml" />
+  <title>Blocks with missing Sanctioned Transactions -- {{ CONFIG.title }}</title>
+  <link>{{ CONFIG.base_url }}/template-and-block</link>
+  <description>This feed lists blocks where a sanctioned transaction was present in the template but is missing from the block.</description>
+    {% if blocks_with_missing_sanctioned | length == 0 -%}
+    <!-- No Blocks with missing Sanctioned Transactions present in the database. -->
+    {%- endif -%}
+    {%- for block in blocks_with_missing_sanctioned %}
+    <item>
+        <title>Sanctioned Transaction{{ block.sanctioned_missing_tx | pluralize }} missing from Block {{block.hash}}</title>
+        <link>{{ CONFIG.base_url }}/template-and-block/{{block.hash}}</link>
+        <description>
+          The block template includes {{ block.sanctioned_missing_tx }} sanctioned transaction{{ block.sanctioned_missing_tx | pluralize }}, which {{ block.sanctioned_missing_tx | pluralize(singular="is", plural="are") }} missing from the block mined by {{ block.pool_name }}.
+
+          {{ block.pool_name }} does not necessarily filter transactions based on US sanction programs.
+          Transactions can be missing from blocks for multiple reasons, including bad propagation or conflicts with other unconfirmed transactions.
+          However, the likelihood that {{ block.pool_name }} filters sanctioned transactions increases when sanctioned transactions are repeatedly missing from blocks mined by {{ block.pool_name }}.
+
+        </description>
+        <pubDate>{{block.block_seen_time | date(format="%a, %d %b %Y %H:%M:%S GMT")}}</pubDate>
+        <guid>{{block.hash}}</guid>
+    </item>
+    {% endfor %}
+    
+</channel>
+</rss>

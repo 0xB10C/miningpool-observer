@@ -1,0 +1,134 @@
+{% macro block(block_with_conflicting_transaction, short) %}
+    <div class="grow-on-hover position-relative">
+        {% for tag_id in block_with_conflicting_transaction.block.tags %}
+            {{ block::tag(tag=block_tag_id_to_tag(id=tag_id)) }}
+        {% endfor %}
+        {% if short %}
+            <h3 class="text-break fs-4">
+                Template&nbsp;and&nbsp;Block&nbsp;<span>{{block_with_conflicting_transaction.block.hash}}</span>
+            </h3>
+        {% else %}
+            <h1 class="text-break fs-4">
+                Template&nbsp;and&nbsp;Block&nbsp;<span>{{block_with_conflicting_transaction.block.hash}}</span>
+            </h1>
+        {% endif %}
+
+        {{ block::info(block=block_with_conflicting_transaction.block, show_previous=false) }}
+
+        {% if short %}
+            <a href="{{CONFIG.base_url}}/conflicting/{{block_with_conflicting_transaction.block.hash}}" class="stretched-link"></a>
+        {% else %}
+            {{ block::diff(block=block_with_conflicting_transaction.block) }}
+            <a href="{{CONFIG.base_url}}/template-and-block/{{block_with_conflicting_transaction.block.hash}}" class="stretched-link"></a>
+        {% endif %}
+
+    </div>
+
+    {% set const_max_sets_when_short = 5 %}
+    {% set const_max_sets_shown = 3 %}
+
+    {% if not short %}
+        <h4 class="mt-3 mb-2">Conflicts between Template and Block</h4>
+    {% endif %}
+
+    <div class="list-group">
+        {% for set in block_with_conflicting_transaction.conflicting_transaction_sets %}
+            {% if short and loop.index0 == const_max_sets_shown %}
+            <details>
+                <summary class="btn btn-outline-secondary w-100 my-2">
+                    Show {{block_with_conflicting_transaction.conflicting_transaction_sets | length - const_max_sets_shown}} more
+                </summary>
+            {% endif %}
+
+            {{ conflicting::transaction_set(set=set) }}
+
+            {% if short and loop.index0 == const_max_sets_when_short %}
+                <span class="m-3 text-center d-inline-block">
+                    This list is limited to {{const_max_sets_when_short}} (out of {{block_with_conflicting_transaction.conflicting_transaction_sets | length}}) transaction sets.
+                    See <a href="{{CONFIG.base_url}}/conflicting/{{block_with_conflicting_transaction.block.hash}}">the dedicated conflicting tansactions page for this block</a> for the full list of transactions.
+                </span>
+            {% endif %}
+            {% if loop.last and loop.index0 >= const_max_sets_shown + 1 %}
+                </details>
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endmacro block %}
+
+{% macro transaction_set(set) %}
+    <div class="list-group-item">
+        <div class="row">
+            <div class="col-xl-6 p-0">
+                <span class="mx-3 mb-0 fs-5">
+                    <img class="d-inline-block align-middle" width="32" height="32" src="/static/img/template.svg"/>
+                    Template Transactions
+                </span>
+                <div class="list-group list-group-flush">
+                    {% for tx in set.template_transactions %}
+                        {% if loop.index == 6 %}
+                        <details>
+                            <summary class="btn btn-outline-secondary w-100 my-2">
+                                Show {{set.template_transactions | length - 5}} more
+                            </summary>
+                        {% endif %}
+
+                        {{ transaction::transaction(tx=tx, half_width=true) }}
+
+                        {% if loop.last and loop.index >= 6%}
+                            </details>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="col-xl-6 p-0">
+                <span class="mx-3 mb-0 fs-5">
+                    <img class="d-inline-block align-middle" width="32" height="32" src="/static/img/block.svg"/>
+                    Block Transactions
+                </span>
+                <div class="list-group list-group-flush">
+                    {% for tx in set.block_transactions %}
+                        {% if loop.index == 6 %}
+                        <details>
+                            <summary class="btn btn-outline-secondary w-100 my-2">
+                                Show {{set.block_transactions | length - 5}} more
+                            </summary>
+                        {% endif %}
+
+                        {{ transaction::transaction(tx=tx, half_width=true) }}
+
+                        {% if loop.last and loop.index >= 6%}
+                            </details>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="col-12 mt-3">
+                <h6>
+                    Conflicting on these previous transaction outputs:
+                </h6>
+                <ul>
+                    {% for outpoint in set.conflicting_outpoints %}
+                        {% if loop.index == 6 %}
+                        <details>
+                            <summary class="btn btn-outline-secondary w-100 my-2">
+                                Show {{set.conflicting_outpoints | length - 5}} more
+                            </summary>
+                        {% endif %}
+
+                        <span class="text-break">Output #{{outpoint.vout}} of <span class="font-monospace">{{outpoint.txid}}</span></span>
+                        <details class="text-muted small">
+                            <summary class="border-0">
+                                open in explorer
+                            </summary>
+                            {{ transaction::explorers(txid=outpoint.txid) }}
+                        </details>
+
+                        {% if loop.last and loop.index >= 6%}
+                            </details>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endmacro transaction_set %}

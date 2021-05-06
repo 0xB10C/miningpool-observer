@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title=CONFIG.title,
+        description="Transparency for Mining Pool Transaction Selection",
+        url="/",
+        image_url="/og_image/index.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<section>
+    <div class="bg-white p-3 mb-4">
+        <h1 class="fs-1">Observing Bitcoin Mining Pools</h1>
+        <h2 class="text-muted fs-3">
+          Transparency for Mining Pool Transaction Selection
+        </h2>
+
+        <p>
+            Bitcoin Mining Pools construct blocks from unconfirmed transactions.
+            While the general approach is to maximize fee revenue by picking the transactions paying the highest fee per byte,
+            pools can decide which transaction to include and which to leave out.
+            The transaction selection can, for example, be influenced by out-of-band payments, pool operator preferences, and regulatory requirements.
+
+            Bitcoin Core offers a <dfn>Remote Procedure Call</dfn> (<abbr>RPC</abbr>) named <code>getblocktemplate</code> which returns
+            a so-called block template.
+            This block template contains the set of unconfirmed transactions known to the node paying the highest fee per byte.
+
+            By comparing the templates and final blocks, differences can be highlighted.
+
+            The methodology is explained in the <a href="{{CONFIG.base_url}}/faq#methodology">FAQ</a>.
+        </p>
+
+        <p>
+          Bitcoin is designed to have a high censorship resistance.
+          In a scenario where most mining pools choose to filter a transaction, a single mining pool including the transaction in their block is enough to make sure that it confirms eventually.
+          In another, more extreme scenario a consortium of mining pools could decide to ignore blocks with certain <i>unwanted</i> transactions.
+          While this would require a prolonged hashrate majority (<a target="_blank" rel="noopener" href="https://en.bitcoin.it/wiki/Majority_attack">Bitcoin Wiki: Majority-Attack or 51%-Attack</a>) to be successful, it would effectively overcome Bitcoins censorship resistance.
+          This tool can deliver the observations for detecting pool-level censorship by transaction-filtering, but it is not capable of detecting hashrate-majority attacks.
+        </p>
+
+        <p>
+          The blog post 
+          <a target="_blank" rel="noopener" href="https://blog.bitmex.com/bitcoin-miner-transaction-fee-gathering-capability/">Bitcoin Miner Transaction Fee Gathering Capability</a>
+          (<a target="_blank" rel="noopener" href="https://web.archive.org/web/20210127120149/https://blog.bitmex.com/bitcoin-miner-transaction-fee-gathering-capability/">archive.org</a>,
+            <a target="_blank" rel="noopener" href="https://archive.is/wip/1FrR9">archive.is</a>)
+          published by BitMex Research greatly inspired this tool.
+        </p>
+
+        <div class="row row-cols-1 row-cols-md-2 g-4">
+            <div class="col position-relative grow-on-hover">
+              <div class="card h-100 shadow-sm">
+                <img src="/static/img/template_and_block.svg" width="120" height="120" class="card-img-top p-3 border-bottom" alt="Templates and Blocks">
+                <div class="card-body">
+                    <h4 class="card-title">Templates and Blocks</h4>
+                    <h6 class="card-subtitle mb-2 text-muted">Comparing Block Templates to Mining Pool Blocks</h6>
+                    <p class="card-text">
+                      This page lists recently mined template and block pairs.
+                      By comparing the template and block, the differences are highlighted.
+                    </p>
+                </div>
+              </div>
+              <a class="stretched-link" href="{{CONFIG.base_url}}/template-and-block"></a>
+            </div>
+            <div class="col position-relative grow-on-hover">
+              <div class="card h-100 shadow-sm">
+                <img src="/static/img/block-missing.svg" width="120" height="120" class="card-img-top p-3 border-bottom" alt="Missing Transactions">
+                <div class="card-body">
+                    <h4 class="card-title">Missing Transactions</h4>
+                    <h6 class="card-subtitle mb-2 text-muted">Template Transactions repeatedly not included by Pools</h6>
+                    <p class="card-text">
+                        A transaction is considered <i>missing</i> from a block when the block template includes it, but the block mined by a mining pool does not.
+                        This page lists transactions that are missing from multiple blocks.
+                    </p>
+                </div>
+              </div>
+              <a class="stretched-link" href="{{CONFIG.base_url}}/missing"></a>
+            </div>
+            <div class="col position-relative grow-on-hover">
+              <div class="card h-100 shadow-sm">
+                <img src="/static/img/block-conflicting.svg" width="120" height="120" class="card-img-top p-3 border-bottom" alt="Conflicting Transactions">
+                <div class="card-body">
+                    <h4 class="card-title">Conflicting Transactions</h4>
+                    <h6 class="card-subtitle mb-2 text-muted">Conflicts between Templates and Blocks</h6>
+                    <p class="card-text">
+                        Two Bitcoin transactions conflict, when they use the same <dfn>Unspent Transaction Output</dfn> (<abbr>UTXO</abbr>).
+                        This page lists the conflicts between templates and blocks.
+                    </p>
+                </div>
+              </div>
+              <a class="stretched-link" href="{{CONFIG.base_url}}/conflicting"></a>
+            </div>
+            <div class="col position-relative grow-on-hover">
+                <div class="card h-100 shadow-sm">
+                  <img src="/static/img/faq.svg" width="120" height="120" class="card-img-top p-3 border-bottom" alt="Conflicting Transactions">
+                  <div class="card-body">
+                      <h4 class="card-title">Frequently Asked Questions</h4>
+                      <h6 class="card-subtitle mb-2 text-muted">Answering questions about {{CONFIG.title}}</h6>
+                      <p class="card-text">
+                        This page provides general information about miningpool-observer project, the explains the methodology behind the template and block comparison, and provides further details on Missing, Conflicting, and Sanctioned transactions.   
+                    </p>
+                  </div>
+                </div>
+                <a class="stretched-link" href="{{CONFIG.base_url}}/faq"></a>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% endblock content %}
