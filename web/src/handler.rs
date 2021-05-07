@@ -278,8 +278,13 @@ pub async fn single_block_with_conflicting_transactions(
 
 //##### OTHER PAGES
 
-pub async fn robots_txt() -> Result<actix_files::NamedFile> {
-    Ok(actix_files::NamedFile::open("www/robots.txt")?)
+pub async fn robots_txt() -> Result<HttpResponse, Error> {
+    let robots_txt = "User-agent: *
+Allow: /
+Disallow: /debug/*";
+    Ok(HttpResponse::Ok()
+        .content_type("text/plain")
+        .body(robots_txt))
 }
 
 include!(concat!(env!("OUT_DIR"), "/list_sanctioned_addr.rs"));
