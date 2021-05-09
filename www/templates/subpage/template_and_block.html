@@ -107,8 +107,8 @@
                             </summary>
                     {% endif %}
 
-                    {{ transaction::block_transaction(tx=tx, place="template", tx_count=block_with_tx.block.block_tx) }}
-            
+                    {{ transaction::block_transaction(tx=tx, place="template", tx_count=block_with_tx.block.template_tx) }}
+
                     {% if loop.last and loop.index >= 16 %}
                         </details>
                     {% endif %}
