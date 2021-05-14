@@ -62,7 +62,7 @@
                 <div class="row px-3 justify-content-between">
                     {% for pool in POOLS %}
                         <div class="col-auto border m-1 rounded">
-                            <a class="text-decoration-none p-2" href="?{{QUERY_POOL}}={{pool}}">
+                            <a class="text-decoration-none p-2" href="?{{QUERY_POOL}}={{ pool | urlencode }}">
                                 {% if pool == "Unknown" %}
                                     <span class="mark text-danger">Unknown pool</span>
                                 {% else %}
