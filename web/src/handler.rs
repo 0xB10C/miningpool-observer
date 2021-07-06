@@ -15,10 +15,12 @@ const QUERY_POOL: &str = "pool";
 
 pub async fn index(
     tmpl: web::Data<tera::Tera>,
+    node_version: web::Data<String>,
     config: web::Data<config::WebSiteConfig>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
     let s = tmpl
         .render("index.html", &ctx)
         .map_err(error::template_error)?;
@@ -31,11 +33,13 @@ pub async fn templates_and_blocks(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
     query: web::Query<HashMap<String, String>>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
     ctx.insert("MAX_BLOCKS_PER_PAGE", &MAX_BLOCKS_PER_PAGE);
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
     ctx.insert("NAV_PAGE_BLOCKS", &true);
     ctx.insert("QUERY_PAGE", &QUERY_PAGE);
     ctx.insert("QUERY_POOL", &QUERY_POOL);
@@ -87,11 +91,13 @@ pub async fn single_template_and_block(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
     let hash = util::parse_block_hash_str(&hash_str)?;
 
     let mut ctx = tera::Context::new();
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
     ctx.insert(
         "THRESHOLD_TRANSACTION_CONSIDERED_YOUNG",
         &THRESHOLD_TRANSACTION_CONSIDERED_YOUNG,
@@ -128,9 +134,11 @@ pub async fn missing_sanctioned_transactions_rss(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
 
     let conn = pool.get().expect("couldn't get db connection from pool");
 
@@ -157,11 +165,13 @@ pub async fn missing_transactions(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
     query: web::Query<HashMap<String, String>>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
     ctx.insert("NAV_PAGE_MISSING", &true);
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
     ctx.insert("QUERY_PAGE", &QUERY_PAGE);
 
     let mut page = 0u32;
@@ -190,10 +200,12 @@ pub async fn single_missing_transaction(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
     let txid = util::parse_txid_str(&txid_str)?;
     let mut ctx = tera::Context::new();
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
     let conn = pool.get().expect("couldn't get db connection from pool");
     let missing_transaction = web::block(move || db::single_missing_transaction(&txid, &conn))
         .await
@@ -213,12 +225,14 @@ pub async fn conflicting_transactions(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
     query: web::Query<HashMap<String, String>>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
     ctx.insert("NAV_PAGE_CONFLICTING", &true);
     ctx.insert("MAX_BLOCKS_PER_PAGE", &MAX_BLOCKS_PER_PAGE);
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
     ctx.insert("QUERY_PAGE", &QUERY_PAGE);
 
     let mut page = 0u32;
@@ -250,6 +264,7 @@ pub async fn single_block_with_conflicting_transactions(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
     let hash = util::parse_block_hash_str(&hash_str)?;
 
@@ -257,6 +272,7 @@ pub async fn single_block_with_conflicting_transactions(
     ctx.insert("NAV_PAGE_CONFLICTING", &true);
     ctx.insert("MAX_BLOCKS_PER_PAGE", &MAX_BLOCKS_PER_PAGE);
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
 
     let conn = pool.get().expect("couldn't get db connection from pool");
     let single_block_with_conflicting_transactions =
@@ -293,6 +309,7 @@ pub async fn faq(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
     let tx_tags: Vec<tags::Tag> = tags::TxTag::TX_TAGS.iter().map(|t| t.value()).collect();
@@ -304,6 +321,7 @@ pub async fn faq(
     ctx.insert("BLOCK_TAG_VECTOR", &block_tags);
     ctx.insert("NAV_PAGE_FAQ", &true);
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
     ctx.insert("SANCTIONED_ADDRESSES", &get_sanctioned_addresses());
 
     let conn = pool.get().expect("couldn't get db connection from pool");
@@ -327,6 +345,7 @@ pub async fn faq(
 pub async fn debug(
     tmpl: web::Data<tera::Tera>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
     debug_pages_enabled: web::Data<bool>,
 ) -> Result<HttpResponse, Error> {
     if !debug_pages_enabled.get_ref() {
@@ -334,6 +353,7 @@ pub async fn debug(
     }
     let mut ctx = tera::Context::new();
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
     let s = tmpl
         .render("debug/index.html", &ctx)
         .map_err(error::template_error)?;
@@ -344,6 +364,7 @@ pub async fn debug_utxoset_scans(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
     query: web::Query<HashMap<String, String>>,
     debug_pages_enabled: web::Data<bool>,
 ) -> Result<HttpResponse, Error> {
@@ -360,6 +381,7 @@ pub async fn debug_utxoset_scans(
     let mut ctx = tera::Context::new();
     ctx.insert("MAX_BLOCKS_PER_PAGE", &MAX_BLOCKS_PER_PAGE);
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
     ctx.insert("QUERY_PAGE", &QUERY_PAGE);
 
     let (scans, max_pages) = web::block(move || db::sanctioned_utxo_scan_infos(&conn, page))
@@ -380,6 +402,7 @@ pub async fn debug_unknown_pool_blocks(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
     debug_pages_enabled: web::Data<bool>,
 ) -> Result<HttpResponse, Error> {
     if !debug_pages_enabled.get_ref() {
@@ -388,6 +411,7 @@ pub async fn debug_unknown_pool_blocks(
 
     let mut ctx = tera::Context::new();
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
 
     let conn = pool.get().expect("couldn't get db connection from pool");
     let unknown_pool_blocks = web::block(move || db::unknown_pool_blocks(&conn))
@@ -406,6 +430,7 @@ pub async fn debug_fees_by_pool(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
     debug_pages_enabled: web::Data<bool>,
 ) -> Result<HttpResponse, Error> {
     if !debug_pages_enabled.get_ref() {
@@ -414,6 +439,7 @@ pub async fn debug_fees_by_pool(
 
     let mut ctx = tera::Context::new();
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
 
     let conn = pool.get().expect("couldn't get db connection from pool");
     let avg_fees = web::block(move || db::avg_fees_by_pool(&conn))
@@ -432,6 +458,7 @@ pub async fn debug_template_selection_infos(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
     query: web::Query<HashMap<String, String>>,
     debug_pages_enabled: web::Data<bool>,
 ) -> Result<HttpResponse, Error> {
@@ -446,6 +473,7 @@ pub async fn debug_template_selection_infos(
 
     let mut ctx = tera::Context::new();
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
     ctx.insert("MAX_BLOCKS_PER_PAGE", &MAX_BLOCKS_PER_PAGE);
     ctx.insert("QUERY_PAGE", &QUERY_PAGE);
 
@@ -469,6 +497,7 @@ pub async fn debug_sanctioned_by_pool(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
     debug_pages_enabled: web::Data<bool>,
 ) -> Result<HttpResponse, Error> {
     if !debug_pages_enabled.get_ref() {
@@ -477,6 +506,7 @@ pub async fn debug_sanctioned_by_pool(
 
     let mut ctx = tera::Context::new();
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
 
     let conn = pool.get().expect("couldn't get db connection from pool");
     let sanctioned_table = web::block(move || db::debug_sanctioned_table(&conn))
@@ -495,9 +525,11 @@ pub async fn debug_sanctioned_transactions_rss(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
     ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
 
     let conn = pool.get().expect("couldn't get db connection from pool");
 
