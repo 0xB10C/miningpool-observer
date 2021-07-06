@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    {%- block opengraph -%}   
+    {%- block opengraph -%}
     {%- endblock opengraph -%}
     <link rel="shortcut icon" type="image/png" href="{{CONFIG.base_url}}/static/favicon.png">
     <link href="{{CONFIG.base_url}}/static/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
     <link href="{{CONFIG.base_url}}/static/css/site.css" rel="stylesheet">
 </head>
 <body class="bg-light">
-   
+
     {% include "nav.html" %}
-    
+
     <section class="container-xl px-xl-3">
         {% block content %}
         {% endblock content %}
@@ -20,18 +20,19 @@
 
     <footer class="container-xl px-xl-3 mt-3">
         {% block footer %}
-            
+
         <div class="row bg-white text-center">
             <div class="col-lg-6 p-3">
                 <!-- This part of the footer is static -->
                 <span class="my-auto">
-                    <span class="text-muted">Issues, Feature Ideas, and Self-Hosting Instructions</span>
-                    <br>
                     <a target="_blank" rel="noopener" href="https://github.com/0xb10c/miningpool-observer" class="text-dark text-decoration-none">
                         <img src="{{CONFIG.base_url}}/static/img/GitHub-Mark-64px.png" class="mx-1" width=32 height=32 alt="GitHub logo">
                         <span class="text-decoration-underline">miningpool-observer</span>
                     </a>
-                    
+                    <br>
+                    <span class="text-muted">Issues, Feature Ideas, and Self-Hosting Instructions</span>
+                    <br>
+                    <span class="text-muted">Bitcoin Core version used to generate block templates: {{NODE_VERSION}}</span>
                 </span>
             </div>
             <div class="col-lg-6">
@@ -39,7 +40,7 @@
                 {{ CONFIG.footer | safe }}
             </div>
         </div>
-            
+
         {% endblock footer %}
     </footer>
 

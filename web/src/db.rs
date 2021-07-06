@@ -1,7 +1,7 @@
 use crate::model::{
     AvgPoolFees, BlockWithTx, ConflictingOutpoint, ConflictingTransactionSet,
     ConflictingTranscationInfo, DebugTemplateSelectionInfosAndBlock, MissingSanctionedTransaction,
-    MissingTransaction, MissingTransactionBlockInfo, PoolSanctionedTableEntry,
+    MissingTransaction, MissingTransactionBlockInfo, PoolSanctionedTableEntry
 };
 use miningpool_observer_shared::model::{
     Block, ConflictingTransaction, DebugTemplateSelectionInfo, SanctionedTransactionInfo,
@@ -727,4 +727,12 @@ pub fn debug_templates_and_blocks_with_sanctioned_tx(
         .order(block_time.desc())
         .load::<Block>(conn)?;
     Ok(blocks)
+}
+
+pub fn get_node_info(
+    conn: &PgConnection,
+)-> Result<String, diesel::result::Error> {
+    use schema::node_info::dsl::*;
+    let info = node_info.select(version).first::<String>(conn)?;
+    Ok(info)
 }

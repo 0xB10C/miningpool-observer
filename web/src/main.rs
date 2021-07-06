@@ -32,7 +32,7 @@ async fn main() -> std::io::Result<()> {
         Ok(pool) => pool,
         Err(e) => panic!("Could not create a Postgres connection pool: {}", e),
     };
-    log::info!(target: "startup", "Succesfully created a database connection pool with a max size of {} connections.", pool.max_size());
+    log::info!(target: "startup", "Successfully created a database connection pool with a max size of {} connections.", pool.max_size());
 
     HttpServer::new(move || {
         let mut tera = match Tera::new(&(cloned_config.www_dir_path.clone() + "/templates/**/*")) {
@@ -45,6 +45,9 @@ async fn main() -> std::io::Result<()> {
         tera.register_function("block_tag_id_to_tag", util::block_tag_id_to_tag());
         tera.register_function("tx_tag_id_to_tag", util::tx_tag_id_to_tag());
         tera.register_function("seconds_to_duration", util::seconds_to_duration());
+
+        let conn = pool.clone().get().unwrap();
+        let node_version = db::get_node_info(&conn).unwrap();
 
         let usvg_options: usvg::Options = {
             let mut opt = usvg::Options::default();
@@ -61,6 +64,7 @@ async fn main() -> std::io::Result<()> {
             .data(cloned_config.site.clone())
             .data(cloned_config.debug_pages)
             .data(usvg_options)
+            .data(node_version)
             .wrap(middleware::Logger::default())
             //
             // ERROR HANDLING
