@@ -55,6 +55,13 @@ table! {
 }
 
 table! {
+    node_info (id) {
+        id -> Int4,
+        version -> Text,
+    }
+}
+
+table! {
     sanctioned_transaction_info (block_id, transaction_txid) {
         block_id -> Int4,
         transaction_txid -> Bytea,
@@ -124,6 +131,7 @@ allow_tables_to_appear_in_same_query!(
     block,
     conflicting_transactions,
     debug_template_selection,
+    node_info,
     sanctioned_transaction_info,
     sanctioned_utxo,
     sanctioned_utxo_scan_info,
