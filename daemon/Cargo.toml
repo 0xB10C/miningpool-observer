@@ -13,7 +13,7 @@ log = "0.4"
 simple_logger = "1.9.0"
 
 bitcoin = "0.26"
-bitcoin-pool-identification = "0.1.5"
+bitcoin-pool-identification = "0.1.6"
 rawtx-rs = "0.1.0"
 
 hex = "0.4"
