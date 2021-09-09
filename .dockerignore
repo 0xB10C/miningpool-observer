@@ -1,6 +1,10 @@
 target
+daemon/target
+shared/target
+web/target
 docs
 artwork
 README.md
 LICENSE
-contrib
+contrib/docker/Dockerfile.*
+contrib/docker/README.md

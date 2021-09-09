@@ -1,13 +1,19 @@
-FROM rust as builder
+FROM rust:1-slim-buster as builder
 WORKDIR app
 COPY . .
-RUN cargo build --release --bin miningpool-observer-web
-
-FROM debian:stable-slim as runtime
 RUN apt-get -y update
 RUN apt-get -y install libpq-dev
+RUN cargo build --release --bin miningpool-observer-web
+
+FROM debian:buster-slim as runtime
+RUN apt-get -y update
+RUN apt-get -y install libpq-dev
+
+COPY contrib/docker/entrypoint-web.sh /
 WORKDIR /app
 COPY --from=builder /app/target/release/miningpool-observer-web /app/web
 COPY --from=builder /app/www /app/www
+
 ENV CONFIG_FILE=/app/web-config.toml
-ENTRYPOINT ["/app/web"]
+ENTRYPOINT ["/entrypoint-web.sh"]
+CMD ["/app/web"]
