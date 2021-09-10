@@ -237,6 +237,8 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
 
         log_template_infos(&current_template);
 
+        // if we don't have any templates yet, just add the current_template
+        // and finish the loop early.
         if last_templates.is_empty() {
             last_templates.push_back(current_template);
             thread::sleep(WAIT_TIME_BETWEEN_TEMPLATE_QUERIES);
@@ -250,14 +252,14 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
                     "Could not get the previous_template from last_templates (size: {}).",
                     last_templates.len()
                 ));
-                metrics::ERROR_PROCESSING.inc();
+                metrics::ERROR_PROCESSING.inc(); // TODO: this can be remove as log_processing_error already increases it
                 panic!("last_templates should not be empty.");
             }
         };
 
-        // To detect a change in the chain we check the if the previous block hashes
+        // To detect if a block has been mined, we check the if the previous block hashes
         // of the previous_template and the current_template are different. If they are
-        // the same, the chain didn't change and we wait before getting a new template.
+        // the same, no block has been mined and we wait before getting a new template.
         if previous_template.previous_block_hash == current_template.previous_block_hash {
             last_templates.push_back(current_template);
             if last_templates.len() > MAX_OLD_TEMPLATES {
@@ -267,8 +269,15 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
             continue;
         }
 
+        // The previous block hash of the previous_template and the current_template are
+        // different. This means the chain tip changed. We request the block with the 
+        // current_templates previous block hash. In most cases, this should be the block
+        // that was just mined.
         let bitcoin_block = match rpc.get_block(&current_template.previous_block_hash) {
-            Ok(b) => b,
+            Ok(b) => {
+                metrics::RUNTIME_REQUESTED_BLOCKS.inc();
+                b
+            }
             Err(e) => {
                 log::error!(
                     target: LOG_TARGET_RPC,
@@ -286,23 +295,91 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
                 continue;
             }
         };
-        metrics::RUNTIME_REQUESTED_BLOCKS.inc();
 
-        // When something changed, we can't be sure if the last_templates are actually
-        // templates for this block. For example, two block might have arrived at our
-        // node in rapid succession and we didn't query for a template in between.
-        //
-        // To check that we can compare the block with one of our previous_template, we
-        // compare the previous block hashes of block and the last_template.
-        // We can compare the block and the template if the hashes are equal. Otherwise
-        // we might have skipped one or more blocks.
+        // When something changed, we can't be sure if the templates in last_templates
+        // are actually templates for the block we just requested. For example, two block
+        // might have arrived at our node in rapid succession and we didn't query for a
+        // template in between.
+        // To check that we can compare the block with one of our last_templates, we
+        // compare the previous block hashes of block and the previous_template.
+        // Only if the hashes are equal, we can compare the template and block.
+        // If they are not equal, we might have skipped one or more blocks.
         if bitcoin_block.header.prev_blockhash != previous_template.previous_block_hash {
             log::warn!(
-                target: "processing",
+                target: processing::LOG_TARGET_PROCESSING,
                 "Can't compare the previous_template to the new block. Was there a reorg or multiple blocks found in rapid succession?",
             );
             metrics::RUNTIME_SKIPPED_BLOCK_EVENTS.inc();
-            last_templates.clear();
+            
+            // We can however still compare the previous_template to it's respective block.
+            let hash_of_missed_block = match rpc.get_block_hash(previous_template.height) {
+                Ok(hash) => hash,
+                Err(e) => {
+                    log::error!(
+                        target: LOG_TARGET_RPC,
+                        "Could not get the block hash of block {} from the Bitcoin Core RPC server: {}",
+                        previous_template.height,
+                        e
+                    );
+                    thread::sleep(WAIT_TIME_BETWEEN_TEMPLATE_QUERIES);
+                    continue;
+                }
+            };
+
+            let bitcoin_block = match rpc.get_block(&hash_of_missed_block) {
+                Ok(b) => {
+                    metrics::RUNTIME_REQUESTED_BLOCKS.inc();
+                    b
+                }
+                Err(e) => {
+                    log::error!(
+                        target: LOG_TARGET_RPC,
+                        "Could not get the block with the hash {} from the Bitcoin Core RPC server: {}",
+                        current_template.previous_block_hash,
+                        e
+                    );
+                    log::error!(
+                        target: LOG_TARGET_RPC,
+                        "Skipping the processing of block missed block {}.",
+                        current_template.previous_block_hash
+                    );
+                    thread::sleep(WAIT_TIME_BETWEEN_TEMPLATE_QUERIES);
+                    continue;
+                }
+            };
+
+            // TODO: Once Bitcoin Core v22 with getblock verbosity level 2 is released
+            // and rust-bitcoincore-rpc has can get the block and fees in on RPC call,
+            // then the above getblock call and this can be merged.
+            let block_tx_fees = match rpc.get_block_txid_fee(&hash_of_missed_block) {
+                Ok(b) => b,
+                Err(e) => {
+                    log::error!(target: LOG_TARGET_RPC, "Could not get the txids and fees for block with the hash {} from the Bitcoin Core RPC server: {}", current_template.previous_block_hash, e);
+                    log::error!(target: processing::LOG_TARGET_PROCESSING, "Skipping the processing of block {}.", current_template.previous_block_hash);
+                    metrics::ERROR_RPC.inc();
+                    thread::sleep(WAIT_TIME_BETWEEN_TEMPLATE_QUERIES);
+                    continue;
+                }
+            };
+
+            log::info!(
+                target: LOG_TARGET_STATS,
+                "Processing missed block {} mined by {}",
+                bitcoin_block.block_hash(),
+                match bitcoin_block.identify_pool() {
+                    Some(pool) => pool.name,
+                    None => "UNKNOWN".to_string(),
+                }
+            );
+
+            process(
+                &rpc,
+                &db_pool,
+                &bitcoin_block,
+                &block_tx_fees,
+                &mut last_templates,
+            );            
+
             last_templates.push_back(current_template);
             continue;
         }
@@ -314,7 +391,7 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
             Ok(b) => b,
             Err(e) => {
                 log::error!(target: LOG_TARGET_RPC, "Could not get the txids and fees for block with the hash {} from the Bitcoin Core RPC server: {}", current_template.previous_block_hash, e);
-                log::error!(target: "processing", "Skipping the processing of block {}.", current_template.previous_block_hash);
+                log::error!(target: processing::LOG_TARGET_PROCESSING, "Skipping the processing of block {}.", current_template.previous_block_hash);
                 metrics::ERROR_RPC.inc();
                 thread::sleep(WAIT_TIME_BETWEEN_TEMPLATE_QUERIES);
                 continue;
@@ -570,7 +647,7 @@ fn process(
     if let Err(e) =
         db::insert_debug_template_selection_infos(debug_template_selection_infos, &connection)
     {
-        log::warn!(target: "processing", "Could not insert the debug_template_selection_infos into the database. Non-critical. Error: {}", e);
+        log::warn!(target: processing::LOG_TARGET_PROCESSING, "Could not insert the debug_template_selection_infos into the database. Non-critical. Error: {}", e);
         return;
     }
 
@@ -825,7 +902,7 @@ fn mempool_age_seconds(
     txids_only_in_template: &HashSet<&Txid>,
 ) -> HashMap<Txid, i32> {
     let mut txid_to_seconds_in_mempool: HashMap<Txid, i32> = HashMap::new();
-    log::info!(target: "processing", "Getting the mempool entry times for {} only-in-template-transactions", txids_only_in_template.len());
+    log::info!(target: processing::LOG_TARGET_PROCESSING, "Getting the mempool entry times for {} only-in-template-transactions", txids_only_in_template.len());
 
     // used the same time for all transactions
     let now = chrono::Local::now().timestamp();
@@ -848,6 +925,6 @@ fn mempool_age_seconds(
         };
         txid_to_seconds_in_mempool.insert(**txid, seconds);
     }
-    log::info!(target: "processing", "Completed requesting mempool entry times for {} transactions. {} requests failed.", txids_only_in_template.len(), failed_requests);
+    log::info!(target: processing::LOG_TARGET_PROCESSING, "Completed requesting mempool entry times for {} transactions. {} requests failed.", txids_only_in_template.len(), failed_requests);
     txid_to_seconds_in_mempool
 }
