@@ -18,7 +18,7 @@ use rawtx_rs::{input::InputType, output::OutputType};
 use bitcoin::hash_types::Txid;
 use bitcoin::{network::constants::Network, Address, Amount, Transaction};
 
-const LOG_TARGET_PROCESSING: &str = "processing";
+pub const LOG_TARGET_PROCESSING: &str = "processing";
 
 const VERSION_BIT_TAPROOT: u8 = 2;
 
