@@ -200,7 +200,10 @@ pub fn update_pool_name_with_block_id(
 }
 
 /// Update node information (e.g. node version)
-pub fn update_node_info(new_version: &str, conn: &PgConnection) -> Result<(), diesel::result::Error> {
+pub fn update_node_info(
+    new_version: &str,
+    conn: &PgConnection,
+) -> Result<(), diesel::result::Error> {
     use schema::node_info::dsl::*;
     diesel::update(node_info.filter(id.eq(0)))
         .set(version.eq(new_version))
