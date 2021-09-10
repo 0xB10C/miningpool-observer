@@ -597,8 +597,9 @@ fn select_best_template_for_block(
 fn log_template_infos(t: &GetBlockTemplateResult) {
     log::info!(
         target: LOG_TARGET_STATS,
-        "New Template based on {} | {} tx | coinbase {}",
+        "New Template based on {} | height {} | {} tx | coinbase {}",
         t.previous_block_hash,
+        t.height,
         t.transactions.len(),
         t.coinbase_value
     );
