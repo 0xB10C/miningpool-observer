@@ -59,7 +59,7 @@ fn main() {
         Err(e) => panic!("Could not setup logger: {}", e),
     }
 
-    let rpc_client = match Client::new(config.rpc_url.clone(), config.rpc_auth.clone()) {
+    let rpc_client = match Client::new(&config.rpc_url.clone(), config.rpc_auth.clone()) {
         Ok(config) => config,
         Err(e) => panic!("Could not setup the Bitcoin Core RPC client: {}", e),
     };
@@ -111,7 +111,7 @@ fn main() {
         ),
     };
     let rpc_client_utxo_set_scan =
-        match Client::new(config.rpc_url.clone(), config.rpc_auth.clone()) {
+        match Client::new(&config.rpc_url.clone(), config.rpc_auth.clone()) {
             Ok(config) => config,
             Err(e) => panic!(
                 "During startup: Could not setup the Bitcoin Core RPC client: {}",
@@ -128,7 +128,7 @@ fn main() {
             e
         ),
     };
-    let reid_rpc_client = match Client::new(config.rpc_url.clone(), config.rpc_auth) {
+    let reid_rpc_client = match Client::new(&config.rpc_url.clone(), config.rpc_auth) {
         Ok(config) => config,
         Err(e) => panic!(
             "During startup: Could not setup the Bitcoin Core RPC client: {}",
