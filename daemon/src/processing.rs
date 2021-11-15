@@ -214,6 +214,10 @@ fn get_transaction_tags(
         tags.push(tags::TxTag::SegWit as i32);
     }
 
+    if raw_tx_info.is_spending_taproot() {
+        tags.push(tags::TxTag::Taproot as i32);
+    }
+
     if raw_tx_info.is_spending_multisig() {
         tags.push(tags::TxTag::Multisig as i32);
     }
