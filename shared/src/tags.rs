@@ -53,6 +53,7 @@ pub enum TxTag {
     Coinbase = 4099,
     Coinjoin = 4100,
     SegWit = 4110,
+    Taproot = 4111,
     Multisig = 4120,
     RbfSignaling = 4130,
     OpReturn = 4140,
@@ -74,6 +75,7 @@ impl TryFrom<i32> for TxTag {
             x if x == TxTag::ZeroFee as i32 => Ok(TxTag::ZeroFee),
             x if x == TxTag::HighFeerate as i32 => Ok(TxTag::HighFeerate),
             x if x == TxTag::SegWit as i32 => Ok(TxTag::SegWit),
+            x if x == TxTag::Taproot as i32 => Ok(TxTag::Taproot),
             x if x == TxTag::Multisig as i32 => Ok(TxTag::Multisig),
             x if x == TxTag::RbfSignaling as i32 => Ok(TxTag::RbfSignaling),
             x if x == TxTag::OpReturn as i32 => Ok(TxTag::OpReturn),
@@ -92,7 +94,7 @@ impl TryFrom<i32> for TxTag {
 }
 
 impl TxTag {
-    pub const TX_TAGS: &'static [TxTag; 18] = &[
+    pub const TX_TAGS: &'static [TxTag; 19] = &[
         // important / danger
         TxTag::FromSanctioned,
         TxTag::ToSanctioned,
@@ -107,6 +109,7 @@ impl TxTag {
         // secondary
         TxTag::Coinbase,
         TxTag::SegWit,
+        TxTag::Taproot,
         TxTag::Multisig,
         TxTag::RbfSignaling,
         TxTag::OpReturn,
@@ -123,6 +126,14 @@ impl TxTag {
                 Tag {
                     name: "SegWit spending".to_string(),
                     description: vec!["The transaction has at least one SegWit input.".to_string()],
+                    color: GRAY,
+                    text_color: WHITE,
+                }
+            },
+            TxTag::Taproot => {
+                Tag {
+                    name: "Taproot spending".to_string(),
+                    description: vec!["The transaction has at least one Taproot input.".to_string()],
                     color: GRAY,
                     text_color: WHITE,
                 }
