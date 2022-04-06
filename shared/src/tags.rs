@@ -33,8 +33,8 @@ pub enum TxTag {
     // make sure to add new tag to the try_from fn below!
 
     // important / danger (1000-1999)
-    FromSanctioned = 1099,
-    ToSanctioned = 1100,
+    FromOFACSanctioned = 1099,
+    ToOFACSanctioned = 1100,
     Conflicting = 1110,
 
     // warning (2000-2999)
@@ -68,8 +68,8 @@ impl TryFrom<i32> for TxTag {
 
     fn try_from(v: i32) -> Result<Self, Self::Error> {
         match v {
-            x if x == TxTag::FromSanctioned as i32 => Ok(TxTag::FromSanctioned),
-            x if x == TxTag::ToSanctioned as i32 => Ok(TxTag::ToSanctioned),
+            x if x == TxTag::FromOFACSanctioned as i32 => Ok(TxTag::FromOFACSanctioned),
+            x if x == TxTag::ToOFACSanctioned as i32 => Ok(TxTag::ToOFACSanctioned),
             x if x == TxTag::Coinbase as i32 => Ok(TxTag::Coinbase),
             x if x == TxTag::Large as i32 => Ok(TxTag::Large),
             x if x == TxTag::ZeroFee as i32 => Ok(TxTag::ZeroFee),
@@ -96,8 +96,8 @@ impl TryFrom<i32> for TxTag {
 impl TxTag {
     pub const TX_TAGS: &'static [TxTag; 19] = &[
         // important / danger
-        TxTag::FromSanctioned,
-        TxTag::ToSanctioned,
+        TxTag::FromOFACSanctioned,
+        TxTag::ToOFACSanctioned,
         TxTag::Conflicting,
         // warning
         TxTag::Large,
@@ -197,22 +197,22 @@ impl TxTag {
                     text_color: WHITE,
                 }
             },
-            TxTag::FromSanctioned => {
+            TxTag::FromOFACSanctioned => {
                 Tag {
-                    name: "From Sanctioned".to_string(),
+                    name: "From OFAC Sanctioned".to_string(),
                     description: vec![
-                            "The transaction spends an UTXO from a sanctioned address.".to_string(),
+                            "The transaction spends an UTXO from an OFAC sanctioned address.".to_string(),
                             "Some mining pools adhere to the sanctions and won't include transactions from sanctioned addresses in their blocks.".to_string(),
                         ],
                     color: RED,
                     text_color: WHITE,
                 }
             },
-            TxTag::ToSanctioned => {
+            TxTag::ToOFACSanctioned => {
                 Tag {
-                    name: "To Sanctioned".to_string(),
+                    name: "To OFAC Sanctioned".to_string(),
                     description: vec![
-                            "The transaction pays to a sanctioned address.".to_string(),
+                            "The transaction pays to an OFAC sanctioned address.".to_string(),
                             "Some mining pools adhere to the sanctions and won't include transactions to sanctioned addresses in their blocks.".to_string(),
                         ],
                     color: RED,

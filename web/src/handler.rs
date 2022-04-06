@@ -4,6 +4,7 @@ use crate::{db, error, model, util};
 
 use db::MAX_BLOCKS_PER_PAGE;
 use miningpool_observer_shared::{config, db_pool, tags};
+use miningpool_observer_shared::sanctioneer::Sanctioneer;
 use tags::THRESHOLD_TRANSACTION_CONSIDERED_YOUNG;
 
 use std::collections::HashMap;
@@ -322,16 +323,16 @@ pub async fn faq(
     ctx.insert("NAV_PAGE_FAQ", &true);
     ctx.insert("CONFIG", config.get_ref());
     ctx.insert("NODE_VERSION", node_version.get_ref());
-    ctx.insert("SANCTIONED_ADDRESSES", &get_sanctioned_addresses());
+    ctx.insert("OFAC_SANCTIONED_ADDRESSES", &get_OFAC_sanctioned_addresses());
 
     let conn = pool.get().expect("couldn't get db connection from pool");
-    let recent_sanctioned_utxo_scan_info =
-        web::block(move || db::get_recent_sanctioned_utxo_scan_info(&conn))
+    let recent_ofac_sanctioned_utxo_scan_info =
+        web::block(move || db::get_recent_sanctioned_utxo_scan_info(&conn, Sanctioneer::OFAC))
             .await
             .map_err(error::database_error)?;
     ctx.insert(
-        "recent_sanctioned_utxo_scan_info",
-        &recent_sanctioned_utxo_scan_info,
+        "recent_ofac_sanctioned_utxo_scan_info",
+        &recent_ofac_sanctioned_utxo_scan_info,
     );
 
     let s = tmpl

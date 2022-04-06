@@ -78,6 +78,7 @@ table! {
         script_pubkey -> Bytea,
         amount -> Int8,
         height -> Int4,
+        sanctioned_by -> Int4,
     }
 }
 
@@ -88,6 +89,7 @@ table! {
         duration_seconds -> Int4,
         utxo_amount -> Int8,
         utxo_count -> Int4,
+        sanctioned_by -> Int4,
     }
 }
 

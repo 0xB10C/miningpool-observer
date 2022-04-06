@@ -1,15 +1,16 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::convert::{TryInto};
 
 use crate::metrics;
 use crate::model::{
     BlockTxData, TemplateTxData, TxInfo, TxPackage, TxPackageForPackageConstruction,
 };
-
 use miningpool_observer_shared::bitcoincore_rpc::json::{
     GetBlockTemplateResult, GetBlockTxFeesResult,
 };
 use miningpool_observer_shared::{model as shared_model, tags};
+use miningpool_observer_shared::sanctioneer::Sanctioneer;
 
 use bitcoin_pool_identification::{IdentificationMethod, PoolIdentification};
 use rawtx_rs::tx::TxInfo as RawTxInfo;
@@ -21,6 +22,15 @@ use bitcoin::{network::constants::Network, Address, Amount, Transaction};
 pub const LOG_TARGET_PROCESSING: &str = "processing";
 
 const VERSION_BIT_TAPROOT: u8 = 2;
+
+
+
+fn is_sanctioned(addr: &Address) -> Option<Sanctioneer> {
+    if is_OFAC_sanctioned(addr) {
+        return Some(Sanctioneer::OFAC);
+    }
+    return None;
+}
 
 fn in_and_outputs_to_strings(raw_tx_info: &RawTxInfo) -> (Vec<String>, Vec<String>) {
     let mut output_type_counts: HashMap<OutputType, u32> = HashMap::new();
@@ -70,34 +80,40 @@ fn is_tx_sanctioned(
     tx: &Transaction,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
 ) -> bool {
-    is_tx_to_sanctioned(tx) || is_tx_from_sanctioned(tx, outpoint_to_sanctioned_utxo_map)
+    sanctioneer_for_tx_to_sanctioned(tx).is_some()
+        || sanctioneer_for_tx_from_sanctioned(tx, outpoint_to_sanctioned_utxo_map).is_some()
 }
 
-// includes an auto-generated function to identify OFAC sanctioned addresses
+// includes an auto-generated function to identify sanctioned addresses
 // the generation code can be found in build.rs
 include!(concat!(env!("OUT_DIR"), "/match_sanctioned_addr.rs"));
 
-fn is_tx_to_sanctioned(tx: &Transaction) -> bool {
+/// Returns the sanctioneer for the first output paying to a sanctioned address.
+/// If no output pays to a sanctioned address, `None` is returned.
+fn sanctioneer_for_tx_to_sanctioned(tx: &Transaction) -> Option<Sanctioneer> {
     for output in tx.output.iter() {
         if let Some(address) = Address::from_script(&output.script_pubkey, Network::Bitcoin) {
-            if is_sanctioned(&address) {
-                return true;
-            }
+            return is_sanctioned(&address);
         }
     }
-    false
+    None
 }
 
-fn is_tx_from_sanctioned(
+/// Returns the sanctioneer for the first input spending from a sanctioned address.
+/// If no input spends from a sanctioned address, `None` is returned.
+fn sanctioneer_for_tx_from_sanctioned(
     tx: &Transaction,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
-) -> bool {
-    tx.input
-        .iter()
-        .map(|input| input.previous_output)
-        .any(|outpoint| {
-            outpoint_to_sanctioned_utxo_map.contains_key(&(outpoint.txid.to_vec(), outpoint.vout))
-        })
+) -> Option<Sanctioneer> {
+    for input in tx.input.iter() {
+        let outpoint = input.previous_output;
+        if let Some(sanctioned_utxo) =
+            outpoint_to_sanctioned_utxo_map.get(&(outpoint.txid.to_vec(), outpoint.vout))
+        {
+            return Some(sanctioned_utxo.sanctioned_by.try_into().unwrap());
+        }
+    }
+    None
 }
 
 fn tx_sanctioned_addresses(
@@ -121,7 +137,7 @@ fn tx_sanctioned_addresses_to(tx: &Transaction) -> Vec<String> {
     let mut addresses: HashSet<String> = HashSet::new();
     for out in &tx.output {
         if let Some(address) = Address::from_script(&out.script_pubkey, Network::Bitcoin) {
-            if is_sanctioned(&address) {
+            if is_sanctioned(&address).is_some() {
                 addresses.insert(address.to_string());
             }
         }
@@ -174,12 +190,22 @@ fn get_transaction_tags(
         tags.push(tags::TxTag::Conflicting as i32);
     }
 
-    if is_tx_to_sanctioned(&tx_info.tx) {
-        tags.push(tags::TxTag::ToSanctioned as i32);
+    if let Some(sanctioneer) = sanctioneer_for_tx_to_sanctioned(&tx_info.tx) {
+        match sanctioneer {
+            Sanctioneer::OFAC => {
+                tags.push(tags::TxTag::ToOFACSanctioned as i32);
+            }
+        }
     }
 
-    if is_tx_from_sanctioned(&tx_info.tx, outpoint_to_sanctioned_utxo_map) {
-        tags.push(tags::TxTag::FromSanctioned as i32);
+    if let Some(sanctioneer) =
+        sanctioneer_for_tx_from_sanctioned(&tx_info.tx, outpoint_to_sanctioned_utxo_map)
+    {
+        match sanctioneer {
+            Sanctioneer::OFAC => {
+                tags.push(tags::TxTag::FromOFACSanctioned as i32);
+            }
+        }
     }
 
     if tx_info.tx.is_coin_base() {
@@ -515,10 +541,10 @@ pub fn build_newly_created_sanctioned_utxos(
     block: &bitcoin::Block,
 ) -> Vec<shared_model::SanctionedUtxo> {
     let mut new_sanctioned_utxos: Vec<shared_model::SanctionedUtxo> = vec![];
-    for to_sanctioned_tx in block.txdata.iter().filter(|tx| is_tx_to_sanctioned(tx)) {
+    for to_sanctioned_tx in block.txdata.iter() {
         for (vout, output) in to_sanctioned_tx.output.iter().enumerate() {
             if let Some(address) = Address::from_script(&output.script_pubkey, Network::Bitcoin) {
-                if is_sanctioned(&address) {
+                if let Some(sanctioneer) = is_sanctioned(&address) {
                     new_sanctioned_utxos.push(shared_model::SanctionedUtxo {
                         amount: output.value as i64,
                         script_pubkey: output.script_pubkey.to_bytes(),
@@ -531,6 +557,7 @@ pub fn build_newly_created_sanctioned_utxos(
                             .cloned()
                             .collect(),
                         vout: vout as i32,
+                        sanctioned_by: sanctioneer as i32,
                     })
                 }
             }

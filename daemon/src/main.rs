@@ -17,6 +17,7 @@ use miningpool_observer_shared::bitcoincore_rpc::{Client, Error, RpcApi};
 use miningpool_observer_shared::{
     config, db_pool, model as shared_model, prometheus_metric_server,
 };
+use miningpool_observer_shared::sanctioneer::Sanctioneer;
 
 #[macro_use]
 extern crate diesel_migrations;
@@ -270,7 +271,7 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
         }
 
         // The previous block hash of the previous_template and the current_template are
-        // different. This means the chain tip changed. We request the block with the 
+        // different. This means the chain tip changed. We request the block with the
         // current_templates previous block hash. In most cases, this should be the block
         // that was just mined.
         let bitcoin_block = match rpc.get_block(&current_template.previous_block_hash) {
@@ -310,7 +311,7 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
                 "Can't compare the previous_template to the new block. Was there a reorg or multiple blocks found in rapid succession?",
             );
             metrics::RUNTIME_SKIPPED_BLOCK_EVENTS.inc();
-            
+
             // We can however still compare the previous_template to it's respective block.
             let hash_of_missed_block = match rpc.get_block_hash(previous_template.height) {
                 Ok(hash) => hash,
@@ -355,7 +356,11 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
                 Ok(b) => b,
                 Err(e) => {
                     log::error!(target: LOG_TARGET_RPC, "Could not get the txids and fees for block with the hash {} from the Bitcoin Core RPC server: {}", current_template.previous_block_hash, e);
-                    log::error!(target: processing::LOG_TARGET_PROCESSING, "Skipping the processing of block {}.", current_template.previous_block_hash);
+                    log::error!(
+                        target: processing::LOG_TARGET_PROCESSING,
+                        "Skipping the processing of block {}.",
+                        current_template.previous_block_hash
+                    );
                     metrics::ERROR_RPC.inc();
                     thread::sleep(WAIT_TIME_BETWEEN_TEMPLATE_QUERIES);
                     continue;
@@ -378,7 +383,7 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
                 &bitcoin_block,
                 &block_tx_fees,
                 &mut last_templates,
-            );            
+            );
 
             last_templates.push_back(current_template);
             continue;
@@ -391,7 +396,11 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
             Ok(b) => b,
             Err(e) => {
                 log::error!(target: LOG_TARGET_RPC, "Could not get the txids and fees for block with the hash {} from the Bitcoin Core RPC server: {}", current_template.previous_block_hash, e);
-                log::error!(target: processing::LOG_TARGET_PROCESSING, "Skipping the processing of block {}.", current_template.previous_block_hash);
+                log::error!(
+                    target: processing::LOG_TARGET_PROCESSING,
+                    "Skipping the processing of block {}.",
+                    current_template.previous_block_hash
+                );
                 metrics::ERROR_RPC.inc();
                 thread::sleep(WAIT_TIME_BETWEEN_TEMPLATE_QUERIES);
                 continue;
@@ -424,7 +433,7 @@ fn process(
     bitcoin_block: &Block,
     block_tx_fees: &GetBlockTxFeesResult,
     last_templates: &mut VecDeque<GetBlockTemplateResult>,
-){
+) {
     let block_tx_data = processing::build_block_tx_data(&bitcoin_block, &block_tx_fees);
 
     // For best possible comparison we want to compare a template and a block
@@ -691,6 +700,8 @@ include!(concat!(env!("OUT_DIR"), "/list_sanctioned_addr.rs"));
 
 fn scantxoutset_sanctioned_tx(
     rpc: &Client,
+    addrs: &Vec<String>,
+    sanctioneer: Sanctioneer,
 ) -> Result<
     (
         Vec<shared_model::SanctionedUtxo>,
@@ -698,11 +709,11 @@ fn scantxoutset_sanctioned_tx(
     ),
     Error,
 > {
-    let addrs = get_sanctioned_addresses();
     log::info!(
         target: LOG_TARGET_UTXOSETSCAN,
-        "Starting UTXO set scan for Sanctioned UTXOs with {} addresses.",
-        addrs.len()
+        "Starting UTXO set scan for {} sanctioned UTXOs with {} addresses.",
+        sanctioneer.name(),
+        addrs.len(),
     );
     let descriptors: Vec<ScanTxOutRequest> = addrs
         .iter()
@@ -726,6 +737,7 @@ fn scantxoutset_sanctioned_tx(
         duration_seconds: duration.as_secs() as i32,
         utxo_count: scan_result.unspents.len() as i32,
         utxo_amount: scan_result.total_amount.as_sat() as i64,
+        sanctioned_by: sanctioneer as i32,
     };
 
     let utxos = scan_result
@@ -741,6 +753,7 @@ fn scantxoutset_sanctioned_tx(
                 script_pubkey: utxo.script_pub_key.to_bytes(),
                 amount: utxo.amount.as_sat() as i64,
                 height: utxo.height as i32,
+                sanctioned_by: sanctioneer as i32,
             }
         })
         .collect();
@@ -749,23 +762,34 @@ fn scantxoutset_sanctioned_tx(
 }
 
 fn start_sanctioned_utxos_scan_thread(rpc_client: Client, db_pool: db_pool::PgPool) {
-    thread::spawn(move || loop {
-        let (sanctioned_utxos, scan_info): (
-            Vec<shared_model::SanctionedUtxo>,
-            shared_model::SanctionedUtxoScanInfo,
-        ) = match scantxoutset_sanctioned_tx(&rpc_client) {
-            Ok(scan_results) => scan_results,
-            Err(e) => {
-                log::error!(
-                    target: LOG_TARGET_UTXOSETSCAN,
-                    "Could not scan the UTXO set for sanctioned UTXOs. Retrying in {:?}. Error: {}",
-                    WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS,
-                    e
-                );
-                thread::sleep(WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS);
-                continue;
-            }
-        };
+    thread::spawn(move || 'threadloop: loop {
+        let mut scan_infos: Vec<shared_model::SanctionedUtxoScanInfo> = vec![];
+        let mut sanctioned_utxos: Vec<shared_model::SanctionedUtxo> = vec![];
+
+        let addr_sanctioneer_pairs: Vec<(Vec<String>, Sanctioneer)> = vec![(
+            get_OFAC_sanctioned_addresses(),
+            Sanctioneer::OFAC,
+        )];
+
+        for pair in addr_sanctioneer_pairs.iter() {
+            match scantxoutset_sanctioned_tx(&rpc_client, &pair.0, pair.1) {
+                Ok(result) => {
+                    sanctioned_utxos.extend(result.0);
+                    scan_infos.push(result.1);
+                }
+                Err(e) => {
+                    log::error!(
+                        target: LOG_TARGET_UTXOSETSCAN,
+                        "Could not scan the UTXO set for {:?} sanctioned UTXOs. Retrying in {:?}. Error: {}",
+                        pair.1.name(),
+                        WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS,
+                        e
+                    );
+                    thread::sleep(WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS);
+                    continue 'threadloop;
+                }
+            };
+        }
 
         let conn = match db_pool.get() {
             Ok(c) => c,
@@ -781,13 +805,17 @@ fn start_sanctioned_utxos_scan_thread(rpc_client: Client, db_pool: db_pool::PgPo
             }
         };
 
-        if let Err(err) = db::insert_sanctioned_utxo_scan_info(&scan_info, &conn) {
-            log::error!(
-                target: LOG_TARGET_UTXOSETSCAN,
-                "Could not insert UTXO Set scan information into the database: {}",
-                err
-            );
-        } else if let Err(err) = db::clean_and_insert_sanctioned_utxos(&sanctioned_utxos, &conn) {
+        for scan_info in scan_infos.iter() {
+            if let Err(err) = db::insert_sanctioned_utxo_scan_info(scan_info, &conn) {
+                log::error!(
+                    target: LOG_TARGET_UTXOSETSCAN,
+                    "Could not insert UTXO Set scan information into the database: {}",
+                    err
+                );
+            }
+        }
+
+        if let Err(err) = db::clean_and_insert_sanctioned_utxos(&sanctioned_utxos, &conn) {
             log::error!(
                 target: LOG_TARGET_UTXOSETSCAN,
                 "Could not insert UTXO Set scan information into the database: {}",
@@ -902,7 +930,11 @@ fn mempool_age_seconds(
     txids_only_in_template: &HashSet<&Txid>,
 ) -> HashMap<Txid, i32> {
     let mut txid_to_seconds_in_mempool: HashMap<Txid, i32> = HashMap::new();
-    log::info!(target: processing::LOG_TARGET_PROCESSING, "Getting the mempool entry times for {} only-in-template-transactions", txids_only_in_template.len());
+    log::info!(
+        target: processing::LOG_TARGET_PROCESSING,
+        "Getting the mempool entry times for {} only-in-template-transactions",
+        txids_only_in_template.len()
+    );
 
     // used the same time for all transactions
     let now = chrono::Local::now().timestamp();
@@ -925,6 +957,11 @@ fn mempool_age_seconds(
         };
         txid_to_seconds_in_mempool.insert(**txid, seconds);
     }
-    log::info!(target: processing::LOG_TARGET_PROCESSING, "Completed requesting mempool entry times for {} transactions. {} requests failed.", txids_only_in_template.len(), failed_requests);
+    log::info!(
+        target: processing::LOG_TARGET_PROCESSING,
+        "Completed requesting mempool entry times for {} transactions. {} requests failed.",
+        txids_only_in_template.len(),
+        failed_requests
+    );
     txid_to_seconds_in_mempool
 }

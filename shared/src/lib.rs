@@ -6,6 +6,7 @@ pub mod db_pool;
 pub mod model;
 pub mod schema;
 pub mod tags;
+pub mod sanctioneer;
 
 // Minimal and incorrect HTTP server answering on all requests with
 // the prometheus metrics.

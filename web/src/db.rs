@@ -8,6 +8,7 @@ use miningpool_observer_shared::model::{
     SanctionedUtxoScanInfo, Transaction, TransactionOnlyInBlock, TransactionOnlyInTemplate,
 };
 use miningpool_observer_shared::schema;
+use miningpool_observer_shared::sanctioneer::Sanctioneer;
 
 use diesel::dsl::{count, sql};
 use diesel::pg::PgConnection;
@@ -630,9 +631,11 @@ pub fn single_missing_transaction(
 
 pub fn get_recent_sanctioned_utxo_scan_info(
     conn: &PgConnection,
+    sanctioneer: Sanctioneer,
 ) -> Result<SanctionedUtxoScanInfo, diesel::result::Error> {
     use schema::sanctioned_utxo_scan_info::dsl::*;
     sanctioned_utxo_scan_info
+        .filter(sanctioned_by.eq(sanctioneer as i32))
         .order_by(end_time.desc())
         .limit(1)
         .first(conn)

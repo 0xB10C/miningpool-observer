@@ -173,14 +173,14 @@
 
             {{ faq::question(id="sanctioned-tx-addresses", question="Which addresses are sanctioned by the OFAC sanctions?")}}
             <dd class="col-12 mb-3 ms-md-4">
-                This site currently tracks {{ SANCTIONED_ADDRESSES | length }} OFAC sanctioned addresses.
+                This site currently tracks {{ OFAC_SANCTIONED_ADDRESSES | length }} OFAC sanctioned addresses.
                 An automatically updated list of sanctioned Bitcoin addresses can be found <a target="_blank" rel="noopener" href="https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses/blob/lists/sanctioned_addresses_XBT.txt">here</a> (generated with <a href="https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses/">this Open Source tool</a>).
                 <details>
                     <summary>
                         Show all tracked sanctioned addresses.
                     </summary>
                     <ol>
-                        {% for addr in SANCTIONED_ADDRESSES %}
+                        {% for addr in OFAC_SANCTIONED_ADDRESSES %}
                             <li><code>{{addr}}</code> (<a target="_blank" rel="noopener" href="https://search.treasury.gov/search?affiliate=treas&query={{addr}}">lookup on treasury.gov</a>)</li>
                         {% endfor%}
                     </ol>
@@ -189,16 +189,16 @@
             
             {{ faq::question(id="sanctioned-tx-utxos", question="Which UTXOs are sanctioned by the OFAC sanction list?")}}
             <dd class="col-12 mb-3 ms-md-4">
-                There are {{ recent_sanctioned_utxo_scan_info.utxo_count }} UTXOs with a total value of {{ recent_sanctioned_utxo_scan_info.utxo_amount / 100000000 }} BTC belonging to Sanctioned Addresses at height {{ recent_sanctioned_utxo_scan_info.end_height }} ({{ recent_sanctioned_utxo_scan_info.end_time | date(format="%Y-%m-%d %H:%M:%S UTC") }}).
+                There are {{ recent_ofac_sanctioned_utxo_scan_info.utxo_count }} UTXOs with a total value of {{ recent_ofac_sanctioned_utxo_scan_info.utxo_amount / 100000000 }} BTC belonging to Sanctioned Addresses at height {{ recent_ofac_sanctioned_utxo_scan_info.end_height }} ({{ recent_ofac_sanctioned_utxo_scan_info.end_time | date(format="%Y-%m-%d %H:%M:%S UTC") }}).
             
                 The individual Sanctioned UTXOs can, for example, be retrieved via the <code>scantxoutset</code> RPC of Bitcoin Core.
                 <details>
                     <summary>
-                        Example <code>scantxoutset</code> RPC query using the {{ SANCTIONED_ADDRESSES | length }} Sanctioned Addresses.
+                        Example <code>scantxoutset</code> RPC query using the {{ OFAC_SANCTIONED_ADDRESSES | length }} Sanctioned Addresses.
                     </summary>
                     <code>
                         bitcoin-cli scantxoutset start "[ 
-                        {% for addr in SANCTIONED_ADDRESSES %}
+                        {% for addr in OFAC_SANCTIONED_ADDRESSES %}
                             \"addr({{addr}})\"{% if not loop.last %},{% endif %}
                         {% endfor %}
                         ]"

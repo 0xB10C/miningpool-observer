@@ -172,6 +172,7 @@ pub struct SanctionedUtxo {
     pub script_pubkey: Vec<u8>,
     pub amount: i64,
     pub height: i32,
+    pub sanctioned_by: i32,
 }
 
 #[derive(Insertable, Queryable, Serialize, Debug)]
@@ -182,6 +183,7 @@ pub struct SanctionedUtxoScanInfo {
     pub duration_seconds: i32,
     pub utxo_amount: i64,
     pub utxo_count: i32,
+    pub sanctioned_by: i32,
 }
 
 #[derive(Insertable, Queryable, Serialize, Debug, Clone)]
