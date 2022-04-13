@@ -13,7 +13,7 @@ log = "0.4"
 simple_logger = "1.9.0"
 
 bitcoin = "0.27"
-bitcoin-pool-identification = "0.1.8"
+bitcoin-pool-identification = "0.1.9"
 rawtx-rs = {git = "https://github.com/0xB10C/rawtx-rs", branch = "master"}
 
 hex = "0.4"
