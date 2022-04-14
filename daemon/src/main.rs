@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::thread;
 use std::time;
 use std::time::Instant;
+use std::io::Read;
+use std::fs::File;
 
 use bitcoin::hash_types::Txid;
 use bitcoin::hashes::Hash;
@@ -13,7 +15,8 @@ use miningpool_observer_shared::bitcoincore_rpc::json::{
     GetBlockTemplateModes, GetBlockTemplateResult, GetBlockTemplateRules, GetBlockTxFeesResult,
     ScanTxOutRequest,
 };
-use miningpool_observer_shared::bitcoincore_rpc::{Client, Error, RpcApi};
+use miningpool_observer_shared::bitcoincore_rpc::{Client, Error, RpcApi, Auth};
+use miningpool_observer_shared::bitcoincore_rpc::jsonrpc;
 use miningpool_observer_shared::{
     config, db_pool, model as shared_model, prometheus_metric_server,
 };
@@ -29,9 +32,11 @@ mod processing;
 const WAIT_TIME_BETWEEN_TEMPLATE_QUERIES: time::Duration = time::Duration::from_secs(10);
 const WAIT_TIME_BETWEEN_CONNPOOL_GETCONNECTION: time::Duration = time::Duration::from_secs(1);
 const WAIT_TIME_BETWEEN_UTXO_SET_SCANS: time::Duration =
-    std::time::Duration::from_secs(60 * 60 * 3); // 3 hours
+    time::Duration::from_secs(60 * 60 * 3); // 3 hours
 const WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS: time::Duration =
-    std::time::Duration::from_secs(60 * 5); // 5 minutes
+    time::Duration::from_secs(60 * 5); // 5 minutes
+const TIMEOUT_UTXO_SET_SCANS: time::Duration =
+    time::Duration::from_secs(60 * 8); // 8 minutes
 const MAX_OLD_TEMPLATES: usize = 15;
 
 const LOG_TARGET_RPC: &str = "rpc";
@@ -110,14 +115,26 @@ fn main() {
             e
         ),
     };
-    let rpc_client_utxo_set_scan =
-        match Client::new(&config.rpc_url.clone(), config.rpc_auth.clone()) {
-            Ok(config) => config,
-            Err(e) => panic!(
-                "During startup: Could not setup the Bitcoin Core RPC client: {}",
-                e
-            ),
-        };
+
+    let user_pass = match get_user_pass(&config.rpc_auth) {
+        Ok(x) => x,
+        Err(e) => panic!(
+            "During startup: Could not extract the Bitcoin Core RPC credentials: {}",
+            e
+        ),
+    };
+
+    // Build a custom transport here to be able to configure the timeout.
+    let custom_timeout_transport = jsonrpc::simple_http::Builder::new()
+        .url(&config.rpc_url.clone())
+        .expect("invalid rpc url")
+        .auth(user_pass.0.expect("rpc user is empty"), user_pass.1)
+        .timeout(TIMEOUT_UTXO_SET_SCANS)
+        .build();
+    let custom_timeout_rpc_client =
+        jsonrpc::client::Client::with_transport(custom_timeout_transport);
+
+    let rpc_client_utxo_set_scan = Client::from_jsonrpc(custom_timeout_rpc_client);
     start_sanctioned_utxos_scan_thread(rpc_client_utxo_set_scan, utxo_set_scan_conn_pool);
 
     // Retry pool identification for "Unkown" pools
@@ -762,6 +779,7 @@ fn start_sanctioned_utxos_scan_thread(rpc_client: Client, db_pool: db_pool::PgPo
                     WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS,
                     e
                 );
+                metrics::ERROR_RPC.inc();
                 thread::sleep(WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS);
                 continue;
             }
@@ -895,6 +913,39 @@ fn start_retry_unknown_pool_identification_thread(rpc_client: Client, db_pool: d
             "Finished trying to re-indentify Unknown pools"
         );
     });
+}
+
+/// Convert into the arguments that jsonrpc::Client needs.
+/// adopted from https://docs.rs/bitcoincore-rpc/0.14.0/src/bitcoincore_rpc/client.rs.html#1122-1143
+fn get_user_pass(auth: &Auth) -> miningpool_observer_shared::bitcoincore_rpc::Result<(Option<String>, Option<String>)> {
+    match auth {
+        Auth::None => Ok((None, None)),
+        Auth::UserPass(u, p) => Ok((Some(u.to_string()), Some(p.to_string()))),
+        Auth::CookieFile(path) => {
+            let mut file = File::open(path)?;
+            let mut contents = String::new();
+            file.read_to_string(&mut contents)?;
+            let mut split = contents.splitn(2, ":");
+            Ok((
+                Some(
+                    split
+                        .next()
+                        .ok_or(
+                            miningpool_observer_shared::bitcoincore_rpc::Error::InvalidCookieFile,
+                        )?
+                        .into(),
+                ),
+                Some(
+                    split
+                        .next()
+                        .ok_or(
+                            miningpool_observer_shared::bitcoincore_rpc::Error::InvalidCookieFile,
+                        )?
+                        .into(),
+                ),
+            ))
+        }
+    }
 }
 
 fn mempool_age_seconds(
