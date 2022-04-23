@@ -412,14 +412,20 @@ fn transaction_only_in_block_by_block_id(
         .load(conn)
 }
 
-const QUERY_MISSING_TRANSACTIONS: &str = r#" 
-    SELECT 
+const QUERY_MISSING_TRANSACTIONS: &str = r#"
+    SELECT
         count(*) cnt,
         max(block_id) max_block_id,
         transaction_txid txid
     FROM transaction_only_in_template
     JOIN transaction
         ON transaction.txid = transaction_txid
+    JOIN block
+	    on block.id = block_id
+    WHERE
+	    transaction_only_in_template.position < (block.template_tx - block.template_tx * 0.02)
+	    AND
+	    block.block_tx > 1
     GROUP BY transaction_txid
     HAVING
         count(*) > 2
@@ -429,17 +435,23 @@ const QUERY_MISSING_TRANSACTIONS: &str = r#"
     LIMIT $1
     OFFSET $2;"#;
 
-const QUERY_COUNT_MISSING_TRANSACTIONS: &str = r#" 
-    SELECT 
+const QUERY_COUNT_MISSING_TRANSACTIONS: &str = r#"
+    SELECT
         COUNT(*)
     FROM
         (
             SELECT DISTINCT
                 transaction_txid
-            FROM 
-                transaction_only_in_template 
+            FROM
+                transaction_only_in_template
+            JOIN block
+                on block.id = block_id
+            WHERE
+                transaction_only_in_template.position < (block.template_tx - block.template_tx * 0.02)
+                AND
+                block.block_tx > 1
             GROUP BY transaction_txid
-            HAVING 
+            HAVING
                 COUNT(transaction_txid) > 2
         ) AS tx_missing_from_multiple_blocks;
     ;"#;
