@@ -2,12 +2,15 @@
 <script src="/static/js/d3.v6.min.js"></script>
 <script>
 
+const Y_MIN = 1 - 1 * 0.15
+
 var margin = ({top: 10, right: 15, bottom: 40, left: 50})
 var width = 900;
 var height = 300;
 
 var x = function(d) { return d[0]; };
 var y = function(d) { return d[1]; };
+
 
 // append the svg object to the body of the page
 var svg = d3.select("#feerate-chart")
@@ -21,9 +24,7 @@ var template = null
 
 function draw(template_data, block_data) {
     let template_and_block_data = template_data.concat(block_data);
-    
-    let computed_yMin = d3.min(template_and_block_data, d => y(d));
-    let yMin = Math.max(1, computed_yMin - (computed_yMin * 0.15));
+
     var yMaxQuantile = d3.quantile(template_and_block_data, 0.998, d => y(d));
     let xMax = Math.max(4_000_000);
 
@@ -40,7 +41,7 @@ function draw(template_data, block_data) {
 
     // Y Scale and Axis
     var yScale = d3.scaleLog()
-      .domain([yMin, yMaxQuantile])
+      .domain([Y_MIN, yMaxQuantile])
       .range([height - margin.bottom, margin.top])
 
     svg.append("g")
@@ -80,7 +81,7 @@ function draw(template_data, block_data) {
         .attr("d",
             d3.area().curve(d3.curveStepAfter)
                 .x(d => xScale(x(d)) )
-                .y0(yScale(yMin))
+                .y0(yScale(Y_MIN))
                 .y1(d => yScale(y(d)) )
         )
 
@@ -108,7 +109,7 @@ d3.select("#nRadius").on("input", function() {
 const zip = (a, b) => a.map((k, i) => [k, b[i]]);
 const accumulate = (weights) => {
     acc_w = 0;
-    acc_weights = []; 
+    acc_weights = [];
     for(w in weights) {
         acc_w = acc_w + weights[w];
         acc_weights.push(acc_w);
@@ -122,13 +123,14 @@ template_data = zip(template_pkg_weights_acc, template_pkg_feerates)
 block_pkg_weights_acc = accumulate(block_pkg_weights)
 block_data = zip(block_pkg_weights_acc, block_pkg_feerates)
 
-// remove the coinbase transaction as it has a fee of 0 which
-// would break the log y-scale.
-block_data_without_coinbase = block_data.slice(1)
+// set zero-fee values to Y_MIN as a zero value breaks the y-axis log scale
+block_data.forEach(function(part, index) {
+    if (this[index][1] == 0) { this[index][1] = Y_MIN }
+}, block_data);
 
 draw(
     template_data,
-    block_data_without_coinbase
+    block_data
 );
 
 </script>
