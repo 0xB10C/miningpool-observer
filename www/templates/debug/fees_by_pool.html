@@ -38,7 +38,6 @@
         
     <script>
         let data = [
-            {'pool': "template", 'avgfees': 1.0, 'count': 1, median: 1,  'q1': 1 , 'q3': 1 },
             {% for i in avgfees -%}
                 {'pool': "{{i.pool_name}}", 'count': {{i.count}}, 'median': {{i.median}}, 'q1': {{i.q1}}, 'q3': {{i.q3}} },
             {% endfor -%}

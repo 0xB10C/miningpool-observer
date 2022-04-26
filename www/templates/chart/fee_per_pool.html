@@ -35,7 +35,7 @@ function draw(data) {
     let ymax = d3.max(data, d => q3(d)) ;
 
     let y_scale = d3.scaleLinear()
-        .domain([ymin - 0.01, ymax +0.0099])
+        .domain([ymin - 10000, ymax + 10000])
         .range([height - margin.bottom, margin.top])
 
     let x_scale = d3.scaleBand()
@@ -49,11 +49,11 @@ function draw(data) {
     svg.append("g")
         .attr("transform", `translate(${margin.left},0)`)
         .call(
-            d3.axisLeft(y_scale).tickFormat(d3.format(".0%"))
+            d3.axisLeft(y_scale).tickFormat(d3.format("~s"))
         )
 
     // y-grid
-    svg.append("g")			
+    svg.append("g")
         .attr("class", "grid")
         .attr("transform", `translate(${margin.left},0)`)
         .call(
@@ -63,17 +63,14 @@ function draw(data) {
                 .tickFormat("")
         )
 
-    svg.selectAll('.bar')
-        .data(data)
-        .enter()
-            .append('rect')
-            .attr('fill', d => (x(d) == 'template') ? "skyblue" : "#b10c00" )
-            .attr('fill-opacity', 0.5)
-            .attr('x', (d) => x_scale(x(d)))
-            .attr('y', (d) => y_scale(y(d)))
-            .attr("width", x_scale.bandwidth())
-            .attr('height', d => height - margin.bottom - y_scale(y(d)))
-
+    svg.selectAll('line.median')
+        .data(data).enter().append('line')
+        .attr('stroke', '#555')
+        .attr('class', 'error')
+        .attr('x1', d => x_scale(x(d)) + (2*x_scale.bandwidth()/6))
+        .attr('x2', d => x_scale(x(d)) + (4*x_scale.bandwidth()/6))
+        .attr('y1', d => y_scale(y(d)) )
+        .attr('y2', d => y_scale(y(d)) )
 
     svg.selectAll('line.q1')
         .data(data).enter().append('line')
@@ -86,7 +83,8 @@ function draw(data) {
 
     svg.selectAll('line.bar')
         .data(data).enter().append('line')
-        .attr('stroke', '#555')
+        .attr('stroke', 'red')
+        .attr('stroke-width', '10px')
         .attr('class', 'error')
         .attr('x1', d => x_scale(x(d)) + (x_scale.bandwidth()/2))
         .attr('x2', d => x_scale(x(d)) + (x_scale.bandwidth()/2))

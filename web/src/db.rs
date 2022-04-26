@@ -370,19 +370,19 @@ pub fn missing_sanctioned_txns_for_block(
 }
 
 const QUERY_AVG_POOL_FEES: &str = r#"
-SELECT 
+SELECT
     pool_name,
     count(pool_name),
-    percentile_disc(0.5) within group (order by (block_cb_fees::float / template_cb_fees::float)) median,
-    percentile_disc(0.25) within group (order by (block_cb_fees::float / template_cb_fees::float)) q1,
-    percentile_disc(0.75) within group (order by (block_cb_fees::float / template_cb_fees::float)) q3
+    percentile_disc(0.5) within group (order by (block_cb_fees::float - template_cb_fees::float)) median,
+    percentile_disc(0.25) within group (order by (block_cb_fees::float - template_cb_fees::float)) q1,
+    percentile_disc(0.75) within group (order by (block_cb_fees::float - template_cb_fees::float)) q3
 FROM block
 GROUP BY
     pool_name
-HAVING 
-    count(pool_name) > 10
-ORDER BY median DESC
-;"#;
+HAVING
+    count(pool_name) > 200
+ORDER BY median DESC;
+"#;
 
 pub fn avg_fees_by_pool(conn: &PgConnection) -> Result<Vec<AvgPoolFees>, diesel::result::Error> {
     sql_query(QUERY_AVG_POOL_FEES).load::<AvgPoolFees>(conn)
