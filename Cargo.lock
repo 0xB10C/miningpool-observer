@@ -415,9 +415,9 @@ dependencies = [
 
 [[package]]
 name = "bitcoin-pool-identification"
-version = "0.1.9"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f9085f8516ed7d464105901aead1af985bb1470a0023077c3ae504907b82e4d"
+checksum = "07e806e66e515ee30438281087577beb13f385f72723a0527f9e3a1eed9f5823"
 dependencies = [
  "bitcoin",
  "hex",
