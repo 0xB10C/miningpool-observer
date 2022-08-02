@@ -59,7 +59,7 @@ fn main() {
             .as_secs() as i64,
     );
 
-    match SimpleLogger::new().with_level(config.log_level).init() {
+    match SimpleLogger::new().with_utc_timestamps().with_level(config.log_level).init() {
         Ok(_) => (),
         Err(e) => panic!("Could not setup logger: {}", e),
     }

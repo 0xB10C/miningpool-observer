@@ -23,7 +23,7 @@ async fn main() -> std::io::Result<()> {
     let config = config::load_web_config().expect("could not load the configuration");
     let cloned_config = config.clone();
 
-    match SimpleLogger::new().with_level(config.log_level).init() {
+    match SimpleLogger::new().with_utc_timestamps().with_level(config.log_level).init() {
         Ok(_) => (),
         Err(e) => panic!("Could not setup logger: {}", e),
     }
