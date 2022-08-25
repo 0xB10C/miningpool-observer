@@ -14,7 +14,7 @@ simple_logger = "1.9.0"
 
 bitcoin = "0.27"
 bitcoin-pool-identification = "0.1.11"
-rawtx-rs = {git = "https://github.com/0xB10C/rawtx-rs", branch = "master"}
+rawtx-rs = {git = "https://github.com/0xB10C/rawtx-rs", branch = "2022-08-counterparty", features = [ "counterparty" ]}
 
 hex = "0.4"
 

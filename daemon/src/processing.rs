@@ -13,6 +13,7 @@ use miningpool_observer_shared::{model as shared_model, tags};
 
 use bitcoin_pool_identification::{IdentificationMethod, PoolIdentification};
 use rawtx_rs::tx::TxInfo as RawTxInfo;
+use rawtx_rs::tx::{is_opreturn_counterparty, is_p2ms_counterparty, is_p2sh_counterparty};
 use rawtx_rs::{input::InputType, output::OutputType};
 
 use bitcoin::hash_types::Txid;
@@ -224,6 +225,13 @@ fn get_transaction_tags(
 
     if is_tx_opreturn(&tx_info.tx) {
         tags.push(tags::TxTag::OpReturn as i32);
+    }
+
+    if is_p2ms_counterparty(&tx_info.tx)
+        || is_opreturn_counterparty(&tx_info.tx)
+        || is_p2sh_counterparty(&tx_info.tx)
+    {
+        tags.push(tags::TxTag::CounterParty as i32);
     }
 
     if raw_tx_info.is_signaling_explicit_rbf_replicability() {
