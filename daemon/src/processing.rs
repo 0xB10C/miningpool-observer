@@ -17,7 +17,7 @@ use rawtx_rs::tx::{is_opreturn_counterparty, is_p2ms_counterparty, is_p2sh_count
 use rawtx_rs::{input::InputType, output::OutputType};
 
 use bitcoin::hash_types::Txid;
-use bitcoin::{network::constants::Network, Address, Amount, Transaction};
+use bitcoin::{network::constants::Network, Address, Amount, Transaction, Sequence, PackedLockTime, Witness};
 
 pub const LOG_TARGET_PROCESSING: &str = "processing";
 
@@ -80,7 +80,7 @@ include!(concat!(env!("OUT_DIR"), "/match_sanctioned_addr.rs"));
 
 fn is_tx_to_sanctioned(tx: &Transaction) -> bool {
     for output in tx.output.iter() {
-        if let Some(address) = Address::from_script(&output.script_pubkey, Network::Bitcoin) {
+        if let Ok(address) = Address::from_script(&output.script_pubkey, Network::Bitcoin) {
             if is_sanctioned(&address) {
                 return true;
             }
@@ -121,7 +121,7 @@ fn tx_sanctioned_addresses(
 fn tx_sanctioned_addresses_to(tx: &Transaction) -> Vec<String> {
     let mut addresses: HashSet<String> = HashSet::new();
     for out in &tx.output {
-        if let Some(address) = Address::from_script(&out.script_pubkey, Network::Bitcoin) {
+        if let Ok(address) = Address::from_script(&out.script_pubkey, Network::Bitcoin) {
             if is_sanctioned(&address) {
                 addresses.insert(address.to_string());
             }
@@ -140,7 +140,7 @@ fn tx_sanctioned_addresses_from(
             input.previous_output.txid.to_vec(),
             input.previous_output.vout,
         )) {
-            if let Some(address) = Address::from_script(
+            if let Ok(address) = Address::from_script(
                 &bitcoin::Script::from(utxo.script_pubkey.clone()),
                 Network::Bitcoin,
             ) {
@@ -188,7 +188,7 @@ fn get_transaction_tags(
     }
 
     // warnings
-    if tx_info.fee.as_sat() == 0 && !tx_info.tx.is_coin_base() {
+    if tx_info.fee.to_sat() == 0 && !tx_info.tx.is_coin_base() {
         tags.push(tags::TxTag::ZeroFee as i32);
     }
 
@@ -370,8 +370,8 @@ pub fn build_transaction(
     return Ok(shared_model::Transaction {
         txid: reversed_txid.to_vec(),
         sanctioned: is_tx_sanctioned(&tx_info.tx, outpoint_to_sanctioned_utxo_map),
-        fee: tx_info.fee.as_sat() as i64,
-        vsize: (tx_info.tx.get_weight() as f32 / 4.0).ceil() as i32,
+        fee: tx_info.fee.to_sat() as i64,
+        vsize: (tx_info.tx.weight() as f32 / 4.0).ceil() as i32,
         output_sum: tx_info.tx.output.iter().map(|o| o.value).sum::<u64>() as i64,
         tags,
         input_count: tx_info.tx.input.len() as i32,
@@ -525,7 +525,7 @@ pub fn build_newly_created_sanctioned_utxos(
     let mut new_sanctioned_utxos: Vec<shared_model::SanctionedUtxo> = vec![];
     for to_sanctioned_tx in block.txdata.iter().filter(|tx| is_tx_to_sanctioned(tx)) {
         for (vout, output) in to_sanctioned_tx.output.iter().enumerate() {
-            if let Some(address) = Address::from_script(&output.script_pubkey, Network::Bitcoin) {
+            if let Ok(address) = Address::from_script(&output.script_pubkey, Network::Bitcoin) {
                 if is_sanctioned(&address) {
                     new_sanctioned_utxos.push(shared_model::SanctionedUtxo {
                         amount: output.value as i64,
@@ -653,7 +653,7 @@ pub fn build_block(
         block_seen_time: chrono::Utc::now().naive_utc(),
         block_time: chrono::NaiveDateTime::from_timestamp(block.header.time as i64, 0),
         block_tx: block.txdata.len() as i32,
-        block_weight: block.get_weight() as i32,
+        block_weight: block.weight() as i32,
         block_sanctioned: block
             .txdata
             .iter()
@@ -667,13 +667,13 @@ pub fn build_block(
             .iter()
             .map(|o| o.value)
             .sum::<u64>() as i64,
-        block_cb_fees: block_fees.as_sat() as i64,
+        block_cb_fees: block_fees.to_sat() as i64,
         block_pkg_weights: block_pkg_weights.to_vec(),
         block_pkg_feerates: block_pkg_feerates.to_vec(),
         pool_name,
         pool_link,
         pool_id_method,
-        template_cb_value: template.coinbase_value.as_sat() as i64,
+        template_cb_value: template.coinbase_value.to_sat() as i64,
         template_time: chrono::NaiveDateTime::from_timestamp(template.current_time as i64, 0),
         template_tx: template.transactions.len() as i32,
         template_sanctioned: template_txid_to_txinfo_map
@@ -685,7 +685,7 @@ pub fn build_block(
             .iter()
             .map(|tx| tx.weight)
             .sum::<usize>()) as i32,
-        template_cb_fees: template_fees.as_sat() as i64,
+        template_cb_fees: template_fees.to_sat() as i64,
         template_pkg_weights: template_pkg_weights.to_vec(),
         template_pkg_feerates: template_pkg_feerates.to_vec(),
     }
@@ -1132,7 +1132,7 @@ mod tests {
 
         // fake tx that spends from A and B
         let tx_e = Transaction {
-            lock_time: 0,
+            lock_time: PackedLockTime(0),
             version: 1,
             input: vec![
                 TxIn {
@@ -1140,18 +1140,18 @@ mod tests {
                         txid: tx_a_info.txid,
                         vout: 0,
                     },
-                    witness: vec![],
+                    witness: Witness::new(),
                     script_sig: Script::new(),
-                    sequence: 1337,
+                    sequence: Sequence(1337),
                 },
                 TxIn {
                     previous_output: OutPoint {
                         txid: tx_b_info.txid,
                         vout: 0,
                     },
-                    witness: vec![],
+                    witness: Witness::new(),
                     script_sig: Script::new(),
-                    sequence: 1338,
+                    sequence: Sequence(1338),
                 },
             ],
             output: vec![TxOut {
@@ -1181,7 +1181,7 @@ mod tests {
         println!("The package weight should be the sum of the four transaction weights");
         assert_eq!(
             package.weight(),
-            tx_a.weight + tx_b.weight + tx_c.weight + tx_e.get_weight()
+            tx_a.weight + tx_b.weight + tx_c.weight + tx_e.weight()
         );
 
         println!("Transactions in the package should be sorted by position (asceding). The new transaction should be the last.");

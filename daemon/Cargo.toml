@@ -12,9 +12,9 @@ miningpool_observer_shared = { path="../shared" }
 log = "0.4"
 simple_logger = "1.9.0"
 
-bitcoin = "0.27"
-bitcoin-pool-identification = "0.1.11"
-rawtx-rs = {git = "https://github.com/0xB10C/rawtx-rs", branch = "2022-08-counterparty", features = [ "counterparty" ]}
+bitcoin = "0.29"
+bitcoin-pool-identification = "0.1.12"
+rawtx-rs = {git = "https://github.com/0xB10C/rawtx-rs", branch = "master", features = [ "counterparty" ]}
 
 hex = "0.4"
 
