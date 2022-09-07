@@ -15,8 +15,8 @@ pub struct TxInfo {
 
 impl TxInfo {
     pub fn feerate(&self) -> f32 {
-        let vsize: f32 = self.tx.get_weight() as f32 / 4.0_f32;
-        self.fee.as_sat() as f32 / vsize
+        let vsize: f32 = self.tx.weight() as f32 / 4.0_f32;
+        self.fee.to_sat() as f32 / vsize
     }
 }
 
@@ -29,14 +29,14 @@ impl TxPackage {
         let vsize_sum: f64 = self
             .txns
             .iter()
-            .map(|i| (i.tx.get_weight() as f64 / 4.0_f64).ceil())
+            .map(|i| (i.tx.weight() as f64 / 4.0_f64).ceil())
             .sum();
-        let fee_sum: f64 = self.txns.iter().map(|i| i.fee.as_sat() as f64).sum();
+        let fee_sum: f64 = self.txns.iter().map(|i| i.fee.to_sat() as f64).sum();
         (fee_sum / vsize_sum) as f32
     }
 
     pub fn weight(&self) -> usize {
-        self.txns.iter().map(|i| i.tx.get_weight()).sum::<usize>()
+        self.txns.iter().map(|i| i.tx.weight()).sum::<usize>()
     }
 }
 

@@ -535,9 +535,9 @@ fn process(
     );
 
     let block_fees: Amount =
-        Amount::from_sat(block_tx_fees.tx.iter().map(|tx| tx.fee.as_sat()).sum());
+        Amount::from_sat(block_tx_fees.tx.iter().map(|tx| tx.fee.to_sat()).sum());
     let template_fees: Amount =
-        Amount::from_sat(template.transactions.iter().map(|tx| tx.fee.as_sat()).sum());
+        Amount::from_sat(template.transactions.iter().map(|tx| tx.fee.to_sat()).sum());
     let missing_tx: i32 = txids_only_in_template.len() as i32;
     let extra_tx: i32 = txids_only_in_block.len() as i32;
     let block = processing::build_block(
@@ -699,7 +699,7 @@ fn log_template_infos(t: &GetBlockTemplateResult) {
     );
 
     metrics::STAT_CURRENT_TEMPLATE_TRANSACTIONS_GAUGE.set(t.transactions.len() as i64);
-    metrics::STAT_CURRENT_TEMPLATE_COINBASE_VALUE_GAUGE.set(t.coinbase_value.as_sat() as i64);
+    metrics::STAT_CURRENT_TEMPLATE_COINBASE_VALUE_GAUGE.set(t.coinbase_value.to_sat() as i64);
 }
 
 // includes an auto-generated function to identify OFAC sanctioned addresses
@@ -742,7 +742,7 @@ fn scantxoutset_sanctioned_tx(
         end_height: scan_result.height.unwrap_or_default() as i32,
         duration_seconds: duration.as_secs() as i32,
         utxo_count: scan_result.unspents.len() as i32,
-        utxo_amount: scan_result.total_amount.as_sat() as i64,
+        utxo_amount: scan_result.total_amount.to_sat() as i64,
     };
 
     let utxos = scan_result
@@ -756,7 +756,7 @@ fn scantxoutset_sanctioned_tx(
                 txid: txid_reversed,
                 vout: utxo.vout as i32,
                 script_pubkey: utxo.script_pub_key.to_bytes(),
-                amount: utxo.amount.as_sat() as i64,
+                amount: utxo.amount.to_sat() as i64,
                 height: utxo.height as i32,
             }
         })
