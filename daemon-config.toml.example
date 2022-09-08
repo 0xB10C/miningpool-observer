@@ -25,6 +25,10 @@ rpc_port = 8332
 # rpc_user = ""
 # rpc_password = ""
 
+# Re-process all database transactions and apply new tags on deamon-startup.
+# This might be requried after an update. You don't need to run this everytime.
+# Requires Bitcoin Core with txindex and no prune.
+retag_transactions = false
 
 # Prometheus Metric Server
 # Don't expose this publicly.

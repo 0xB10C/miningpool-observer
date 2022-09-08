@@ -178,6 +178,11 @@ pub fn insert_debug_template_selection_infos(
     Ok(())
 }
 
+pub fn all_transactions(conn: &PgConnection) -> Result<Vec<Transaction>, diesel::result::Error> {
+    use schema::transaction::dsl::*;
+    transaction.load::<Transaction>(conn)
+}
+
 pub fn unknown_pool_blocks(conn: &PgConnection) -> Result<Vec<Block>, diesel::result::Error> {
     use schema::block::dsl::*;
     block
@@ -195,6 +200,19 @@ pub fn update_pool_name_with_block_id(
 
     diesel::update(block.filter(id.eq(block_id)))
         .set(pool_name.eq(new_pool_name))
+        .execute(conn)?;
+    Ok(())
+}
+
+pub fn update_transaction_tags(
+    new_tags: &Vec<i32>,
+    tx_id: &Vec<u8>,
+    conn: &PgConnection,
+) -> Result<(), diesel::result::Error> {
+    use schema::transaction::dsl::*;
+    diesel::update(transaction)
+        .filter(txid.eq(tx_id))
+        .set(tags.eq(new_tags))
         .execute(conn)?;
     Ok(())
 }
