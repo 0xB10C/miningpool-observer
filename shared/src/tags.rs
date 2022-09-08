@@ -58,6 +58,7 @@ pub enum TxTag {
     RbfSignaling = 4130,
     OpReturn = 4140,
     CounterParty = 4141,
+    RareScriptType = 4142,
     LockByHeight = 4150,
     LockByTimestamp = 4160,
     Consolidation = 4170,
@@ -81,6 +82,7 @@ impl TryFrom<i32> for TxTag {
             x if x == TxTag::RbfSignaling as i32 => Ok(TxTag::RbfSignaling),
             x if x == TxTag::OpReturn as i32 => Ok(TxTag::OpReturn),
             x if x == TxTag::CounterParty as i32 => Ok(TxTag::CounterParty),
+            x if x == TxTag::RareScriptType as i32 => Ok(TxTag::RareScriptType),
             x if x == TxTag::Coinjoin as i32 => Ok(TxTag::Coinjoin),
             x if x == TxTag::LockByHeight as i32 => Ok(TxTag::LockByHeight),
             x if x == TxTag::LockByTimestamp as i32 => Ok(TxTag::LockByTimestamp),
@@ -96,7 +98,7 @@ impl TryFrom<i32> for TxTag {
 }
 
 impl TxTag {
-    pub const TX_TAGS: &'static [TxTag; 20] = &[
+    pub const TX_TAGS: &'static [TxTag; 21] = &[
         // important / danger
         TxTag::FromSanctioned,
         TxTag::ToSanctioned,
@@ -116,6 +118,7 @@ impl TxTag {
         TxTag::RbfSignaling,
         TxTag::OpReturn,
         TxTag::CounterParty,
+        TxTag::RareScriptType,
         TxTag::LockByHeight,
         TxTag::LockByTimestamp,
         TxTag::Coinjoin,
@@ -182,6 +185,17 @@ impl TxTag {
                     description: vec![
                         "The transaction has at least one CounterParty output.".to_string(),
                         "CounterParty is a protocol building on-top of Bitcoin.".to_string(),
+                    ],
+                    color: GRAY,
+                    text_color: WHITE,
+                }
+            },
+            TxTag::RareScriptType => {
+                Tag {
+                    name: "Rare Script Type".to_string(),
+                    description: vec![
+                        "The transaction has one or more Pay-to-Public-Key (P2PK) or Pay-to-Multisig (P2MS) input or output.".to_string(),
+                        "These are rarely used nowadays.".to_string(),
                     ],
                     color: GRAY,
                     text_color: WHITE,

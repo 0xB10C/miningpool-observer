@@ -247,6 +247,17 @@ fn get_transaction_tags(
         tags.push(tags::TxTag::CounterParty as i32);
     }
 
+    if raw_tx_info
+        .input_infos
+        .iter()
+        .any(|input| input.in_type == InputType::P2pk || input.in_type == InputType::P2ms)
+        || raw_tx_info.output_infos.iter().any(|output| {
+            output.out_type == OutputType::P2pk || output.out_type == OutputType::P2ms
+        })
+    {
+        tags.push(tags::TxTag::RareScriptType as i32);
+    }
+
     if raw_tx_info.is_signaling_explicit_rbf_replicability() {
         tags.push(tags::TxTag::RbfSignaling as i32);
     }
