@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+
+<channel>
+  <atom:link href="{{ CONFIG.base_url }}/missing/feed.xml" rel="self" type="application/rss+xml" />
+  <title>Missing Transactions -- {{ CONFIG.title }}</title>
+  <link>{{ CONFIG.base_url }}/missing</link>
+  <description>This feed lists block template transactions repeatedly not included by pools.</description>
+    {%- if missing_transactions | length == 0 -%}
+    <!-- No missing transactions in the database. -->
+    {%- endif -%}
+    {%- for missing in missing_transactions %}
+    <item>
+        <title>Missing Transaction {{ missing.transaction.txid | truncate(length=16, end="...") }}</title>
+        <link>{{ CONFIG.base_url }}/missing/{{ missing.transaction.txid }}</link>
+        <description>
+          The transaction was present in {{missing.blocks | length }} block templates but wasn't included in blocks by {% set var_pools=missing.blocks | map(attribute="pool") | unique %}
+          {%- for pool in var_pools -%}
+            {{ pool }}
+            {%- if not loop.last -%}, {% endif %}
+            {%- if not loop.last and loop.index == var_pools | length-1-%} and {% endif %}
+          {%- endfor %}.
+          <ul>
+            <li>txid: {{ missing.transaction.txid }}</li>
+            <li>link: <a href="{{ CONFIG.base_url }}/missing/{{ missing.transaction.txid }}" >{{ CONFIG.base_url }}/missing/{{ missing.transaction.txid }}</a></li>
+            <li>tags: {% for tag_id in missing.transaction.tags -%}
+            {%- set tag=tx_tag_id_to_tag(id=tag_id) -%}
+            {{ tag.name }}{%- if not loop.last -%}, {% endif %}
+              {%- endfor %}
+            </li>
+          </ul>
+        </description>
+        <pubDate>
+            {%- set most_recent_block=missing.blocks | first -%}
+            {{ most_recent_block.time | date(format="%a, %d %b %Y %H:%M:%S GMT") -}}
+        </pubDate>
+        <guid>{{missing.transaction.txid}}</guid>
+    </item>
+    {%- endfor %}
+</channel>
+</rss>
