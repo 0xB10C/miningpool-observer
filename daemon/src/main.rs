@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::convert::TryFrom;
 use std::thread;
 use std::time;
 use std::time::Instant;
@@ -20,6 +21,8 @@ use miningpool_observer_shared::bitcoincore_rpc::jsonrpc;
 use miningpool_observer_shared::{
     config, db_pool, model as shared_model, prometheus_metric_server,
 };
+
+use crate::model::TxInfo;
 
 #[macro_use]
 extern crate diesel_migrations;
@@ -45,6 +48,7 @@ const LOG_TARGET_UTXOSETSCAN: &str = "utxo_set_scan";
 const LOG_TARGET_STATS: &str = "stats";
 const LOG_TARGET_DBPOOL: &str = "dbpool";
 const LOG_TARGET_STARTUP: &str = "startup";
+const LOG_TARGET_RETAG_TX: &str = "retagtx";
 
 fn main() {
     let config = match config::load_daemon_config() {
@@ -145,7 +149,7 @@ fn main() {
             e
         ),
     };
-    let reid_rpc_client = match Client::new(&config.rpc_url.clone(), config.rpc_auth) {
+    let reid_rpc_client = match Client::new(&config.rpc_url.clone(), config.rpc_auth.clone()) {
         Ok(config) => config,
         Err(e) => panic!(
             "During startup: Could not setup the Bitcoin Core RPC client: {}",
@@ -187,6 +191,24 @@ fn main() {
             log::error!(target: LOG_TARGET_STARTUP, "Could not connect to the Bitcoin Core RPC server. Is the user/password correct?: {}", e);
             panic!("Could not connect to the Bitcoin Core RPC server.")
         }
+    }
+
+    if config.retag_transactions {
+        let retag_conn_pool = match db_pool::new(&config.database_url) {
+            Ok(pool) => pool,
+            Err(e) => panic!(
+                "During startup: Could not create a Postgres connection pool: {}",
+                e
+            ),
+        };
+        let retag_rpc_client = match Client::new(&config.rpc_url.clone(), config.rpc_auth.clone()) {
+            Ok(config) => config,
+            Err(e) => panic!(
+                "During startup: Could not setup the Bitcoin Core RPC client: {}",
+                e
+            ),
+        };
+        retag_transactions(retag_rpc_client, retag_conn_pool);
     }
 
     main_loop(&rpc_client, &conn_pool);
@@ -818,6 +840,88 @@ fn start_sanctioned_utxos_scan_thread(rpc_client: Client, db_pool: db_pool::PgPo
             WAIT_TIME_BETWEEN_UTXO_SET_SCANS.as_secs()
         );
         thread::sleep(WAIT_TIME_BETWEEN_UTXO_SET_SCANS);
+    });
+}
+
+fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
+    thread::spawn(move || {
+        log::info!(
+            target: LOG_TARGET_RETAG_TX,
+            "Starting to retag transactions. This might take a while.",
+        );
+        let conn = match db_pool.get() {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!(
+                    target: LOG_TARGET_RETAG_TX,
+                    "Could not get a connection from the db_pool. Error: {}",
+                    e
+                );
+                return;
+            }
+        };
+        let transactions_in_db = match db::all_transactions(&conn) {
+            Ok(blocks) => blocks,
+            Err(e) => {
+                log::error!(
+                    target: LOG_TARGET_RETAG_TX,
+                    "Could not load transactions from database: {}",
+                    e
+                );
+                return;
+            }
+        };
+        let tx_in_db_count = transactions_in_db.len();
+        log::info!(
+            target: LOG_TARGET_RETAG_TX,
+            "Retagging {} transactions in the database",
+            tx_in_db_count,
+        );
+        let mut counter = 0;
+        for tx_in_db in transactions_in_db {
+            let mut reversed_txid = tx_in_db.txid.clone();
+            reversed_txid.reverse();
+            let hash = bitcoin::hashes::sha256d::Hash::from_slice(&reversed_txid).unwrap();
+            let txid: Txid = Txid::from_hash(hash);
+            if let Ok(tx) = rpc_client.get_raw_transaction(&txid, None) {
+                let tx_info = TxInfo {
+                    txid,
+                    tx: tx.clone(),
+                    pos: -1,
+                    fee: Amount::from_sat(tx_in_db.fee as u64),
+                };
+                let mut old_tags = tx_in_db.tags.clone();
+                old_tags.sort();
+                let mut new_tags = processing::retag_transaction(&tx, &tx_info);
+                for tag in old_tags.iter() {
+                    if !new_tags.contains(&tag) {
+                        new_tags.push(*tag);
+                    }
+                }
+                new_tags.sort();
+
+                // we can compare them here, as they are both sorted
+                if new_tags != old_tags {
+                    db::update_transaction_tags(&new_tags, &tx_in_db.txid.clone(), &conn);
+                    log::info!(
+                        target: LOG_TARGET_RETAG_TX,
+                        "Retagged transaction {}: old={:?} new={:?}",
+                        hex::encode(tx_in_db.txid.clone()),
+                        old_tags,
+                        new_tags,
+                    );
+                };
+                counter += 1;
+                if counter % 100 == 0 {
+                    log::info!(
+                        target: LOG_TARGET_RETAG_TX,
+                        "Retagged {} out of {} transactions",
+                        counter,
+                        tx_in_db_count,
+                    );
+                }
+            }
+        }
     });
 }
 

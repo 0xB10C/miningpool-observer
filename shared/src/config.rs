@@ -19,6 +19,7 @@ struct DaemonTomlConfig {
     rpc_password: Option<String>,
     database_url: String,
     log_level: String,
+    retag_transactions: bool,
     prometheus: PrometheusConfig,
 }
 
@@ -33,6 +34,7 @@ pub struct DaemonConfig {
     pub rpc_auth: Auth,
     pub database_url: String,
     pub log_level: LevelFilter,
+    pub retag_transactions: bool,
     pub prometheus: PrometheusConfig,
 }
 
@@ -65,6 +67,7 @@ pub fn load_daemon_config() -> Result<DaemonConfig, ConfigError> {
         rpc_auth,
         database_url: config.database_url,
         log_level,
+        retag_transactions: config.retag_transactions,
         prometheus: config.prometheus,
     });
 }
