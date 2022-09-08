@@ -219,6 +219,39 @@ pub async fn single_missing_transaction(
     Ok(HttpResponse::Ok().content_type("text/html").body(s))
 }
 
+pub async fn missing_transactions_rss(
+    tmpl: web::Data<tera::Tera>,
+    pool: web::Data<db_pool::PgPool>,
+    config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
+    query: web::Query<HashMap<String, String>>,
+) -> Result<HttpResponse, Error> {
+    let mut ctx = tera::Context::new();
+    ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
+    ctx.insert("QUERY_PAGE", &QUERY_PAGE);
+
+    let mut page = 0u32;
+    if let Some(query_page) = query.get(QUERY_PAGE) {
+        page = util::parse_uint(query_page)?;
+    }
+
+    let conn = pool.get().expect("couldn't get db connection from pool");
+    let (missing_transactions, max_pages) =
+        web::block(move || db::missing_transactions(&conn, page))
+            .await
+            .map_err(error::database_error)?;
+    ctx.insert("missing_transactions", &missing_transactions);
+    ctx.insert("MAX_PAGES", &max_pages);
+    ctx.insert("CURRENT_PAGE", &page);
+
+    let s = tmpl
+        .render("rss/missing.xml", &ctx)
+        .map_err(error::template_error)?;
+
+    Ok(HttpResponse::Ok().content_type("application/rss+xml").body(s))
+}
+
 //##### CONFLICTING TRANSCTIONS
 
 pub async fn conflicting_transactions(
