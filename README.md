@@ -17,7 +17,7 @@ This project is inspired by [BitMex Research: Bitcoin Miner Transaction Fee Gath
 
 The miningpool-observer project is built with self-hosting in mind.
 Both private and public instances, like e.g. [miningpool.observer](https://miningpool.observer), are supported.
-Requirements are a Bitcoin Core node v22.0 (currently, you'll need a self-compiled `master` build! requires [PR #18772 (rpc: calculate fees in getblock using BlockUndo data)](https://github.com/bitcoin/bitcoin/pull/18772))) and a PostgreSQL database.
+Requirements are a Bitcoin Core node v22.0 and a PostgreSQL database.
 
 See [docs/self-hosting.md](docs/self-hosting.md) for more information.
 ## Development

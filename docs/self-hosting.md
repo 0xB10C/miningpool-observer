@@ -26,7 +26,7 @@ A NixOS package and module is available as well (contact @0xB10C for more inform
 
 ### Requirements
 
-- Bitcoin Core v22.0 or newer (the `master` branch works too, needs the commits from [PR #18772 (rpc: calculate fees in getblock using BlockUndo data)](https://github.com/bitcoin/bitcoin/pull/18772))
+- Bitcoin Core v22.0 or newer
 - A PostgreSQL database version 10 or newer (and disk space for around 150 MB of data per month)
 
 ### Database
