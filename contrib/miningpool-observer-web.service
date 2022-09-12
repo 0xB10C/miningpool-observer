@@ -1,0 +1,16 @@
+[Unit]
+Description=Miningpool Observer Web
+
+[Service]
+User=miningobs
+Group=miningobs
+WorkingDirectory=/home/miningobs/miningpool-observer
+ExecStart=/home/miningobs/miningpool-observer/target/release/miningpool-observer-web
+Type=simple
+KillMode=process
+TimeoutSec=60
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=multi-user.target
