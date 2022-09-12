@@ -13,8 +13,8 @@ use std::hash::{Hash, Hasher};
 // Database models shared between web and daemon.
 
 /// This is used to query a block from the database. Use [NewBlock] for inserting.
-#[primary_key(hash)]
 #[derive(Queryable, Serialize, Identifiable)]
+#[primary_key(hash)]
 #[table_name = "block"]
 pub struct Block {
     pub id: i32,
