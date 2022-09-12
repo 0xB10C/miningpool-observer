@@ -34,11 +34,26 @@ A NixOS package and module is available as well (contact @0xB10C for more inform
 The `miningpool-observer-daemon` automatically runs database migrations on startup.
 No manual table creation required.
 
+### Rust
+
+For installation without Docker, [install Rust](https://www.rust-lang.org/tools/install) first.
+
+You also need to `apt-get -y install libpq-dev`.
 
 ### Daemon
 
 The `miningpool-observer-daemon` periodically requests block templates from Bitcoin Core and processes new blocks.
 Data is written to and read from the database.
+
+Clone the repository, optionally checkout a release tag and run:
+
+```sh
+cargo build --release --bin miningpool-observer-daemon
+```
+
+To see if it works, run `target/release/miningpool-observer-daemon`
+
+An example systemd unit is provided [here](/contrib/miningpool-observer-daemon.service), which assumes a user `miningobs`.
 
 #### Configuration
 
@@ -60,9 +75,19 @@ To mount the `daemon-config.toml` file when `docker run`'ing the image a [docker
 
 The `miningpool-observer-web` web-server and reads data from the database and generates HTML pages with the data and site templates.
 
+Optionally (if it's a different user) clone the repository, checkout a release tag and run:
+
+```sh
+cargo build --release --bin miningpool-observer-web
+```
+
+To see if it works, run `target/release/miningpool-observer-web`, but first see Configuration below.
+
+An example systemd unit is provided [here](/contrib/miningpool-observer-web.service), which assumes the same user `miningobs` as the daemon.
+
 #### Configuration
 
-By default, `miningpool-observer-web` expects a `daemon-web.toml` configuration file to be present in the current working directory.
+By default, `miningpool-observer-web` expects a `web-config.toml` configuration file to be present in the current working directory.
 A custom path to the configuration file can be set via the `CONFIG_FILE` environment variable.
 An example configuration file with placeholders and explanation is provided as [`web-config.toml.example`](../web-config.toml.example).
 Generally, information for the PostgreSQL database connection and the listening address of the web-server must be configured.
