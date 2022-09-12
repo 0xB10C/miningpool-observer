@@ -17,7 +17,7 @@ use rawtx_rs::tx::{is_opreturn_counterparty, is_p2ms_counterparty, is_p2sh_count
 use rawtx_rs::{input::InputType, output::OutputType};
 
 use bitcoin::hash_types::Txid;
-use bitcoin::{network::constants::Network, Address, Amount, Transaction, Sequence, PackedLockTime, Witness};
+use bitcoin::{network::constants::Network, Address, Amount, Transaction};
 
 pub const LOG_TARGET_PROCESSING: &str = "processing";
 
@@ -1062,7 +1062,7 @@ pub fn log_processing_error(msg: &str) {
 mod tests {
     use super::*;
     use crate::model::TxInfo;
-    use bitcoin::{consensus, Amount, OutPoint, Script, Transaction, TxIn, TxOut};
+    use bitcoin::{consensus, Amount, OutPoint, Script, Transaction, TxIn, TxOut, Sequence, PackedLockTime, Witness};
     use hex;
 
     #[test]
