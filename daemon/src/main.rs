@@ -901,14 +901,27 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
 
                 // we can compare them here, as they are both sorted
                 if new_tags != old_tags {
-                    db::update_transaction_tags(&new_tags, &tx_in_db.txid.clone(), &conn);
-                    log::info!(
-                        target: LOG_TARGET_RETAG_TX,
-                        "Retagged transaction {}: old={:?} new={:?}",
-                        hex::encode(tx_in_db.txid.clone()),
-                        old_tags,
-                        new_tags,
-                    );
+                    match db::update_transaction_tags(&new_tags, &tx_in_db.txid.clone(), &conn) {
+                        Ok(()) => { 
+                            log::info!(
+                                target: LOG_TARGET_RETAG_TX,
+                                "Retagged transaction {}: old={:?} new={:?}",
+                                hex::encode(tx_in_db.txid.clone()),
+                                old_tags,
+                                new_tags,
+                            );
+                        },
+                        Err(e) => {
+                            log::info!(
+                                target: LOG_TARGET_RETAG_TX,
+                                "Could not retagged transaction {}: old={:?} new={:?}, error={}",
+                                hex::encode(tx_in_db.txid.clone()),
+                                old_tags,
+                                new_tags,
+                                e,
+                            );
+                        },
+                    };
                 };
                 counter += 1;
                 if counter % 100 == 0 {
