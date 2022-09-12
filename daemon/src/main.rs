@@ -1,3 +1,5 @@
+#![cfg_attr(feature = "strict", deny(warnings))]
+
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::thread;
 use std::time;
