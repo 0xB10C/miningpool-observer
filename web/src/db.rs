@@ -456,7 +456,7 @@ const QUERY_COUNT_MISSING_TRANSACTIONS: &str = r#"
         ) AS tx_missing_from_multiple_blocks;
     ;"#;
 
-#[derive(Debug, QueryableByName)]
+#[derive(QueryableByName)]
 struct MissingTransactionCountInfo {
     #[sql_type = "BigInt"]
     cnt: i64,
