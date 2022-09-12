@@ -458,8 +458,6 @@ const QUERY_COUNT_MISSING_TRANSACTIONS: &str = r#"
 
 #[derive(QueryableByName)]
 struct MissingTransactionCountInfo {
-    #[sql_type = "BigInt"]
-    cnt: i64,
     #[sql_type = "Bytea"]
     txid: Vec<u8>,
 }
