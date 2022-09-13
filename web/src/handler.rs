@@ -249,7 +249,9 @@ pub async fn missing_transactions_rss(
         .render("rss/missing.xml", &ctx)
         .map_err(error::template_error)?;
 
-    Ok(HttpResponse::Ok().content_type("application/rss+xml").body(s))
+    Ok(HttpResponse::Ok()
+        .content_type("application/rss+xml")
+        .body(s))
 }
 
 //##### CONFLICTING TRANSCTIONS

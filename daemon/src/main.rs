@@ -1,11 +1,11 @@
 #![cfg_attr(feature = "strict", deny(warnings))]
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::fs::File;
+use std::io::Read;
 use std::thread;
 use std::time;
 use std::time::Instant;
-use std::io::Read;
-use std::fs::File;
 
 use bitcoin::hash_types::Txid;
 use bitcoin::hashes::Hash;
@@ -17,8 +17,8 @@ use miningpool_observer_shared::bitcoincore_rpc::json::{
     GetBlockTemplateModes, GetBlockTemplateResult, GetBlockTemplateRules, GetBlockTxFeesResult,
     ScanTxOutRequest,
 };
-use miningpool_observer_shared::bitcoincore_rpc::{Client, Error, RpcApi, Auth};
 use miningpool_observer_shared::bitcoincore_rpc::jsonrpc;
+use miningpool_observer_shared::bitcoincore_rpc::{Auth, Client, Error, RpcApi};
 use miningpool_observer_shared::{
     config, db_pool, model as shared_model, prometheus_metric_server,
 };
@@ -35,12 +35,9 @@ mod processing;
 
 const WAIT_TIME_BETWEEN_TEMPLATE_QUERIES: time::Duration = time::Duration::from_secs(10);
 const WAIT_TIME_BETWEEN_CONNPOOL_GETCONNECTION: time::Duration = time::Duration::from_secs(1);
-const WAIT_TIME_BETWEEN_UTXO_SET_SCANS: time::Duration =
-    time::Duration::from_secs(60 * 60 * 3); // 3 hours
-const WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS: time::Duration =
-    time::Duration::from_secs(60 * 5); // 5 minutes
-const TIMEOUT_UTXO_SET_SCANS: time::Duration =
-    time::Duration::from_secs(60 * 8); // 8 minutes
+const WAIT_TIME_BETWEEN_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 60 * 3); // 3 hours
+const WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 5); // 5 minutes
+const TIMEOUT_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 8); // 8 minutes
 const MAX_OLD_TEMPLATES: usize = 15;
 
 const LOG_TARGET_RPC: &str = "rpc";
@@ -64,7 +61,11 @@ fn main() {
             .as_secs() as i64,
     );
 
-    match SimpleLogger::new().with_utc_timestamps().with_level(config.log_level).init() {
+    match SimpleLogger::new()
+        .with_utc_timestamps()
+        .with_level(config.log_level)
+        .init()
+    {
         Ok(_) => (),
         Err(e) => panic!("Could not setup logger: {}", e),
     }
@@ -310,7 +311,7 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
         }
 
         // The previous block hash of the previous_template and the current_template are
-        // different. This means the chain tip changed. We request the block with the 
+        // different. This means the chain tip changed. We request the block with the
         // current_templates previous block hash. In most cases, this should be the block
         // that was just mined.
         let bitcoin_block = match rpc.get_block(&current_template.previous_block_hash) {
@@ -350,7 +351,7 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
                 "Can't compare the previous_template to the new block. Was there a reorg or multiple blocks found in rapid succession?",
             );
             metrics::RUNTIME_SKIPPED_BLOCK_EVENTS.inc();
-            
+
             // We can however still compare the previous_template to it's respective block.
             let hash_of_missed_block = match rpc.get_block_hash(previous_template.height) {
                 Ok(hash) => hash,
@@ -395,7 +396,11 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
                 Ok(b) => b,
                 Err(e) => {
                     log::error!(target: LOG_TARGET_RPC, "Could not get the txids and fees for block with the hash {} from the Bitcoin Core RPC server: {}", current_template.previous_block_hash, e);
-                    log::error!(target: processing::LOG_TARGET_PROCESSING, "Skipping the processing of block {}.", current_template.previous_block_hash);
+                    log::error!(
+                        target: processing::LOG_TARGET_PROCESSING,
+                        "Skipping the processing of block {}.",
+                        current_template.previous_block_hash
+                    );
                     metrics::ERROR_RPC.inc();
                     thread::sleep(WAIT_TIME_BETWEEN_TEMPLATE_QUERIES);
                     continue;
@@ -418,7 +423,7 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
                 &bitcoin_block,
                 &block_tx_fees,
                 &mut last_templates,
-            );            
+            );
 
             last_templates.push_back(current_template);
             continue;
@@ -431,7 +436,11 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
             Ok(b) => b,
             Err(e) => {
                 log::error!(target: LOG_TARGET_RPC, "Could not get the txids and fees for block with the hash {} from the Bitcoin Core RPC server: {}", current_template.previous_block_hash, e);
-                log::error!(target: processing::LOG_TARGET_PROCESSING, "Skipping the processing of block {}.", current_template.previous_block_hash);
+                log::error!(
+                    target: processing::LOG_TARGET_PROCESSING,
+                    "Skipping the processing of block {}.",
+                    current_template.previous_block_hash
+                );
                 metrics::ERROR_RPC.inc();
                 thread::sleep(WAIT_TIME_BETWEEN_TEMPLATE_QUERIES);
                 continue;
@@ -464,7 +473,7 @@ fn process(
     bitcoin_block: &Block,
     block_tx_fees: &GetBlockTxFeesResult,
     last_templates: &mut VecDeque<GetBlockTemplateResult>,
-){
+) {
     let block_tx_data = processing::build_block_tx_data(&bitcoin_block, &block_tx_fees);
 
     // For best possible comparison we want to compare a template and a block
@@ -904,7 +913,7 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
                 // we can compare them here, as they are both sorted
                 if new_tags != old_tags {
                     match db::update_transaction_tags(&new_tags, &tx_in_db.txid.clone(), &conn) {
-                        Ok(()) => { 
+                        Ok(()) => {
                             log::info!(
                                 target: LOG_TARGET_RETAG_TX,
                                 "Retagged transaction {}: old={:?} new={:?}",
@@ -912,7 +921,7 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
                                 old_tags,
                                 new_tags,
                             );
-                        },
+                        }
                         Err(e) => {
                             log::info!(
                                 target: LOG_TARGET_RETAG_TX,
@@ -922,7 +931,7 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
                                 new_tags,
                                 e,
                             );
-                        },
+                        }
                     };
                 };
                 counter += 1;
@@ -1035,7 +1044,9 @@ fn start_retry_unknown_pool_identification_thread(rpc_client: Client, db_pool: d
 
 /// Convert into the arguments that jsonrpc::Client needs.
 /// adopted from https://docs.rs/bitcoincore-rpc/0.14.0/src/bitcoincore_rpc/client.rs.html#1122-1143
-fn get_user_pass(auth: &Auth) -> miningpool_observer_shared::bitcoincore_rpc::Result<(Option<String>, Option<String>)> {
+fn get_user_pass(
+    auth: &Auth,
+) -> miningpool_observer_shared::bitcoincore_rpc::Result<(Option<String>, Option<String>)> {
     match auth {
         Auth::None => Ok((None, None)),
         Auth::UserPass(u, p) => Ok((Some(u.to_string()), Some(p.to_string()))),
@@ -1071,7 +1082,11 @@ fn mempool_age_seconds(
     txids_only_in_template: &HashSet<&Txid>,
 ) -> HashMap<Txid, i32> {
     let mut txid_to_seconds_in_mempool: HashMap<Txid, i32> = HashMap::new();
-    log::info!(target: processing::LOG_TARGET_PROCESSING, "Getting the mempool entry times for {} only-in-template-transactions", txids_only_in_template.len());
+    log::info!(
+        target: processing::LOG_TARGET_PROCESSING,
+        "Getting the mempool entry times for {} only-in-template-transactions",
+        txids_only_in_template.len()
+    );
 
     // used the same time for all transactions
     let now = chrono::Local::now().timestamp();
@@ -1094,6 +1109,11 @@ fn mempool_age_seconds(
         };
         txid_to_seconds_in_mempool.insert(**txid, seconds);
     }
-    log::info!(target: processing::LOG_TARGET_PROCESSING, "Completed requesting mempool entry times for {} transactions. {} requests failed.", txids_only_in_template.len(), failed_requests);
+    log::info!(
+        target: processing::LOG_TARGET_PROCESSING,
+        "Completed requesting mempool entry times for {} transactions. {} requests failed.",
+        txids_only_in_template.len(),
+        failed_requests
+    );
     txid_to_seconds_in_mempool
 }
