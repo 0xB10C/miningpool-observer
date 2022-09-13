@@ -25,7 +25,11 @@ async fn main() -> std::io::Result<()> {
     let config = config::load_web_config().expect("could not load the configuration");
     let cloned_config = config.clone();
 
-    match SimpleLogger::new().with_utc_timestamps().with_level(config.log_level).init() {
+    match SimpleLogger::new()
+        .with_utc_timestamps()
+        .with_level(config.log_level)
+        .init()
+    {
         Ok(_) => (),
         Err(e) => panic!("Could not setup logger: {}", e),
     }
@@ -119,7 +123,10 @@ async fn main() -> std::io::Result<()> {
                 "/og_image/missing.png",
                 web::get().to(ogimage::ogimage_mainpage_missing_transactions),
             )
-            .route("/missing/feed.xml", web::get().to(handler::missing_transactions_rss))
+            .route(
+                "/missing/feed.xml",
+                web::get().to(handler::missing_transactions_rss),
+            )
             .route(
                 "/missing/{txid}",
                 web::get().to(handler::single_missing_transaction),

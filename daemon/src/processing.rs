@@ -162,12 +162,7 @@ fn is_tx_opreturn(tx: &Transaction) -> bool {
 
 pub fn retag_transaction(tx: &bitcoin::Transaction, tx_info: &TxInfo) -> Vec<i32> {
     if let Ok(raw_tx_info) = RawTxInfo::new(&tx) {
-        let new_tags = get_transaction_tags(
-            tx_info,
-            &raw_tx_info,
-            false,
-            &HashMap::new(),
-        );
+        let new_tags = get_transaction_tags(tx_info, &raw_tx_info, false, &HashMap::new());
         return new_tags;
     }
     return vec![];
@@ -1062,7 +1057,10 @@ pub fn log_processing_error(msg: &str) {
 mod tests {
     use super::*;
     use crate::model::TxInfo;
-    use bitcoin::{consensus, Amount, OutPoint, Script, Transaction, TxIn, TxOut, Sequence, PackedLockTime, Witness};
+    use bitcoin::{
+        consensus, Amount, OutPoint, PackedLockTime, Script, Sequence, Transaction, TxIn, TxOut,
+        Witness,
+    };
     use hex;
 
     #[test]
