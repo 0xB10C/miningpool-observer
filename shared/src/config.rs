@@ -63,7 +63,7 @@ pub fn load_daemon_config() -> Result<DaemonConfig, ConfigError> {
     let log_level = LevelFilter::from_str(&config.log_level)?;
 
     return Ok(DaemonConfig {
-        rpc_url: format!("http://{}:{}", config.rpc_host, config.rpc_port.to_string()),
+        rpc_url: format!("http://{}:{}", config.rpc_host, config.rpc_port),
         rpc_auth,
         database_url: config.database_url,
         log_level,
