@@ -84,12 +84,12 @@ pub fn block_with_tx(
     block_hash: &[u8],
     conn: &PgConnection,
 ) -> Result<BlockWithTx, diesel::result::Error> {
-    let block = block(block_hash, &conn)?;
+    let block = block(block_hash, conn)?;
     let block_id = block.id;
     Ok(BlockWithTx {
         block,
-        txns_only_in_template: transaction_only_in_template_by_block_id(block_id, &conn)?,
-        txns_only_in_block: transaction_only_in_block_by_block_id(block_id, &conn)?,
+        txns_only_in_template: transaction_only_in_template_by_block_id(block_id, conn)?,
+        txns_only_in_block: transaction_only_in_block_by_block_id(block_id, conn)?,
     })
 }
 

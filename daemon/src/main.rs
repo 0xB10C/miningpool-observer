@@ -418,8 +418,8 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
             );
 
             process(
-                &rpc,
-                &db_pool,
+                rpc,
+                db_pool,
                 &bitcoin_block,
                 &block_tx_fees,
                 &mut last_templates,
@@ -458,8 +458,8 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
         );
 
         process(
-            &rpc,
-            &db_pool,
+            rpc,
+            db_pool,
             &bitcoin_block,
             &block_tx_fees,
             &mut last_templates,
@@ -474,7 +474,7 @@ fn process(
     block_tx_fees: &GetBlockTxFeesResult,
     last_templates: &mut VecDeque<GetBlockTemplateResult>,
 ) {
-    let block_tx_data = processing::build_block_tx_data(&bitcoin_block, &block_tx_fees);
+    let block_tx_data = processing::build_block_tx_data(bitcoin_block, block_tx_fees);
 
     // For best possible comparison we want to compare a template and a block
     // where our template was generated at the same time as the pool generated
@@ -486,7 +486,7 @@ fn process(
     //
     // Thus, to aid template selection, we pick the template sharing the most transactions
     // with the block out of the templates generated before the timestamp in the block header.
-    let template = select_best_template_for_block(&last_templates, block_tx_data.txids.clone());
+    let template = select_best_template_for_block(last_templates, block_tx_data.txids.clone());
 
     let template_tx_data = processing::build_template_tx_data(template);
 
@@ -573,8 +573,8 @@ fn process(
     let missing_tx: i32 = txids_only_in_template.len() as i32;
     let extra_tx: i32 = txids_only_in_block.len() as i32;
     let block = processing::build_block(
-        &bitcoin_block,
-        &template,
+        bitcoin_block,
+        template,
         &template_tx_data.txid_to_txinfo_map,
         &template_pkg_weights,
         &template_pkg_feerates,
@@ -654,7 +654,7 @@ fn process(
 
     let debug_template_selection_infos = processing::build_debug_template_selection_infos(
         block_id,
-        &last_templates,
+        last_templates,
         block_tx_data.txids,
         template.current_time,
     );
@@ -684,7 +684,7 @@ fn process(
         return;
     }
 
-    let newly_sactioned_utxos = processing::build_newly_created_sanctioned_utxos(&bitcoin_block);
+    let newly_sactioned_utxos = processing::build_newly_created_sanctioned_utxos(bitcoin_block);
     if !newly_sactioned_utxos.is_empty() {
         log::info!(target: "sanctioned_utxos", "Inserting {} new sanctioned UTXOs into the database.", newly_sactioned_utxos.len());
         if let Err(e) = db::insert_sanctioned_utxos(&newly_sactioned_utxos, &connection) {
@@ -904,7 +904,7 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
                 old_tags.sort();
                 let mut new_tags = processing::retag_transaction(&tx, &tx_info);
                 for tag in old_tags.iter() {
-                    if !new_tags.contains(&tag) {
+                    if !new_tags.contains(tag) {
                         new_tags.push(*tag);
                     }
                 }
