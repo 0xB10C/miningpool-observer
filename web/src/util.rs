@@ -25,7 +25,7 @@ pub fn parse_block_hash_str(hash_str: &str) -> Result<Vec<u8>, Error> {
         return Err(error::ErrorNotFound(ERROR_INVALID_BLOCK_HASH));
     }
 
-    match hex::decode(&hash_str.to_string()) {
+    match hex::decode(&hash_str) {
         Err(e) => {
             log::warn!(target: "web_handler", "parse_block_hash_str: invalid block height {}: {}", hash_str, e);
             Err(error::ErrorNotFound(ERROR_INVALID_BLOCK_HASH))
@@ -40,7 +40,7 @@ pub fn parse_txid_str(txid_str: &str) -> Result<Vec<u8>, Error> {
         return Err(error::ErrorNotFound(ERROR_INVALID_TXID));
     }
 
-    match hex::decode(&txid_str.to_string()) {
+    match hex::decode(&txid_str) {
         Err(e) => {
             log::warn!(target: "web_handler", "parse_txid_str: invalid txid {}: {}", txid_str, e);
             Err(error::ErrorNotFound(ERROR_INVALID_TXID))
