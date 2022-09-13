@@ -10,13 +10,14 @@ mod model;
 mod ogimage;
 mod util;
 
+use actix_files::Files;
 use actix_web::http::StatusCode;
-use actix_web::middleware::errhandlers::ErrorHandlers;
-use actix_web::{middleware, web, App, HttpServer};
+use actix_web::middleware::{self, ErrorHandlers};
+use actix_web::web::Data;
+use actix_web::{web, App, HttpServer};
+use miningpool_observer_shared::{config, db_pool};
 use simple_logger::SimpleLogger;
 use tera::Tera;
-
-use miningpool_observer_shared::{config, db_pool};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -64,26 +65,22 @@ async fn main() -> std::io::Result<()> {
             opt
         };
 
-        App::new()
-            .data(tera)
-            .data(pool.clone())
-            .data(cloned_config.site.clone())
-            .data(cloned_config.debug_pages)
-            .data(usvg_options)
-            .data(node_version)
-            .wrap(middleware::Logger::default())
-            //
-            // ERROR HANDLING
-            //
-            .wrap(
-                ErrorHandlers::new()
-                    .handler(StatusCode::NOT_FOUND, error::not_found)
-                    .handler(
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        error::internal_server_error,
-                    )
-                    .handler(StatusCode::UNAUTHORIZED, error::unauthorized),
+        let error_handlers = ErrorHandlers::new()
+            .handler(StatusCode::NOT_FOUND, error::not_found)
+            .handler(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                error::internal_server_error,
             )
+            .handler(StatusCode::UNAUTHORIZED, error::unauthorized);
+
+        App::new()
+            .app_data(Data::new(tera))
+            .app_data(Data::new(pool.clone()))
+            .app_data(Data::new(cloned_config.site.clone()))
+            .app_data(Data::new(cloned_config.debug_pages))
+            .app_data(Data::new(usvg_options))
+            .app_data(Data::new(node_version))
+            .wrap(middleware::Logger::default())
             //
             // INDEX
             //
@@ -191,10 +188,11 @@ async fn main() -> std::io::Result<()> {
             //
             // STATIC FILES
             //
-            .service(actix_files::Files::new(
+            .service(Files::new(
                 "/static",
                 cloned_config.www_dir_path.clone() + "/static",
             ))
+            .service(web::scope("").wrap(error_handlers))
     })
     .bind(config.address)?
     .run()

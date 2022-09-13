@@ -11,9 +11,9 @@ miningpool_observer_shared = { path="../shared" }
 log = "0.4"
 simple_logger = "1.9.0"
 
-actix-http = "2"
-actix-web = "3"
-actix-files = "0.5.0"
+actix-http = "3"
+actix-web = "4"
+actix-files = "0.6"
 
 diesel = { version = "1.4.4", features = ["postgres", "r2d2", "chrono"] }
 r2d2 = "0.8"

@@ -30,8 +30,8 @@ pub async fn ogimage_missing_transaction(
 
     let conn = pool.get().expect("couldn't get db connection from pool");
     let missing_transaction = web::block(move || db::single_missing_transaction(&txid, &conn))
-        .await
-        .map_err(error::database_error)?;
+        .await?
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     #[derive(Serialize)]
     struct Data {
@@ -92,8 +92,8 @@ pub async fn ogimage_template_and_block(
 
     let conn = pool.get().expect("couldn't get db connection from pool");
     let block = web::block(move || db::block(&hash, &conn))
-        .await
-        .map_err(error::database_error)?;
+        .await?
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     #[derive(Serialize)]
     struct Data {
@@ -149,8 +149,8 @@ pub async fn ogimage_block_with_conflicting_transactions(
     let conn = pool.get().expect("couldn't get db connection from pool");
     let block_with_conflicting_transactions =
         web::block(move || db::single_block_with_conflicting_transactions(&conn, &hash))
-            .await
-            .map_err(error::database_error)?;
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
     #[derive(Serialize)]
     struct Data {

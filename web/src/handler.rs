@@ -8,6 +8,9 @@ use tags::THRESHOLD_TRANSACTION_CONSIDERED_YOUNG;
 
 use std::collections::HashMap;
 
+use crate::model::*;
+use miningpool_observer_shared::model::*;
+
 const QUERY_PAGE: &str = "page";
 const QUERY_POOL: &str = "pool";
 
@@ -57,16 +60,16 @@ pub async fn templates_and_blocks(
     let conn = pool.get().expect("couldn't get db connection from pool");
     if mining_pool != String::default() {
         let moved_mining_pool = mining_pool.clone();
-        let (blocks, max_pages) =
+        let (blocks, max_pages): (Vec<Block>, u32) =
             web::block(move || db::blocks_by_pool(&conn, page, &moved_mining_pool))
-                .await
-                .map_err(error::database_error)?;
+                .await?
+                .map_err(actix_web::error::ErrorInternalServerError)?;
         ctx.insert("blocks", &blocks);
         ctx.insert("MAX_PAGES", &max_pages);
     } else {
         let (blocks, max_pages) = web::block(move || db::blocks(&conn, page))
-            .await
-            .map_err(error::database_error)?;
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
         ctx.insert("blocks", &blocks);
         ctx.insert("MAX_PAGES", &max_pages);
     }
@@ -75,8 +78,8 @@ pub async fn templates_and_blocks(
 
     let conn = pool.get().expect("couldn't get db connection from pool");
     let pools = web::block(move || db::pools(&conn))
-        .await
-        .map_err(error::database_error)?;
+        .await?
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     ctx.insert("POOLS", &pools);
 
@@ -106,17 +109,17 @@ pub async fn single_template_and_block(
 
     let hash_clone = hash.clone();
     let conn = pool.get().expect("couldn't get db connection from pool");
-    let block_with_tx = web::block(move || db::block_with_tx(&hash, &conn))
-        .await
-        .map_err(error::database_error)?;
+    let block_with_tx: BlockWithTx = web::block(move || db::block_with_tx(&hash, &conn))
+        .await?
+        .map_err(actix_web::error::ErrorInternalServerError)?;
     ctx.insert("block_with_tx", &block_with_tx);
 
     if block_with_tx.block.sanctioned_missing_tx > 0 {
         let conn = pool.get().expect("couldn't get db connection from pool");
-        let sanctioned_missing_tx =
+        let sanctioned_missing_tx: Vec<MissingSanctionedTransaction> =
             web::block(move || db::missing_sanctioned_txns_for_block(&hash_clone, &conn))
-                .await
-                .map_err(error::database_error)?;
+                .await?
+                .map_err(actix_web::error::ErrorInternalServerError)?;
         ctx.insert("sanctioned_missing_tx", &sanctioned_missing_tx);
     } else {
         let empty: &[model::MissingSanctionedTransaction] = &[];
@@ -144,8 +147,8 @@ pub async fn missing_sanctioned_transactions_rss(
 
     let blocks_with_missing_sanctioned =
         web::block(move || db::blocks_with_missing_sanctioned(&conn))
-            .await
-            .map_err(error::database_error)?;
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
     ctx.insert(
         "blocks_with_missing_sanctioned",
         &blocks_with_missing_sanctioned,
@@ -182,8 +185,8 @@ pub async fn missing_transactions(
     let conn = pool.get().expect("couldn't get db connection from pool");
     let (missing_transactions, max_pages) =
         web::block(move || db::missing_transactions(&conn, page))
-            .await
-            .map_err(error::database_error)?;
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
     ctx.insert("missing_transactions", &missing_transactions);
     ctx.insert("MAX_PAGES", &max_pages);
     ctx.insert("CURRENT_PAGE", &page);
@@ -208,8 +211,8 @@ pub async fn single_missing_transaction(
     ctx.insert("NODE_VERSION", node_version.get_ref());
     let conn = pool.get().expect("couldn't get db connection from pool");
     let missing_transaction = web::block(move || db::single_missing_transaction(&txid, &conn))
-        .await
-        .map_err(error::database_error)?;
+        .await?
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     ctx.insert("missing_transaction", &missing_transaction);
     let s = tmpl
@@ -239,8 +242,8 @@ pub async fn missing_transactions_rss(
     let conn = pool.get().expect("couldn't get db connection from pool");
     let (missing_transactions, max_pages) =
         web::block(move || db::missing_transactions(&conn, page))
-            .await
-            .map_err(error::database_error)?;
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
     ctx.insert("missing_transactions", &missing_transactions);
     ctx.insert("MAX_PAGES", &max_pages);
     ctx.insert("CURRENT_PAGE", &page);
@@ -278,8 +281,8 @@ pub async fn conflicting_transactions(
     let conn = pool.get().expect("couldn't get db connection from pool");
     let (blocks_with_conflicting_transctions, max_pages) =
         web::block(move || db::blocks_with_conflicting_transactions(&conn, page))
-            .await
-            .map_err(error::database_error)?;
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
     ctx.insert(
         "blocks_with_conflicting_transactions",
@@ -312,8 +315,8 @@ pub async fn single_block_with_conflicting_transactions(
     let conn = pool.get().expect("couldn't get db connection from pool");
     let single_block_with_conflicting_transactions =
         web::block(move || db::single_block_with_conflicting_transactions(&conn, &hash))
-            .await
-            .map_err(error::database_error)?;
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
     ctx.insert(
         "single_block_with_conflicting_transactions",
@@ -362,8 +365,8 @@ pub async fn faq(
     let conn = pool.get().expect("couldn't get db connection from pool");
     let recent_sanctioned_utxo_scan_info =
         web::block(move || db::get_recent_sanctioned_utxo_scan_info(&conn))
-            .await
-            .map_err(error::database_error)?;
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
     ctx.insert(
         "recent_sanctioned_utxo_scan_info",
         &recent_sanctioned_utxo_scan_info,
@@ -420,8 +423,8 @@ pub async fn debug_utxoset_scans(
     ctx.insert("QUERY_PAGE", &QUERY_PAGE);
 
     let (scans, max_pages) = web::block(move || db::sanctioned_utxo_scan_infos(&conn, page))
-        .await
-        .map_err(error::database_error)?;
+        .await?
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     ctx.insert("scans", &scans);
     ctx.insert("MAX_PAGES", &max_pages);
@@ -450,8 +453,8 @@ pub async fn debug_unknown_pool_blocks(
 
     let conn = pool.get().expect("couldn't get db connection from pool");
     let unknown_pool_blocks = web::block(move || db::unknown_pool_blocks(&conn))
-        .await
-        .map_err(error::database_error)?;
+        .await?
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     ctx.insert("unknown_pool_blocks", &unknown_pool_blocks);
     let s = tmpl
@@ -478,8 +481,8 @@ pub async fn debug_fees_by_pool(
 
     let conn = pool.get().expect("couldn't get db connection from pool");
     let avg_fees = web::block(move || db::avg_fees_by_pool(&conn))
-        .await
-        .map_err(error::database_error)?;
+        .await?
+        .map_err(actix_web::error::ErrorInternalServerError)?;
 
     ctx.insert("avgfees", &avg_fees);
     let s = tmpl
@@ -513,10 +516,10 @@ pub async fn debug_template_selection_infos(
     ctx.insert("QUERY_PAGE", &QUERY_PAGE);
 
     let conn = pool.get().expect("couldn't get db connection from pool");
-    let (template_selection_infos, max_pages) =
+    let (template_selection_infos, max_pages): (Vec<DebugTemplateSelectionInfosAndBlock>, u32) =
         web::block(move || db::debug_template_selection_infos(&conn, page))
-            .await
-            .map_err(error::database_error)?;
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
     ctx.insert("template_selection_infos", &template_selection_infos);
     ctx.insert("MAX_PAGES", &max_pages);
@@ -544,9 +547,10 @@ pub async fn debug_sanctioned_by_pool(
     ctx.insert("NODE_VERSION", node_version.get_ref());
 
     let conn = pool.get().expect("couldn't get db connection from pool");
-    let sanctioned_table = web::block(move || db::debug_sanctioned_table(&conn))
-        .await
-        .map_err(error::database_error)?;
+    let sanctioned_table: Vec<PoolSanctionedTableEntry> =
+        web::block(move || db::debug_sanctioned_table(&conn))
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
 
     ctx.insert("sanctioned_table", &sanctioned_table);
     let s = tmpl
@@ -568,10 +572,10 @@ pub async fn debug_sanctioned_transactions_rss(
 
     let conn = pool.get().expect("couldn't get db connection from pool");
 
-    let templates_and_blocks_with_sanctioned_tx =
+    let templates_and_blocks_with_sanctioned_tx: Vec<Block> =
         web::block(move || db::debug_templates_and_blocks_with_sanctioned_tx(&conn))
-            .await
-            .map_err(error::database_error)?;
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
     ctx.insert(
         "templates_and_blocks_with_sanctioned_tx",
         &templates_and_blocks_with_sanctioned_tx,
