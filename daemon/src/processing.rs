@@ -161,7 +161,7 @@ fn is_tx_opreturn(tx: &Transaction) -> bool {
 }
 
 pub fn retag_transaction(tx: &bitcoin::Transaction, tx_info: &TxInfo) -> Vec<i32> {
-    if let Ok(raw_tx_info) = RawTxInfo::new(&tx) {
+    if let Ok(raw_tx_info) = RawTxInfo::new(tx) {
         let new_tags = get_transaction_tags(tx_info, &raw_tx_info, false, &HashMap::new());
         return new_tags;
     }
@@ -427,7 +427,7 @@ pub fn build_transactions_only_in_block(
 
         match build_transaction(
             &txid_to_reverse,
-            &tx_info,
+            tx_info,
             false,
             outpoint_to_sanctioned_utxo_map,
         ) {
@@ -472,7 +472,7 @@ pub fn build_sanctioned_transaction_infos(
 
             match build_transaction(
                 &txid_to_reverse,
-                &tx_info,
+                tx_info,
                 false,
                 outpoint_to_sanctioned_utxo_map,
             ) {
@@ -511,7 +511,7 @@ pub fn build_sanctioned_transaction_infos(
 
             match build_transaction(
                 &txid_to_reverse,
-                &tx_info,
+                tx_info,
                 false,
                 outpoint_to_sanctioned_utxo_map,
             ) {
