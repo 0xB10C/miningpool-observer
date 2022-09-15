@@ -14,7 +14,7 @@ log_level = "info"
 # This directory contains the HTML templates and static resources
 # When using the docker image, the image already contains these under "/app/www".
 # Use "/app/www" when using docker.
-www_dir_path = "./www"
+www_dir_path = "www"
 
 [site]
 
