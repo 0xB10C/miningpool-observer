@@ -1537,7 +1537,7 @@ dependencies = [
 [[package]]
 name = "rawtx-rs"
 version = "0.1.0"
-source = "git+https://github.com/0xB10C/rawtx-rs?branch=master#b8aa85723edcf118c8c332d80adc27e8de7fd3cf"
+source = "git+https://github.com/0xB10C/rawtx-rs?branch=master#d7b84698413b3596c4374521f3936bec2d8b9b9e"
 dependencies = [
  "bitcoin",
  "hex",
