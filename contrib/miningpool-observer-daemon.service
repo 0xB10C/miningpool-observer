@@ -1,12 +1,13 @@
 [Unit]
 Description=Miningpool Observer Daemon
 After=bitcoind.service
+PartOf=bitcoind.service
 
 [Service]
 User=miningobs
 Group=miningobs
 WorkingDirectory=/home/miningobs/miningpool-observer
-ExecStart=/home/miningobs/miningpool-observer/target/release/miningpool-observer-daemon 
+ExecStart=/home/miningobs/miningpool-observer/target/release/miningpool-observer-daemon
 Type=simple
 KillMode=process
 TimeoutSec=60
