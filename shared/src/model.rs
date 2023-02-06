@@ -14,8 +14,8 @@ use std::hash::{Hash, Hasher};
 
 /// This is used to query a block from the database. Use [NewBlock] for inserting.
 #[derive(Queryable, Serialize, Identifiable)]
-#[primary_key(hash)]
-#[table_name = "block"]
+#[diesel(primary_key(hash))]
+#[diesel(table_name = block)]
 pub struct Block {
     pub id: i32,
     #[serde(with = "serde_hex")]
@@ -62,7 +62,7 @@ pub struct Block {
 /// Compared to [Block] this does not contain the id field.
 /// diesel.rs needs two types for inserting something with and SERIAL as id.
 #[derive(Insertable, Serialize, Debug)]
-#[table_name = "block"]
+#[diesel(table_name = block)]
 pub struct NewBlock {
     #[serde(with = "serde_hex")]
     pub hash: Vec<u8>,
@@ -105,7 +105,7 @@ pub struct NewBlock {
 }
 
 #[derive(Debug, Insertable, Queryable, Serialize, Clone)]
-#[table_name = "transaction"]
+#[diesel(table_name = transaction)]
 pub struct Transaction {
     #[serde(with = "serde_hex")]
     pub txid: Vec<u8>,
@@ -127,7 +127,7 @@ impl Hash for Transaction {
 }
 
 #[derive(Insertable, Queryable, Serialize)]
-#[table_name = "transaction_only_in_block"]
+#[diesel(table_name = transaction_only_in_block)]
 pub struct TransactionOnlyInBlock {
     pub block_id: i32,
     pub position: i32,
@@ -135,7 +135,7 @@ pub struct TransactionOnlyInBlock {
 }
 
 #[derive(Insertable, Queryable, Serialize, Clone)]
-#[table_name = "transaction_only_in_template"]
+#[diesel(table_name = transaction_only_in_template)]
 pub struct TransactionOnlyInTemplate {
     pub block_id: i32,
     pub position: i32,
@@ -144,7 +144,7 @@ pub struct TransactionOnlyInTemplate {
 }
 
 #[derive(Insertable, Queryable, Serialize)]
-#[table_name = "sanctioned_transaction_info"]
+#[diesel(table_name = sanctioned_transaction_info)]
 pub struct SanctionedTransactionInfo {
     pub block_id: i32,
     pub transaction_txid: Vec<u8>,
@@ -154,7 +154,7 @@ pub struct SanctionedTransactionInfo {
 }
 
 #[derive(Insertable, Queryable, Serialize, Debug)]
-#[table_name = "conflicting_transactions"]
+#[diesel(table_name = conflicting_transactions)]
 pub struct ConflictingTransaction {
     pub block_id: i32,
     pub template_txids: Vec<Vec<u8>>,
@@ -164,7 +164,7 @@ pub struct ConflictingTransaction {
 }
 
 #[derive(Insertable, Queryable, Serialize, Debug)]
-#[table_name = "sanctioned_utxo"]
+#[diesel(table_name = sanctioned_utxo)]
 pub struct SanctionedUtxo {
     #[serde(with = "serde_hex")]
     pub txid: Vec<u8>,
@@ -175,7 +175,7 @@ pub struct SanctionedUtxo {
 }
 
 #[derive(Insertable, Queryable, Serialize, Debug)]
-#[table_name = "sanctioned_utxo_scan_info"]
+#[diesel(table_name = sanctioned_utxo_scan_info)]
 pub struct SanctionedUtxoScanInfo {
     pub end_time: NaiveDateTime,
     pub end_height: i32,
@@ -185,7 +185,7 @@ pub struct SanctionedUtxoScanInfo {
 }
 
 #[derive(Insertable, Queryable, Serialize, Debug, Clone)]
-#[table_name = "debug_template_selection"]
+#[diesel(table_name = debug_template_selection)]
 pub struct DebugTemplateSelectionInfo {
     pub block_id: i32,
     pub template_time: NaiveDateTime,

@@ -53,8 +53,8 @@ async fn main() -> std::io::Result<()> {
         tera.register_function("tx_tag_id_to_tag", util::tx_tag_id_to_tag());
         tera.register_function("seconds_to_duration", util::seconds_to_duration());
 
-        let conn = pool.clone().get().unwrap();
-        let node_version = db::get_node_info(&conn).unwrap();
+        let mut conn = pool.clone().get().unwrap();
+        let node_version = db::get_node_info(&mut conn).unwrap();
 
         let usvg_options: usvg::Options = {
             let mut opt = usvg::Options::default();

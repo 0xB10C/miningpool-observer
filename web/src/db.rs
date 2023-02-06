@@ -20,7 +20,10 @@ use std::collections::HashMap;
 pub const MAX_BLOCKS_PER_PAGE: i64 = 25;
 pub const MAX_UTXOSET_SCANS_PER_PAGE: i64 = 100;
 
-pub fn blocks(conn: &PgConnection, page: u32) -> Result<(Vec<Block>, u32), diesel::result::Error> {
+pub fn blocks(
+    conn: &mut PgConnection,
+    page: u32,
+) -> Result<(Vec<Block>, u32), diesel::result::Error> {
     use schema::block::dsl::*;
     let blocks: Vec<Block> = block
         .limit(MAX_BLOCKS_PER_PAGE)
@@ -34,7 +37,7 @@ pub fn blocks(conn: &PgConnection, page: u32) -> Result<(Vec<Block>, u32), diese
 }
 
 pub fn blocks_by_pool(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
     page: u32,
     pool: &str,
 ) -> Result<(Vec<Block>, u32), diesel::result::Error> {
@@ -56,7 +59,7 @@ pub fn blocks_by_pool(
     Ok((blocks, max_pages))
 }
 
-pub fn pools(conn: &PgConnection) -> Result<Vec<String>, diesel::result::Error> {
+pub fn pools(conn: &mut PgConnection) -> Result<Vec<String>, diesel::result::Error> {
     use schema::block::dsl::*;
     let pools: Vec<String> = block
         .select(pool_name)
@@ -67,12 +70,12 @@ pub fn pools(conn: &PgConnection) -> Result<Vec<String>, diesel::result::Error> 
 }
 
 /// Select block by hash
-pub fn block(block_hash: &[u8], conn: &PgConnection) -> Result<Block, diesel::result::Error> {
+pub fn block(block_hash: &[u8], conn: &mut PgConnection) -> Result<Block, diesel::result::Error> {
     use schema::block::dsl::*;
     block.find(block_hash).first(conn)
 }
 
-pub fn unknown_pool_blocks(conn: &PgConnection) -> Result<Vec<Block>, diesel::result::Error> {
+pub fn unknown_pool_blocks(conn: &mut PgConnection) -> Result<Vec<Block>, diesel::result::Error> {
     use schema::block::dsl::*;
     block
         .filter(pool_name.eq("Unknown"))
@@ -82,7 +85,7 @@ pub fn unknown_pool_blocks(conn: &PgConnection) -> Result<Vec<Block>, diesel::re
 
 pub fn block_with_tx(
     block_hash: &[u8],
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<BlockWithTx, diesel::result::Error> {
     let block = block(block_hash, conn)?;
     let block_id = block.id;
@@ -101,7 +104,7 @@ struct ConflictingTransactionsData {
 }
 
 fn conflicting_transactions_data(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
     page: u32,
 ) -> Result<ConflictingTransactionsData, diesel::result::Error> {
     let block_ids: Vec<i32>;
@@ -124,7 +127,7 @@ fn conflicting_transactions_data(
         // We don't need the height.
 
         total_block_count = *conflicting_transactions
-            .select(sql("COUNT (DISTINCT block_id)"))
+            .select(sql::<BigInt>("COUNT (DISTINCT block_id)"))
             .load::<i64>(conn)?
             .first()
             .unwrap();
@@ -175,7 +178,7 @@ fn conflicting_transactions_data(
 }
 
 pub fn blocks_with_conflicting_transactions(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
     page: u32,
 ) -> Result<(Vec<ConflictingTranscationInfo>, u32), diesel::result::Error> {
     let data = conflicting_transactions_data(conn, page)?;
@@ -224,7 +227,7 @@ pub fn blocks_with_conflicting_transactions(
 }
 
 fn single_block_with_conflicting_transactions_data(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
     block_hash: &[u8],
 ) -> Result<(Block, Vec<Transaction>, Vec<ConflictingTransaction>), diesel::result::Error> {
     let this_block: Block;
@@ -263,7 +266,7 @@ fn single_block_with_conflicting_transactions_data(
 }
 
 pub fn single_block_with_conflicting_transactions(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
     block_hash: &[u8],
 ) -> Result<ConflictingTranscationInfo, diesel::result::Error> {
     let (block, transactions, conflicting_transactions_info) =
@@ -320,14 +323,14 @@ ORDER BY pool_name ASC;
 ;"#;
 
 pub fn debug_sanctioned_table(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<Vec<PoolSanctionedTableEntry>, diesel::result::Error> {
     sql_query(QUERY_DEBUG_SANCTIONED_TABLE_TOTAL).load::<PoolSanctionedTableEntry>(conn)
 }
 
 pub fn missing_sanctioned_txns_for_block(
     req_hash: &[u8],
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<Vec<MissingSanctionedTransaction>, diesel::result::Error> {
     let this_block_id: i32;
     {
@@ -384,13 +387,15 @@ HAVING
 ORDER BY median DESC
 ;"#;
 
-pub fn avg_fees_by_pool(conn: &PgConnection) -> Result<Vec<AvgPoolFees>, diesel::result::Error> {
+pub fn avg_fees_by_pool(
+    conn: &mut PgConnection,
+) -> Result<Vec<AvgPoolFees>, diesel::result::Error> {
     sql_query(QUERY_AVG_POOL_FEES).load::<AvgPoolFees>(conn)
 }
 
 fn transaction_only_in_template_by_block_id(
     p_block_id: i32,
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<Vec<(TransactionOnlyInTemplate, Transaction)>, diesel::result::Error> {
     use schema::transaction_only_in_template::dsl::*;
     transaction_only_in_template
@@ -402,7 +407,7 @@ fn transaction_only_in_template_by_block_id(
 
 fn transaction_only_in_block_by_block_id(
     p_block_id: i32,
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<Vec<(TransactionOnlyInBlock, Transaction)>, diesel::result::Error> {
     use schema::transaction_only_in_block::dsl::*;
     transaction_only_in_block
@@ -458,18 +463,18 @@ const QUERY_COUNT_MISSING_TRANSACTIONS: &str = r#"
 
 #[derive(QueryableByName)]
 struct MissingTransactionCountInfo {
-    #[sql_type = "Bytea"]
+    #[diesel(sql_type = Bytea)]
     txid: Vec<u8>,
 }
 
 #[derive(Debug, QueryableByName)]
 struct MissingTransactionCount {
-    #[sql_type = "BigInt"]
+    #[diesel(sql_type = BigInt)]
     count: i64,
 }
 
 pub fn missing_transactions(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
     page: u32,
 ) -> Result<(Vec<MissingTransaction>, u32), diesel::result::Error> {
     let missing_transactions_data = missing_transactions_data(conn, page)?;
@@ -529,7 +534,7 @@ struct MissingTransactionsData {
 }
 
 fn missing_transactions_data(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
     page: u32,
 ) -> Result<MissingTransactionsData, diesel::result::Error> {
     use schema::block::dsl::*;
@@ -568,7 +573,7 @@ fn missing_transactions_data(
 
 pub fn single_missing_transaction_data(
     req_txid: &[u8],
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(Transaction, Vec<TransactionOnlyInTemplate>, Vec<Block>), diesel::result::Error> {
     use schema::block::dsl::*;
     use schema::transaction::dsl::*;
@@ -599,7 +604,7 @@ pub fn single_missing_transaction_data(
 
 pub fn single_missing_transaction(
     req_txid: &[u8],
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<MissingTransaction, diesel::result::Error> {
     let (tx, transaction_only_in_templates_not_included_in_block, block_infos) =
         single_missing_transaction_data(req_txid, conn)?;
@@ -639,7 +644,7 @@ pub fn single_missing_transaction(
 }
 
 pub fn get_recent_sanctioned_utxo_scan_info(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<SanctionedUtxoScanInfo, diesel::result::Error> {
     use schema::sanctioned_utxo_scan_info::dsl::*;
     sanctioned_utxo_scan_info
@@ -649,7 +654,7 @@ pub fn get_recent_sanctioned_utxo_scan_info(
 }
 
 pub fn sanctioned_utxo_scan_infos(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
     page: u32,
 ) -> Result<(Vec<SanctionedUtxoScanInfo>, u32), diesel::result::Error> {
     use schema::sanctioned_utxo_scan_info::dsl::*;
@@ -669,7 +674,7 @@ pub fn sanctioned_utxo_scan_infos(
 }
 
 pub fn debug_template_selection_infos(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
     page: u32,
 ) -> Result<(Vec<DebugTemplateSelectionInfosAndBlock>, u32), diesel::result::Error> {
     use schema::debug_template_selection::dsl::*;
@@ -709,7 +714,7 @@ pub fn debug_template_selection_infos(
     }
 
     let infos_count: i64 = *debug_template_selection
-        .select(sql("COUNT( DISTINCT block_id )"))
+        .select(sql::<BigInt>("COUNT( DISTINCT block_id )"))
         .load(conn)?
         .first()
         .unwrap();
@@ -718,7 +723,7 @@ pub fn debug_template_selection_infos(
 }
 
 pub fn blocks_with_missing_sanctioned(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<Vec<Block>, diesel::result::Error> {
     use schema::block::dsl::*;
     let blocks = block
@@ -729,7 +734,7 @@ pub fn blocks_with_missing_sanctioned(
 }
 
 pub fn debug_templates_and_blocks_with_sanctioned_tx(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<Vec<Block>, diesel::result::Error> {
     use schema::block::dsl::*;
     let blocks = block
@@ -739,7 +744,7 @@ pub fn debug_templates_and_blocks_with_sanctioned_tx(
     Ok(blocks)
 }
 
-pub fn get_node_info(conn: &PgConnection) -> Result<String, diesel::result::Error> {
+pub fn get_node_info(conn: &mut PgConnection) -> Result<String, diesel::result::Error> {
     use schema::node_info::dsl::*;
     let info = node_info.select(version).first::<String>(conn)?;
     Ok(info)

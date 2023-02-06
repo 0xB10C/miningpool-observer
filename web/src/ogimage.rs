@@ -28,8 +28,8 @@ pub async fn ogimage_missing_transaction(
     let txid = util::parse_txid_str(&txid_str)?;
     let mut ctx = tera::Context::new();
 
-    let conn = pool.get().expect("couldn't get db connection from pool");
-    let missing_transaction = web::block(move || db::single_missing_transaction(&txid, &conn))
+    let mut conn = pool.get().expect("couldn't get db connection from pool");
+    let missing_transaction = web::block(move || db::single_missing_transaction(&txid, &mut conn))
         .await?
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -90,8 +90,8 @@ pub async fn ogimage_template_and_block(
     let mut ctx = tera::Context::new();
     ctx.insert("config", config.get_ref());
 
-    let conn = pool.get().expect("couldn't get db connection from pool");
-    let block = web::block(move || db::block(&hash, &conn))
+    let mut conn = pool.get().expect("couldn't get db connection from pool");
+    let block = web::block(move || db::block(&hash, &mut conn))
         .await?
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
@@ -146,9 +146,9 @@ pub async fn ogimage_block_with_conflicting_transactions(
     let mut ctx = tera::Context::new();
     ctx.insert("config", config.get_ref());
 
-    let conn = pool.get().expect("couldn't get db connection from pool");
+    let mut conn = pool.get().expect("couldn't get db connection from pool");
     let block_with_conflicting_transactions =
-        web::block(move || db::single_block_with_conflicting_transactions(&conn, &hash))
+        web::block(move || db::single_block_with_conflicting_transactions(&mut conn, &hash))
             .await?
             .map_err(actix_web::error::ErrorInternalServerError)?;
 

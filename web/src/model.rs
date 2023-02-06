@@ -34,15 +34,15 @@ impl MissingTransaction {
 
 #[derive(Debug, QueryableByName, Queryable, Serialize)]
 pub struct AvgPoolFees {
-    #[sql_type = "Text"]
+    #[diesel(sql_type = Text)]
     pub pool_name: String,
-    #[sql_type = "BigInt"]
+    #[diesel(sql_type = BigInt)]
     pub count: i64,
-    #[sql_type = "Double"]
+    #[diesel(sql_type = Double)]
     pub median: f64,
-    #[sql_type = "Double"]
+    #[diesel(sql_type = Double)]
     pub q1: f64,
-    #[sql_type = "Double"]
+    #[diesel(sql_type = Double)]
     pub q3: f64,
 }
 
@@ -55,13 +55,13 @@ pub struct MissingSanctionedTransaction {
 
 #[derive(Debug, QueryableByName, Queryable, Serialize)]
 pub struct PoolSanctionedTableEntry {
-    #[sql_type = "Text"]
+    #[diesel(sql_type = Text)]
     pub pool_name: String,
-    #[sql_type = "BigInt"]
+    #[diesel(sql_type = BigInt)]
     pub in_both: i64,
-    #[sql_type = "BigInt"]
+    #[diesel(sql_type = BigInt)]
     pub only_in_block: i64,
-    #[sql_type = "BigInt"]
+    #[diesel(sql_type = BigInt)]
     pub only_in_template: i64,
 }
 
