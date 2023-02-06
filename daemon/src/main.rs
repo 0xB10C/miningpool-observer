@@ -25,7 +25,6 @@ use miningpool_observer_shared::{
 
 use crate::model::TxInfo;
 
-#[macro_use]
 extern crate diesel_migrations;
 
 mod db;
@@ -169,8 +168,8 @@ fn main() {
                 version
             );
             match conn_pool.get() {
-                Ok(conn) => {
-                    if let Err(e) = db::update_node_info(&version, &conn) {
+                Ok(mut conn) => {
+                    if let Err(e) = db::update_node_info(&version, &mut conn) {
                         log::error!(
                             target: LOG_TARGET_STARTUP,
                             "Could not update the node information in the database: {}",
@@ -218,8 +217,8 @@ fn main() {
 
 fn startup_db_mirgation(conn_pool: &db_pool::PgPool) {
     match conn_pool.get() {
-        Ok(conn) => {
-            match db::run_migrations(&conn) {
+        Ok(mut conn) => {
+            match db::run_migrations(&mut conn) {
                 Ok(_) => log::info!(
                     target: LOG_TARGET_STARTUP,
                     "Database migrations successful."
@@ -528,7 +527,7 @@ fn process(
         txids_only_in_block.len()
     );
 
-    let connection = match db_pool.get() {
+    let mut connection = &mut match db_pool.get() {
         Ok(c) => c,
         Err(e) => {
             log::error!(
@@ -550,7 +549,7 @@ fn process(
         }
     };
 
-    let sanctioned_utxos = match db::get_sanctioned_utxos(&connection) {
+    let sanctioned_utxos = match db::get_sanctioned_utxos(&mut connection) {
         Ok(utxos) => utxos,
         Err(e) => {
             processing::log_processing_error(&format!("Could not load the sanctioned utxos from the database. Using empty UTXO set. Error: {}", e));
@@ -589,7 +588,7 @@ fn process(
         &outpoint_to_sanctioned_utxo_map,
     );
 
-    let block_id = match db::insert_block(&block, &connection) {
+    let block_id = match db::insert_block(&block, &mut connection) {
         Ok(id) => id,
         Err(e) => {
             processing::log_processing_error(&format!("Could not insert the block into the database. Skipping the remaining processing. Error: {}", e));
@@ -659,27 +658,31 @@ fn process(
         template.current_time,
     );
 
-    if let Err(e) = db::insert_transactions(transactions.values().cloned().collect(), &connection) {
+    if let Err(e) =
+        db::insert_transactions(transactions.values().cloned().collect(), &mut connection)
+    {
         processing::log_processing_error(&format!("Could not insert the transactions into the database. Skipping the remaining processing. Unclean database state! Error: {}", e));
         return;
     }
-    if let Err(e) = db::insert_transactions_only_in_block(transactions_only_in_block, &connection) {
+    if let Err(e) =
+        db::insert_transactions_only_in_block(transactions_only_in_block, &mut connection)
+    {
         processing::log_processing_error(&format!("Could not insert the transactions_only_in_block into the database. Skipping the remaining processing. Unclean database state! Error: {}", e));
         return;
     }
     if let Err(e) =
-        db::insert_transactions_only_in_template(transactions_only_in_template, &connection)
+        db::insert_transactions_only_in_template(transactions_only_in_template, &mut connection)
     {
         processing::log_processing_error(&format!("Could not insert the transactions_only_in_template into the database. Skipping the remaining processing. Unclean database state! Error: {}", e));
         return;
     }
     if let Err(e) =
-        db::insert_sanctioned_transaction_infos(sanctioned_transaction_infos, &connection)
+        db::insert_sanctioned_transaction_infos(sanctioned_transaction_infos, &mut connection)
     {
         processing::log_processing_error(&format!("Could not insert the sanctioned_transaction_infos into the database. Skipping the remaining processing. Unclean database state! Error: {}", e));
         return;
     }
-    if let Err(e) = db::insert_conflicting_transactions(conflicting_transactions, &connection) {
+    if let Err(e) = db::insert_conflicting_transactions(conflicting_transactions, &mut connection) {
         processing::log_processing_error(&format!("Could not insert the conflicting_transactions into the database. Skipping the remaining processing. Unclean database state! Error: {}", e));
         return;
     }
@@ -687,14 +690,14 @@ fn process(
     let newly_sactioned_utxos = processing::build_newly_created_sanctioned_utxos(bitcoin_block);
     if !newly_sactioned_utxos.is_empty() {
         log::info!(target: "sanctioned_utxos", "Inserting {} new sanctioned UTXOs into the database.", newly_sactioned_utxos.len());
-        if let Err(e) = db::insert_sanctioned_utxos(&newly_sactioned_utxos, &connection) {
+        if let Err(e) = db::insert_sanctioned_utxos(&newly_sactioned_utxos, &mut connection) {
             processing::log_processing_error(&format!("Could not insert the newly_sactioned_utxos into the database. Skipping the remaining processing. Unclean database state! Error: {}", e));
             return;
         }
     }
 
     if let Err(e) =
-        db::insert_debug_template_selection_infos(debug_template_selection_infos, &connection)
+        db::insert_debug_template_selection_infos(debug_template_selection_infos, &mut connection)
     {
         log::warn!(target: processing::LOG_TARGET_PROCESSING, "Could not insert the debug_template_selection_infos into the database. Non-critical. Error: {}", e);
         return;
@@ -817,7 +820,7 @@ fn start_sanctioned_utxos_scan_thread(rpc_client: Client, db_pool: db_pool::PgPo
             }
         };
 
-        let conn = match db_pool.get() {
+        let mut conn = &mut match db_pool.get() {
             Ok(c) => c,
             Err(e) => {
                 log::error!(
@@ -831,13 +834,14 @@ fn start_sanctioned_utxos_scan_thread(rpc_client: Client, db_pool: db_pool::PgPo
             }
         };
 
-        if let Err(err) = db::insert_sanctioned_utxo_scan_info(&scan_info, &conn) {
+        if let Err(err) = db::insert_sanctioned_utxo_scan_info(&scan_info, &mut conn) {
             log::error!(
                 target: LOG_TARGET_UTXOSETSCAN,
                 "Could not insert UTXO Set scan information into the database: {}",
                 err
             );
-        } else if let Err(err) = db::clean_and_insert_sanctioned_utxos(&sanctioned_utxos, &conn) {
+        } else if let Err(err) = db::clean_and_insert_sanctioned_utxos(&sanctioned_utxos, &mut conn)
+        {
             log::error!(
                 target: LOG_TARGET_UTXOSETSCAN,
                 "Could not insert UTXO Set scan information into the database: {}",
@@ -859,7 +863,7 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
             target: LOG_TARGET_RETAG_TX,
             "Starting to retag transactions. This might take a while.",
         );
-        let conn = match db_pool.get() {
+        let mut conn = &mut match db_pool.get() {
             Ok(c) => c,
             Err(e) => {
                 log::error!(
@@ -870,7 +874,7 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
                 return;
             }
         };
-        let transactions_in_db = match db::all_transactions(&conn) {
+        let transactions_in_db = match db::all_transactions(&mut conn) {
             Ok(blocks) => blocks,
             Err(e) => {
                 log::error!(
@@ -912,7 +916,8 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
 
                 // we can compare them here, as they are both sorted
                 if new_tags != old_tags {
-                    match db::update_transaction_tags(&new_tags, &tx_in_db.txid.clone(), &conn) {
+                    match db::update_transaction_tags(&new_tags, &tx_in_db.txid.clone(), &mut conn)
+                    {
                         Ok(()) => {
                             log::info!(
                                 target: LOG_TARGET_RETAG_TX,
@@ -950,7 +955,7 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
 
 fn start_retry_unknown_pool_identification_thread(rpc_client: Client, db_pool: db_pool::PgPool) {
     thread::spawn(move || {
-        let conn = match db_pool.get() {
+        let mut conn = match db_pool.get() {
             Ok(c) => c,
             Err(e) => {
                 log::error!(
@@ -963,7 +968,7 @@ fn start_retry_unknown_pool_identification_thread(rpc_client: Client, db_pool: d
             }
         };
 
-        let blocks_with_unknown_pools = match db::unknown_pool_blocks(&conn) {
+        let blocks_with_unknown_pools = match db::unknown_pool_blocks(&mut conn) {
             Ok(blocks) => blocks,
             Err(e) => {
                 log::error!(
@@ -1014,7 +1019,7 @@ fn start_retry_unknown_pool_identification_thread(rpc_client: Client, db_pool: d
             };
 
             if let Some(pool) = bitcoin_block.identify_pool() {
-                match db::update_pool_name_with_block_id(&conn, block.id, &pool.name) {
+                match db::update_pool_name_with_block_id(&mut conn, block.id, &pool.name) {
                     Ok(_) => {
                         log::info!(
                             target: LOG_TARGET_REIDUNKNOWNPOOLS,

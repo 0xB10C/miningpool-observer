@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 log = "0.4"
-diesel = { version = "1.4.4", features = ["postgres", "r2d2", "chrono"] }
+diesel = { version = "2", features = ["postgres", "r2d2", "chrono"] }
 serde = "1"
 toml = "0.5"
 chrono = { version = "0.4", features = ["serde"] }

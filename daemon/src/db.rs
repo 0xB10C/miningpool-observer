@@ -1,8 +1,7 @@
 use std::collections::HashSet;
+use std::error::Error;
 use std::iter::FromIterator;
 
-use diesel::pg::PgConnection;
-use diesel::prelude::*;
 use miningpool_observer_shared::model::{
     Block, ConflictingTransaction, DebugTemplateSelectionInfo, NewBlock, SanctionedTransactionInfo,
     SanctionedUtxo, SanctionedUtxoScanInfo, Transaction, TransactionOnlyInBlock,
@@ -10,16 +9,21 @@ use miningpool_observer_shared::model::{
 };
 use miningpool_observer_shared::schema;
 
-use diesel_migrations::embed_migrations;
+use diesel::pg::PgConnection;
+use diesel::prelude::*;
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
-embed_migrations!("../migrations/");
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("../migrations/");
 
-pub fn run_migrations(conn: &PgConnection) -> Result<(), diesel_migrations::RunMigrationsError> {
-    embedded_migrations::run_with_output(conn, &mut std::io::stdout())
+pub fn run_migrations(
+    conn: &mut PgConnection,
+) -> Result<(), Box<dyn Error + Send + Sync + 'static>> {
+    conn.run_pending_migrations(MIGRATIONS)?;
+    Ok(())
 }
 
 /// Insert a single block
-pub fn insert_block(b: &NewBlock, conn: &PgConnection) -> Result<i32, diesel::result::Error> {
+pub fn insert_block(b: &NewBlock, conn: &mut PgConnection) -> Result<i32, diesel::result::Error> {
     use schema::block::dsl::*;
     diesel::insert_into(block)
         .values(b)
@@ -29,7 +33,7 @@ pub fn insert_block(b: &NewBlock, conn: &PgConnection) -> Result<i32, diesel::re
 
 pub fn insert_transactions(
     txns: Vec<Transaction>,
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(), diesel::result::Error> {
     use schema::transaction::dsl::*;
     let inserted_txids = diesel::insert_into(transaction)
@@ -76,7 +80,7 @@ pub fn insert_transactions(
 
 pub fn insert_transactions_only_in_block(
     txns: Vec<TransactionOnlyInBlock>,
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(), diesel::result::Error> {
     use schema::transaction_only_in_block::dsl::*;
     diesel::insert_into(transaction_only_in_block)
@@ -87,7 +91,7 @@ pub fn insert_transactions_only_in_block(
 
 pub fn insert_transactions_only_in_template(
     txns: Vec<TransactionOnlyInTemplate>,
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(), diesel::result::Error> {
     use schema::transaction_only_in_template::dsl::*;
     diesel::insert_into(transaction_only_in_template)
@@ -98,7 +102,7 @@ pub fn insert_transactions_only_in_template(
 
 pub fn insert_sanctioned_transaction_infos(
     sanctioned_infos: Vec<SanctionedTransactionInfo>,
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(), diesel::result::Error> {
     use schema::sanctioned_transaction_info::dsl::*;
     diesel::insert_into(sanctioned_transaction_info)
@@ -109,7 +113,7 @@ pub fn insert_sanctioned_transaction_infos(
 
 pub fn insert_conflicting_transactions(
     ctxns: Vec<ConflictingTransaction>,
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(), diesel::result::Error> {
     use schema::conflicting_transactions::dsl::*;
     diesel::insert_into(conflicting_transactions)
@@ -121,9 +125,9 @@ pub fn insert_conflicting_transactions(
 /// Deletes all Sanctioned UTXOs and inserts the passed Sanctioned UTXOs.
 pub fn clean_and_insert_sanctioned_utxos(
     utxos: &[SanctionedUtxo],
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(), diesel::result::Error> {
-    conn.transaction::<_, diesel::result::Error, _>(|| {
+    conn.transaction::<_, diesel::result::Error, _>(|conn| {
         use schema::sanctioned_utxo::dsl::*;
         diesel::delete(sanctioned_utxo).execute(conn)?;
         diesel::insert_into(sanctioned_utxo)
@@ -136,7 +140,7 @@ pub fn clean_and_insert_sanctioned_utxos(
 
 pub fn insert_sanctioned_utxos(
     utxos: &[SanctionedUtxo],
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(), diesel::result::Error> {
     use schema::sanctioned_utxo::dsl::*;
     diesel::insert_into(sanctioned_utxo)
@@ -148,7 +152,7 @@ pub fn insert_sanctioned_utxos(
 
 pub fn insert_sanctioned_utxo_scan_info(
     info: &SanctionedUtxoScanInfo,
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(), diesel::result::Error> {
     use schema::sanctioned_utxo_scan_info::dsl::*;
     diesel::insert_into(sanctioned_utxo_scan_info)
@@ -159,7 +163,7 @@ pub fn insert_sanctioned_utxo_scan_info(
 }
 
 pub fn get_sanctioned_utxos(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<Vec<SanctionedUtxo>, diesel::result::Error> {
     use schema::sanctioned_utxo::dsl::*;
     let utxos = sanctioned_utxo.get_results(conn)?;
@@ -168,7 +172,7 @@ pub fn get_sanctioned_utxos(
 
 pub fn insert_debug_template_selection_infos(
     infos: Vec<DebugTemplateSelectionInfo>,
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(), diesel::result::Error> {
     use schema::debug_template_selection::dsl::*;
     diesel::insert_into(debug_template_selection)
@@ -178,12 +182,14 @@ pub fn insert_debug_template_selection_infos(
     Ok(())
 }
 
-pub fn all_transactions(conn: &PgConnection) -> Result<Vec<Transaction>, diesel::result::Error> {
+pub fn all_transactions(
+    conn: &mut PgConnection,
+) -> Result<Vec<Transaction>, diesel::result::Error> {
     use schema::transaction::dsl::*;
     transaction.load::<Transaction>(conn)
 }
 
-pub fn unknown_pool_blocks(conn: &PgConnection) -> Result<Vec<Block>, diesel::result::Error> {
+pub fn unknown_pool_blocks(conn: &mut PgConnection) -> Result<Vec<Block>, diesel::result::Error> {
     use schema::block::dsl::*;
     block
         .filter(pool_name.eq("Unknown"))
@@ -192,7 +198,7 @@ pub fn unknown_pool_blocks(conn: &PgConnection) -> Result<Vec<Block>, diesel::re
 }
 
 pub fn update_pool_name_with_block_id(
-    conn: &PgConnection,
+    conn: &mut PgConnection,
     block_id: i32,
     new_pool_name: &str,
 ) -> Result<(), diesel::result::Error> {
@@ -207,7 +213,7 @@ pub fn update_pool_name_with_block_id(
 pub fn update_transaction_tags(
     new_tags: &Vec<i32>,
     tx_id: &Vec<u8>,
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(), diesel::result::Error> {
     use schema::transaction::dsl::*;
     diesel::update(transaction)
@@ -220,7 +226,7 @@ pub fn update_transaction_tags(
 /// Update node information (e.g. node version)
 pub fn update_node_info(
     new_version: &str,
-    conn: &PgConnection,
+    conn: &mut PgConnection,
 ) -> Result<(), diesel::result::Error> {
     use schema::node_info::dsl::*;
     diesel::update(node_info.filter(id.eq(0)))

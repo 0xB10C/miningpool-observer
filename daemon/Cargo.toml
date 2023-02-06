@@ -18,8 +18,8 @@ rawtx-rs = {git = "https://github.com/0xB10C/rawtx-rs", branch = "master", featu
 
 hex = "0.4"
 
-diesel = { version = "1.4.4", features = ["postgres", "r2d2", "chrono"] }
-diesel_migrations = "1.4.0"
+diesel = { version = "2", features = ["postgres", "r2d2", "chrono"] }
+diesel_migrations = "2"
 chrono = { version = "0.4" }
 
 # prometheus metrics
