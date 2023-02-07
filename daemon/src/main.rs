@@ -19,13 +19,12 @@ use miningpool_observer_shared::bitcoincore_rpc::json::{
 };
 use miningpool_observer_shared::bitcoincore_rpc::jsonrpc;
 use miningpool_observer_shared::bitcoincore_rpc::{Auth, Client, Error, RpcApi};
+use miningpool_observer_shared::chrono;
 use miningpool_observer_shared::{
     config, db_pool, model as shared_model, prometheus_metric_server,
 };
 
 use crate::model::TxInfo;
-
-extern crate diesel_migrations;
 
 mod db;
 mod metrics;

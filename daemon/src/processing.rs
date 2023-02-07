@@ -9,6 +9,7 @@ use crate::model::{
 use miningpool_observer_shared::bitcoincore_rpc::json::{
     GetBlockTemplateResult, GetBlockTxFeesResult,
 };
+use miningpool_observer_shared::chrono;
 use miningpool_observer_shared::{model as shared_model, tags};
 
 use bitcoin_pool_identification::{IdentificationMethod, PoolIdentification};

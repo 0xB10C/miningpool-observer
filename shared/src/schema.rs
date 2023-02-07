@@ -1,3 +1,5 @@
+use diesel::prelude::*;
+
 table! {
     block (hash) {
         id -> Int4,

@@ -6,11 +6,12 @@ edition = "2018"
 
 [dependencies]
 log = "0.4"
-diesel = { version = "2", features = ["postgres", "r2d2", "chrono"] }
 serde = "1"
 toml = "0.5"
-chrono = { version = "0.4", features = ["serde"] }
 prometheus = "0.12.0"
+
+diesel = { version = "2", features = ["postgres", "r2d2", "chrono"] }
+chrono = { version = "0.4", features = ["serde"] }
 
 # Requirements to switch to upstream rust-bitcoincore-rpc:
 # 1. merging https://github.com/rust-bitcoin/rust-bitcoincore-rpc/pull/163

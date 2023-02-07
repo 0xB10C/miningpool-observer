@@ -6,6 +6,7 @@ use super::schema::{
 
 use bitcoincore_rpc::json::serde_hex;
 use chrono::NaiveDateTime;
+use diesel::prelude::*;
 use serde::Serialize;
 
 use std::hash::{Hash, Hasher};

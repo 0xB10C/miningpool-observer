@@ -9,9 +9,10 @@ use miningpool_observer_shared::model::{
 };
 use miningpool_observer_shared::schema;
 
-use diesel::pg::PgConnection;
-use diesel::prelude::*;
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+use miningpool_observer_shared::diesel;
+use miningpool_observer_shared::diesel::pg::PgConnection;
+use miningpool_observer_shared::diesel::prelude::*;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("../migrations/");
 

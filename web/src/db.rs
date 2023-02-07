@@ -9,11 +9,12 @@ use miningpool_observer_shared::model::{
 };
 use miningpool_observer_shared::schema;
 
-use diesel::dsl::{count, sql};
-use diesel::pg::PgConnection;
-use diesel::prelude::*;
-use diesel::sql_types::{BigInt, Bytea};
-use diesel::{sql_query, QueryableByName};
+use miningpool_observer_shared::diesel;
+use miningpool_observer_shared::diesel::dsl::{count, sql};
+use miningpool_observer_shared::diesel::pg::PgConnection;
+use miningpool_observer_shared::diesel::prelude::*;
+use miningpool_observer_shared::diesel::sql_types::{BigInt, Bytea};
+use miningpool_observer_shared::diesel::{sql_query, QueryableByName};
 
 use std::collections::HashMap;
 
