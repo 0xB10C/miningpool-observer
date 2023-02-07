@@ -1,5 +1,4 @@
-#[macro_use]
-extern crate diesel;
+//extern crate diesel;
 
 pub mod config;
 pub mod db_pool;
@@ -11,5 +10,7 @@ pub mod tags;
 // the prometheus metrics.
 pub mod prometheus_metric_server;
 
-// Re-export bitcoincore_rpc to only need to upgrade it in one place.
+// Re-exports:
 pub extern crate bitcoincore_rpc;
+pub extern crate chrono;
+pub extern crate diesel;

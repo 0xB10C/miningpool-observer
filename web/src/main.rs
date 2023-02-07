@@ -1,8 +1,5 @@
 #![cfg_attr(feature = "strict", deny(warnings))]
 
-#[macro_use]
-extern crate diesel;
-
 mod db;
 mod error;
 mod handler;
@@ -15,7 +12,7 @@ use actix_web::http::StatusCode;
 use actix_web::middleware::{self, ErrorHandlers};
 use actix_web::web::Data;
 use actix_web::{web, App, HttpServer};
-use miningpool_observer_shared::{config, db_pool};
+use miningpool_observer_shared::{config, db_pool, diesel};
 use simple_logger::SimpleLogger;
 use tera::Tera;
 
