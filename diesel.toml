@@ -1,2 +1,3 @@
 [print_schema]
 file = "shared/src/schema.rs"
+patch_file = "shared/src/schema.patch"

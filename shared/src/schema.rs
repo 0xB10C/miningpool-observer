@@ -1,6 +1,6 @@
-use diesel::prelude::*;
+// @generated automatically by Diesel CLI.
 
-table! {
+diesel::table! {
     block (hash) {
         id -> Int4,
         hash -> Bytea,
@@ -35,7 +35,7 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     conflicting_transactions (block_id, template_txids, block_txids) {
         block_id -> Int4,
         template_txids -> Array<Bytea>,
@@ -45,7 +45,7 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     debug_template_selection (block_id, template_time) {
         block_id -> Int4,
         template_time -> Timestamp,
@@ -56,14 +56,14 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     node_info (id) {
         id -> Int4,
         version -> Text,
     }
 }
 
-table! {
+diesel::table! {
     sanctioned_transaction_info (block_id, transaction_txid) {
         block_id -> Int4,
         transaction_txid -> Bytea,
@@ -73,7 +73,7 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     sanctioned_utxo (txid, vout) {
         txid -> Bytea,
         vout -> Int4,
@@ -83,7 +83,7 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     sanctioned_utxo_scan_info (end_time) {
         end_time -> Timestamp,
         end_height -> Int4,
@@ -93,7 +93,7 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     transaction (txid) {
         txid -> Bytea,
         sanctioned -> Bool,
@@ -108,7 +108,7 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     transaction_only_in_block (block_id, transaction_txid) {
         block_id -> Int4,
         position -> Int4,
@@ -116,7 +116,7 @@ table! {
     }
 }
 
-table! {
+diesel::table! {
     transaction_only_in_template (block_id, transaction_txid) {
         block_id -> Int4,
         position -> Int4,
@@ -125,11 +125,11 @@ table! {
     }
 }
 
-joinable!(sanctioned_transaction_info -> transaction (transaction_txid));
-joinable!(transaction_only_in_block -> transaction (transaction_txid));
-joinable!(transaction_only_in_template -> transaction (transaction_txid));
+diesel::joinable!(sanctioned_transaction_info -> transaction (transaction_txid));
+diesel::joinable!(transaction_only_in_block -> transaction (transaction_txid));
+diesel::joinable!(transaction_only_in_template -> transaction (transaction_txid));
 
-allow_tables_to_appear_in_same_query!(
+diesel::allow_tables_to_appear_in_same_query!(
     block,
     conflicting_transactions,
     debug_template_selection,

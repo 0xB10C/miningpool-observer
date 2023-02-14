@@ -1,0 +1,103 @@
+This is a patch for the generated shared/src/schema.rs file. It's applied
+automatically by Diesel after generating the shared/src/schema.rs file.
+It removes the Nullable wrapping introduced in Diesel 2.0 as it is not needed here.
+See https://diesel.rs/guides/migration_guide.html#changed-nullability-of-array-elements
+
+diff --git a/shared/src/schema.rs b/shared/src/schema.rs
+index 8b77f0a..8d5a1a1 100644
+--- a/shared/src/schema.rs
++++ b/shared/src/schema.rs
+@@ -3,48 +3,48 @@
+ diesel::table! {
+     block (hash) {
+         id -> Int4,
+         hash -> Bytea,
+         prev_hash -> Bytea,
+         height -> Int4,
+-        tags -> Array<Nullable<Int4>>,
++        tags -> Array<Int4>,
+         missing_tx -> Int4,
+         extra_tx -> Int4,
+         shared_tx -> Int4,
+         sanctioned_missing_tx -> Int4,
+         equality -> Float4,
+         block_time -> Timestamp,
+         block_seen_time -> Timestamp,
+         block_tx -> Int4,
+         block_sanctioned -> Int4,
+         block_cb_value -> Int8,
+         block_cb_fees -> Int8,
+         block_weight -> Int4,
+-        block_pkg_weights -> Array<Nullable<Int8>>,
+-        block_pkg_feerates -> Array<Nullable<Float4>>,
++        block_pkg_weights -> Array<Int8>,
++        block_pkg_feerates -> Array<Float4>,
+         pool_name -> Text,
+         pool_link -> Text,
+         pool_id_method -> Text,
+         template_tx -> Int4,
+         template_time -> Timestamp,
+         template_sanctioned -> Int4,
+         template_cb_value -> Int8,
+         template_cb_fees -> Int8,
+         template_weight -> Int4,
+-        template_pkg_weights -> Array<Nullable<Int8>>,
+-        template_pkg_feerates -> Array<Nullable<Float4>>,
++        template_pkg_weights -> Array<Int8>,
++        template_pkg_feerates -> Array<Float4>,
+     }
+ }
+ 
+ diesel::table! {
+     conflicting_transactions (block_id, template_txids, block_txids) {
+         block_id -> Int4,
+-        template_txids -> Array<Nullable<Bytea>>,
+-        block_txids -> Array<Nullable<Bytea>>,
+-        conflicting_outpoints_txids -> Array<Nullable<Bytea>>,
+-        conflicting_outpoints_vouts -> Array<Nullable<Int4>>,
++        template_txids -> Array<Bytea>,
++        block_txids -> Array<Bytea>,
++        conflicting_outpoints_txids -> Array<Bytea>,
++        conflicting_outpoints_vouts -> Array<Int4>,
+     }
+ }
+ 
+ diesel::table! {
+     debug_template_selection (block_id, template_time) {
+         block_id -> Int4,
+@@ -66,13 +66,13 @@ diesel::table! {
+ diesel::table! {
+     sanctioned_transaction_info (block_id, transaction_txid) {
+         block_id -> Int4,
+         transaction_txid -> Bytea,
+         in_block -> Bool,
+         in_template -> Bool,
+-        addresses -> Array<Nullable<Text>>,
++        addresses -> Array<Text>,
+     }
+ }
+ 
+ diesel::table! {
+     sanctioned_utxo (txid, vout) {
+         txid -> Bytea,
+@@ -97,17 +97,17 @@ diesel::table! {
+     transaction (txid) {
+         txid -> Bytea,
+         sanctioned -> Bool,
+         vsize -> Int4,
+         fee -> Int8,
+         output_sum -> Int8,
+-        tags -> Array<Nullable<Int4>>,
++        tags -> Array<Int4>,
+         input_count -> Int4,
+-        inputs -> Array<Nullable<Text>>,
++        inputs -> Array<Text>,
+         output_count -> Int4,
+-        outputs -> Array<Nullable<Text>>,
++        outputs -> Array<Text>,
+     }
+ }
+ 
+ diesel::table! {
+     transaction_only_in_block (block_id, transaction_txid) {
+         block_id -> Int4,
