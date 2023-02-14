@@ -31,7 +31,6 @@ This repository is organized as follows:
 ├── daemon-config.toml.example      # Example configuration file for the miningpool-observer-daemon
 ├── docs                            # Documentation
 ├── migrations                      # SQL files automatically ran by the miningpool-observer-daemon on startup
-├── sanctioned_addresses_XBT.json   # Contains sanctioned Bitcoin addresses
 ├── shared                          # Rust crate for code shared between the miningpool-observer-daemon and miningpool-observer-web
 ├── web                             # Rust crate for the miningpool-observer-web (web-server)
 ├── web-config.toml.example         # Example configuration file for the miningppool-observer-web

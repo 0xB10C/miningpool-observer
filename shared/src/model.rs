@@ -1,7 +1,7 @@
 use super::schema::{
-    block, conflicting_transactions, debug_template_selection, sanctioned_transaction_info,
-    sanctioned_utxo, sanctioned_utxo_scan_info, transaction, transaction_only_in_block,
-    transaction_only_in_template,
+    block, conflicting_transactions, debug_template_selection, sanctioned_addresses,
+    sanctioned_transaction_info, sanctioned_utxo, sanctioned_utxo_scan_info, transaction,
+    transaction_only_in_block, transaction_only_in_template,
 };
 
 use bitcoincore_rpc::json::serde_hex;
@@ -14,7 +14,7 @@ use std::hash::{Hash, Hasher};
 // Database models shared between web and daemon.
 
 /// This is used to query a block from the database. Use [NewBlock] for inserting.
-#[derive(Queryable, Serialize, Identifiable)]
+#[derive(Queryable, QueryableByName, Serialize, Identifiable)]
 #[diesel(primary_key(hash))]
 #[diesel(table_name = block)]
 pub struct Block {
@@ -194,4 +194,10 @@ pub struct DebugTemplateSelectionInfo {
     pub count_shared: i32,
     pub count_extra: i32,
     pub selected: bool,
+}
+
+#[derive(Insertable, Queryable, Serialize, Debug, Clone)]
+#[diesel(table_name = sanctioned_addresses)]
+pub struct SanctionedAddress {
+    pub address: String,
 }

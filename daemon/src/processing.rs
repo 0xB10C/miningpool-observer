@@ -71,18 +71,16 @@ pub fn build_outpoint_to_sanctioned_utxo_map(
 fn is_tx_sanctioned(
     tx: &Transaction,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
+    sanctioned_addresses: &HashSet<String>,
 ) -> bool {
-    is_tx_to_sanctioned(tx) || is_tx_from_sanctioned(tx, outpoint_to_sanctioned_utxo_map)
+    is_tx_to_sanctioned(tx, sanctioned_addresses)
+        || is_tx_from_sanctioned(tx, outpoint_to_sanctioned_utxo_map)
 }
 
-// includes an auto-generated function to identify OFAC sanctioned addresses
-// the generation code can be found in build.rs
-include!(concat!(env!("OUT_DIR"), "/match_sanctioned_addr.rs"));
-
-fn is_tx_to_sanctioned(tx: &Transaction) -> bool {
+fn is_tx_to_sanctioned(tx: &Transaction, sanctioned_addresses: &HashSet<String>) -> bool {
     for output in tx.output.iter() {
         if let Ok(address) = Address::from_script(&output.script_pubkey, Network::Bitcoin) {
-            if is_sanctioned(&address) {
+            if sanctioned_addresses.contains(&address.to_string()) {
                 return true;
             }
         }
@@ -105,8 +103,9 @@ fn is_tx_from_sanctioned(
 fn tx_sanctioned_addresses(
     tx: &Transaction,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
+    sanctioned_addresses: &HashSet<String>,
 ) -> Vec<String> {
-    let mut addresses: Vec<String> = tx_sanctioned_addresses_to(tx)
+    let mut addresses: Vec<String> = tx_sanctioned_addresses_to(tx, sanctioned_addresses)
         .iter()
         .cloned()
         .chain(tx_sanctioned_addresses_from(
@@ -119,11 +118,14 @@ fn tx_sanctioned_addresses(
     addresses
 }
 
-fn tx_sanctioned_addresses_to(tx: &Transaction) -> Vec<String> {
+fn tx_sanctioned_addresses_to(
+    tx: &Transaction,
+    sanctioned_addresses: &HashSet<String>,
+) -> Vec<String> {
     let mut addresses: HashSet<String> = HashSet::new();
     for out in &tx.output {
         if let Ok(address) = Address::from_script(&out.script_pubkey, Network::Bitcoin) {
-            if is_sanctioned(&address) {
+            if sanctioned_addresses.contains(&address.to_string()) {
                 addresses.insert(address.to_string());
             }
         }
@@ -161,9 +163,19 @@ fn is_tx_opreturn(tx: &Transaction) -> bool {
     false
 }
 
-pub fn retag_transaction(tx: &bitcoin::Transaction, tx_info: &TxInfo) -> Vec<i32> {
+pub fn retag_transaction(
+    tx: &bitcoin::Transaction,
+    tx_info: &TxInfo,
+    sanctioned_addresses: &HashSet<String>,
+) -> Vec<i32> {
     if let Ok(raw_tx_info) = RawTxInfo::new(tx) {
-        let new_tags = get_transaction_tags(tx_info, &raw_tx_info, false, &HashMap::new());
+        let new_tags = get_transaction_tags(
+            tx_info,
+            &raw_tx_info,
+            false,
+            &HashMap::new(),
+            sanctioned_addresses,
+        );
         return new_tags;
     }
     return vec![];
@@ -174,6 +186,7 @@ fn get_transaction_tags(
     raw_tx_info: &RawTxInfo,
     is_conflicting_tx: bool,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
+    sanctioned_addresses: &HashSet<String>,
 ) -> Vec<i32> {
     let mut tags: Vec<i32> = vec![];
 
@@ -184,7 +197,7 @@ fn get_transaction_tags(
         tags.push(tags::TxTag::Conflicting as i32);
     }
 
-    if is_tx_to_sanctioned(&tx_info.tx) {
+    if is_tx_to_sanctioned(&tx_info.tx, sanctioned_addresses) {
         tags.push(tags::TxTag::ToSanctioned as i32);
     }
 
@@ -378,6 +391,7 @@ pub fn build_transaction(
     tx_info: &TxInfo,
     is_conflicting_tx: bool,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
+    sanctioned_addresses: &HashSet<String>,
 ) -> Result<shared_model::Transaction, bitcoin::blockdata::script::Error> {
     let raw_tx_info = RawTxInfo::new(&tx_info.tx)?;
     let (inputs_strs, outputs_strs) = in_and_outputs_to_strings(&raw_tx_info);
@@ -386,10 +400,15 @@ pub fn build_transaction(
         &raw_tx_info,
         is_conflicting_tx,
         outpoint_to_sanctioned_utxo_map,
+        sanctioned_addresses,
     );
     return Ok(shared_model::Transaction {
         txid: reversed_txid.to_vec(),
-        sanctioned: is_tx_sanctioned(&tx_info.tx, outpoint_to_sanctioned_utxo_map),
+        sanctioned: is_tx_sanctioned(
+            &tx_info.tx,
+            outpoint_to_sanctioned_utxo_map,
+            sanctioned_addresses,
+        ),
         fee: tx_info.fee.to_sat() as i64,
         vsize: (tx_info.tx.weight() as f32 / 4.0).ceil() as i32,
         output_sum: tx_info.tx.output.iter().map(|o| o.value).sum::<u64>() as i64,
@@ -407,6 +426,7 @@ pub fn build_transactions_only_in_block(
     block_txid_to_txinfo_map: &HashMap<Txid, TxInfo>,
     transactions: &mut HashMap<Vec<u8>, shared_model::Transaction>,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
+    sanctioned_addresses: &HashSet<String>,
 ) -> Vec<shared_model::TransactionOnlyInBlock> {
     let mut transactions_only_in_block: Vec<shared_model::TransactionOnlyInBlock> = vec![];
     for txid in txids_only_in_block {
@@ -431,6 +451,7 @@ pub fn build_transactions_only_in_block(
             tx_info,
             false,
             outpoint_to_sanctioned_utxo_map,
+            sanctioned_addresses,
         ) {
             Ok(t) => add_to_transactions(&t, transactions),
             Err(e) => {
@@ -451,6 +472,7 @@ pub fn build_sanctioned_transaction_infos(
     template_txid_to_txinfo_map: &HashMap<Txid, TxInfo>,
     txids_only_in_block: &HashSet<&Txid>,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
+    sanctioned_addresses: &HashSet<String>,
     transactions: &mut HashMap<Vec<u8>, shared_model::Transaction>,
 ) -> Vec<shared_model::SanctionedTransactionInfo> {
     let mut block_sanctioned_transactions = vec![];
@@ -467,7 +489,11 @@ pub fn build_sanctioned_transaction_infos(
                 );
             }
         };
-        if is_tx_sanctioned(&tx_info.tx, outpoint_to_sanctioned_utxo_map) {
+        if is_tx_sanctioned(
+            &tx_info.tx,
+            outpoint_to_sanctioned_utxo_map,
+            sanctioned_addresses,
+        ) {
             let mut txid_to_reverse = tx_info.txid.to_vec();
             txid_to_reverse.reverse();
 
@@ -476,6 +502,7 @@ pub fn build_sanctioned_transaction_infos(
                 tx_info,
                 false,
                 outpoint_to_sanctioned_utxo_map,
+                sanctioned_addresses,
             ) {
                 Ok(t) => {
                     add_to_transactions(&t, transactions);
@@ -487,6 +514,7 @@ pub fn build_sanctioned_transaction_infos(
                         addresses: tx_sanctioned_addresses(
                             &tx_info.tx,
                             outpoint_to_sanctioned_utxo_map,
+                            sanctioned_addresses,
                         ),
                     });
                 }
@@ -506,7 +534,11 @@ pub fn build_sanctioned_transaction_infos(
                 panic!("Could not find {} in block_txid_to_txinfo_map.", block_txid);
             }
         };
-        if is_tx_sanctioned(&tx_info.tx, outpoint_to_sanctioned_utxo_map) {
+        if is_tx_sanctioned(
+            &tx_info.tx,
+            outpoint_to_sanctioned_utxo_map,
+            sanctioned_addresses,
+        ) {
             let mut txid_to_reverse = tx_info.txid.to_vec();
             txid_to_reverse.reverse();
 
@@ -515,6 +547,7 @@ pub fn build_sanctioned_transaction_infos(
                 tx_info,
                 false,
                 outpoint_to_sanctioned_utxo_map,
+                sanctioned_addresses,
             ) {
                 Ok(t) => {
                     add_to_transactions(&t, transactions);
@@ -526,6 +559,7 @@ pub fn build_sanctioned_transaction_infos(
                         addresses: tx_sanctioned_addresses(
                             &tx_info.tx,
                             outpoint_to_sanctioned_utxo_map,
+                            sanctioned_addresses,
                         ),
                     });
                 }
@@ -541,12 +575,17 @@ pub fn build_sanctioned_transaction_infos(
 
 pub fn build_newly_created_sanctioned_utxos(
     block: &bitcoin::Block,
+    sanctioned_addresses: &HashSet<String>,
 ) -> Vec<shared_model::SanctionedUtxo> {
     let mut new_sanctioned_utxos: Vec<shared_model::SanctionedUtxo> = vec![];
-    for to_sanctioned_tx in block.txdata.iter().filter(|tx| is_tx_to_sanctioned(tx)) {
+    for to_sanctioned_tx in block
+        .txdata
+        .iter()
+        .filter(|tx| is_tx_to_sanctioned(tx, sanctioned_addresses))
+    {
         for (vout, output) in to_sanctioned_tx.output.iter().enumerate() {
             if let Ok(address) = Address::from_script(&output.script_pubkey, Network::Bitcoin) {
-                if is_sanctioned(&address) {
+                if sanctioned_addresses.contains(&address.to_string()) {
                     new_sanctioned_utxos.push(shared_model::SanctionedUtxo {
                         amount: output.value as i64,
                         script_pubkey: output.script_pubkey.to_bytes(),
@@ -648,6 +687,7 @@ pub fn build_block(
     block_fees: &Amount,
     template_fees: &Amount,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
+    sanctioned_addresses: &HashSet<String>,
 ) -> shared_model::NewBlock {
     let (pool_name, pool_link, pool_id_method) = get_pool_info_or_default(block.identify_pool());
     let mut block_hash = block.block_hash().to_vec();
@@ -678,7 +718,9 @@ pub fn build_block(
         block_sanctioned: block
             .txdata
             .iter()
-            .filter(|tx| is_tx_sanctioned(tx, outpoint_to_sanctioned_utxo_map))
+            .filter(|tx| {
+                is_tx_sanctioned(tx, outpoint_to_sanctioned_utxo_map, sanctioned_addresses)
+            })
             .count() as i32,
         block_cb_value: block
             .txdata
@@ -700,7 +742,13 @@ pub fn build_block(
         template_tx: template.transactions.len() as i32,
         template_sanctioned: template_txid_to_txinfo_map
             .iter()
-            .filter(|(_, tx_info)| is_tx_sanctioned(&tx_info.tx, outpoint_to_sanctioned_utxo_map))
+            .filter(|(_, tx_info)| {
+                is_tx_sanctioned(
+                    &tx_info.tx,
+                    outpoint_to_sanctioned_utxo_map,
+                    sanctioned_addresses,
+                )
+            })
             .count() as i32,
         template_weight: (template
             .transactions
@@ -720,6 +768,7 @@ pub fn build_transactions_only_in_template(
     template_txid_to_mempool_age: &HashMap<Txid, i32>,
     transactions: &mut HashMap<Vec<u8>, shared_model::Transaction>,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
+    sanctioned_addresses: &HashSet<String>,
 ) -> Vec<shared_model::TransactionOnlyInTemplate> {
     let mut transactions_only_in_template: Vec<shared_model::TransactionOnlyInTemplate> = vec![];
     for txid in txids_only_in_template {
@@ -745,6 +794,7 @@ pub fn build_transactions_only_in_template(
             tx_info,
             false,
             outpoint_to_sanctioned_utxo_map,
+            sanctioned_addresses,
         ) {
             Ok(t) => add_to_transactions(&t, transactions),
             Err(e) => {
@@ -787,6 +837,7 @@ pub fn build_conflicting_transactions(
     block_txid_to_txinfo_map: &HashMap<Txid, TxInfo>,
     transactions: &mut HashMap<Vec<u8>, shared_model::Transaction>,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
+    sanctioned_addresses: &HashSet<String>,
 ) -> Vec<shared_model::ConflictingTransaction> {
     // for each conflict:
     // we want to find two sets of transactions, one from the template (set T)
@@ -978,6 +1029,7 @@ pub fn build_conflicting_transactions(
                 t_tx,
                 true,
                 outpoint_to_sanctioned_utxo_map,
+                sanctioned_addresses,
             ) {
                 Ok(t) => add_to_transactions(&t, transactions),
                 Err(e) => {
@@ -997,6 +1049,7 @@ pub fn build_conflicting_transactions(
                 t_tx,
                 true,
                 outpoint_to_sanctioned_utxo_map,
+                sanctioned_addresses,
             ) {
                 Ok(t) => add_to_transactions(&t, transactions),
                 Err(e) => {
@@ -1021,11 +1074,18 @@ pub fn get_sanctioned_missing_tx_count(
     txids_only_in_template: &HashSet<&Txid>,
     data: &TemplateTxData,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
+    sanctioned_addresses: &HashSet<String>,
 ) -> usize {
     txids_only_in_template
         .iter()
         .map(|txid| data.txid_to_txinfo_map.get(*txid).unwrap())
-        .filter(|tx| is_tx_sanctioned(&tx.tx, outpoint_to_sanctioned_utxo_map))
+        .filter(|tx| {
+            is_tx_sanctioned(
+                &tx.tx,
+                outpoint_to_sanctioned_utxo_map,
+                sanctioned_addresses,
+            )
+        })
         .count()
 }
 

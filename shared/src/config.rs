@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 const ENVVAR_CONFIG_FILE: &str = "CONFIG_FILE";
 const DEFAULT_DAEMON_CONFIG: &str = "daemon-config.toml";
 const DEFAULT_WEB_CONFIG: &str = "web-config.toml";
+const DEFAULT_SANCTIONED_ADDRESSES_URL: &str = "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.txt";
 
 #[derive(Deserialize)]
 struct DaemonTomlConfig {
@@ -21,6 +22,7 @@ struct DaemonTomlConfig {
     log_level: String,
     retag_transactions: bool,
     prometheus: PrometheusConfig,
+    sanctioned_addresses_url: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -36,6 +38,7 @@ pub struct DaemonConfig {
     pub log_level: LevelFilter,
     pub retag_transactions: bool,
     pub prometheus: PrometheusConfig,
+    pub sanctioned_addresses_url: String,
 }
 
 pub fn load_daemon_config() -> Result<DaemonConfig, ConfigError> {
@@ -69,6 +72,9 @@ pub fn load_daemon_config() -> Result<DaemonConfig, ConfigError> {
         log_level,
         retag_transactions: config.retag_transactions,
         prometheus: config.prometheus,
+        sanctioned_addresses_url: config
+            .sanctioned_addresses_url
+            .unwrap_or(DEFAULT_SANCTIONED_ADDRESSES_URL.to_string()),
     });
 }
 

@@ -64,6 +64,12 @@ diesel::table! {
 }
 
 diesel::table! {
+    sanctioned_addresses (address) {
+        address -> Text,
+    }
+}
+
+diesel::table! {
     sanctioned_transaction_info (block_id, transaction_txid) {
         block_id -> Int4,
         transaction_txid -> Bytea,
@@ -134,6 +140,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     conflicting_transactions,
     debug_template_selection,
     node_info,
+    sanctioned_addresses,
     sanctioned_transaction_info,
     sanctioned_utxo,
     sanctioned_utxo_scan_info,
