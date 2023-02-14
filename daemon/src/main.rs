@@ -1,6 +1,7 @@
 #![cfg_attr(feature = "strict", deny(warnings))]
 
 use std::collections::{HashMap, HashSet, VecDeque};
+use std::fmt::Display;
 use std::fs::File;
 use std::io::Read;
 use std::thread;
@@ -20,6 +21,7 @@ use miningpool_observer_shared::bitcoincore_rpc::json::{
 use miningpool_observer_shared::bitcoincore_rpc::jsonrpc;
 use miningpool_observer_shared::bitcoincore_rpc::{Auth, Client, Error, RpcApi};
 use miningpool_observer_shared::chrono;
+use miningpool_observer_shared::diesel;
 use miningpool_observer_shared::{
     config, db_pool, model as shared_model, prometheus_metric_server,
 };
@@ -35,8 +37,11 @@ const WAIT_TIME_BETWEEN_TEMPLATE_QUERIES: time::Duration = time::Duration::from_
 const WAIT_TIME_BETWEEN_CONNPOOL_GETCONNECTION: time::Duration = time::Duration::from_secs(1);
 const WAIT_TIME_BETWEEN_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 60 * 3); // 3 hours
 const WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 5); // 5 minutes
+const WAIT_TIME_BETWEEN_SANCTIONED_ADDRESS_UPDATES: time::Duration =
+    time::Duration::from_secs(60 * 60 * 24); // 1 day
 const TIMEOUT_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 8); // 8 minutes
 const MAX_OLD_TEMPLATES: usize = 15;
+const TIMEOUT_HTTP_GET_REQUEST: u64 = 10; // seconds
 
 const LOG_TARGET_RPC: &str = "rpc";
 const LOG_TARGET_REIDUNKNOWNPOOLS: &str = "re-id_unknown_pools";
@@ -45,6 +50,7 @@ const LOG_TARGET_STATS: &str = "stats";
 const LOG_TARGET_DBPOOL: &str = "dbpool";
 const LOG_TARGET_STARTUP: &str = "startup";
 const LOG_TARGET_RETAG_TX: &str = "retagtx";
+const LOG_TARGET_UPDATE_SANCTIONED_ADDRESSES: &str = "sanctionupdate";
 
 fn main() {
     let config = match config::load_daemon_config() {
@@ -110,6 +116,18 @@ fn main() {
     }
 
     startup_db_mirgation(&conn_pool);
+
+    // Sanctioned addresses updater
+    // Download the list before we start and then periodically update it.
+    if let Err(e) = start_sanctioned_addresses_updater_thread(
+        config.sanctioned_addresses_url,
+        conn_pool.clone(),
+    ) {
+        panic!(
+            "During startup: Could not update the sanctioned address list: {}",
+            e
+        );
+    }
 
     // Sanctioned UTXO (re)scan
     let utxo_set_scan_conn_pool = match db_pool::new(&config.database_url) {
@@ -540,11 +558,19 @@ fn process(
             match db_pool.get() {
                 Ok(c) => c,
                 Err(e) => {
-                    log::error!(target: LOG_TARGET_DBPOOL, "Could not get a connection from the connection pool. Skipping processing of block {}. Error: {}", bitcoin_block.block_hash(), e);
+                    log::error!(target: LOG_TARGET_DBPOOL, "Could not get a connection from the connection pool. Skipping processing of block {}: {}", bitcoin_block.block_hash(), e);
                     metrics::ERROR_DBPOOL.inc();
                     return;
                 }
             }
+        }
+    };
+
+    let sanctioned_addresses: HashSet<String> = match db::sanctioned_addresses(&mut connection) {
+        Ok(addresses) => addresses.iter().map(|a| a.address.clone()).collect(),
+        Err(e) => {
+            processing::log_processing_error(&format!("Could not load the sanctioned addresses from the database. Using empty list of addresses: {}", e));
+            HashSet::new()
         }
     };
 
@@ -562,6 +588,7 @@ fn process(
         &txids_only_in_template,
         &template_tx_data,
         &outpoint_to_sanctioned_utxo_map,
+        &sanctioned_addresses,
     );
 
     let block_fees: Amount =
@@ -585,6 +612,7 @@ fn process(
         &block_fees,
         &template_fees,
         &outpoint_to_sanctioned_utxo_map,
+        &sanctioned_addresses,
     );
 
     let block_id = match db::insert_block(&block, &mut connection) {
@@ -605,6 +633,7 @@ fn process(
         &block_tx_data.txid_to_txinfo_map,
         &mut transactions,
         &outpoint_to_sanctioned_utxo_map,
+        &sanctioned_addresses,
     );
 
     if !conflicting_transactions.is_empty() {
@@ -624,6 +653,7 @@ fn process(
         &template_txid_to_mempool_age,
         &mut transactions,
         &outpoint_to_sanctioned_utxo_map,
+        &sanctioned_addresses,
     );
     let transactions_only_in_block = processing::build_transactions_only_in_block(
         block_id,
@@ -631,6 +661,7 @@ fn process(
         &block_tx_data.txid_to_txinfo_map,
         &mut transactions,
         &outpoint_to_sanctioned_utxo_map,
+        &sanctioned_addresses,
     );
     let sanctioned_transaction_infos = processing::build_sanctioned_transaction_infos(
         block_id,
@@ -639,6 +670,7 @@ fn process(
         &template_tx_data.txid_to_txinfo_map,
         &txids_only_in_block,
         &outpoint_to_sanctioned_utxo_map,
+        &sanctioned_addresses,
         &mut transactions,
     );
     if !sanctioned_transaction_infos.is_empty() {
@@ -686,7 +718,8 @@ fn process(
         return;
     }
 
-    let newly_sactioned_utxos = processing::build_newly_created_sanctioned_utxos(bitcoin_block);
+    let newly_sactioned_utxos =
+        processing::build_newly_created_sanctioned_utxos(bitcoin_block, &sanctioned_addresses);
     if !newly_sactioned_utxos.is_empty() {
         log::info!(target: "sanctioned_utxos", "Inserting {} new sanctioned UTXOs into the database.", newly_sactioned_utxos.len());
         if let Err(e) = db::insert_sanctioned_utxos(&newly_sactioned_utxos, &mut connection) {
@@ -736,11 +769,8 @@ fn log_template_infos(t: &GetBlockTemplateResult) {
     metrics::STAT_CURRENT_TEMPLATE_COINBASE_VALUE_GAUGE.set(t.coinbase_value.to_sat() as i64);
 }
 
-// includes an auto-generated function to identify OFAC sanctioned addresses
-// the generation code can be found in build.rs
-include!(concat!(env!("OUT_DIR"), "/list_sanctioned_addr.rs"));
-
 fn scantxoutset_sanctioned_tx(
+    addrs: Vec<String>,
     rpc: &Client,
 ) -> Result<
     (
@@ -749,7 +779,6 @@ fn scantxoutset_sanctioned_tx(
     ),
     Error,
 > {
-    let addrs = get_sanctioned_addresses();
     log::info!(
         target: LOG_TARGET_UTXOSETSCAN,
         "Starting UTXO set scan for Sanctioned UTXOs with {} addresses.",
@@ -801,24 +830,6 @@ fn scantxoutset_sanctioned_tx(
 
 fn start_sanctioned_utxos_scan_thread(rpc_client: Client, db_pool: db_pool::PgPool) {
     thread::spawn(move || loop {
-        let (sanctioned_utxos, scan_info): (
-            Vec<shared_model::SanctionedUtxo>,
-            shared_model::SanctionedUtxoScanInfo,
-        ) = match scantxoutset_sanctioned_tx(&rpc_client) {
-            Ok(scan_results) => scan_results,
-            Err(e) => {
-                log::error!(
-                    target: LOG_TARGET_UTXOSETSCAN,
-                    "Could not scan the UTXO set for sanctioned UTXOs. Retrying in {:?}. Error: {}",
-                    WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS,
-                    e
-                );
-                metrics::ERROR_RPC.inc();
-                thread::sleep(WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS);
-                continue;
-            }
-        };
-
         let mut conn = &mut match db_pool.get() {
             Ok(c) => c,
             Err(e) => {
@@ -828,6 +839,38 @@ fn start_sanctioned_utxos_scan_thread(rpc_client: Client, db_pool: db_pool::PgPo
                     WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS,
                     e
                 );
+                thread::sleep(WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS);
+                continue;
+            }
+        };
+
+        let sanctioned_addresses: Vec<String> = match db::sanctioned_addresses(&mut conn) {
+            Ok(sa) => sa.iter().map(|a| a.address.clone()).collect(),
+            Err(e) => {
+                log::error!(
+                    target: LOG_TARGET_UTXOSETSCAN,
+                    "Could not load sanctioned addressses from the database. Retrying in {:?}. Error: {}",
+                    WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS,
+                    e
+                );
+                thread::sleep(WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS);
+                continue;
+            }
+        };
+
+        let (sanctioned_utxos, scan_info): (
+            Vec<shared_model::SanctionedUtxo>,
+            shared_model::SanctionedUtxoScanInfo,
+        ) = match scantxoutset_sanctioned_tx(sanctioned_addresses, &rpc_client) {
+            Ok(scan_results) => scan_results,
+            Err(e) => {
+                log::error!(
+                    target: LOG_TARGET_UTXOSETSCAN,
+                    "Could not scan the UTXO set for sanctioned UTXOs. Retrying in {:?}. Error: {}",
+                    WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS,
+                    e
+                );
+                metrics::ERROR_RPC.inc();
                 thread::sleep(WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS);
                 continue;
             }
@@ -884,6 +927,17 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
                 return;
             }
         };
+        let sanctioned_addresses = match db::sanctioned_addresses(&mut conn) {
+            Ok(addresses) => addresses.iter().map(|a| a.address.clone()).collect(),
+            Err(e) => {
+                log::error!(
+                    target: LOG_TARGET_RETAG_TX,
+                    "Could not load sanctioned addresses from database: {}",
+                    e
+                );
+                return;
+            }
+        };
         let tx_in_db_count = transactions_in_db.len();
         log::info!(
             target: LOG_TARGET_RETAG_TX,
@@ -905,7 +959,8 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
                 };
                 let mut old_tags = tx_in_db.tags.clone();
                 old_tags.sort();
-                let mut new_tags = processing::retag_transaction(&tx, &tx_info);
+                let mut new_tags =
+                    processing::retag_transaction(&tx, &tx_info, &sanctioned_addresses);
                 for tag in old_tags.iter() {
                     if !new_tags.contains(tag) {
                         new_tags.push(*tag);
@@ -950,6 +1005,130 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
             }
         }
     });
+}
+
+#[derive(Debug)]
+enum UpdateSanctionedAddressesError {
+    Database(diesel::result::Error),
+    MinReq(minreq::Error),
+    DBPool(String),
+    HTTP(String),
+}
+
+impl Display for UpdateSanctionedAddressesError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UpdateSanctionedAddressesError::DBPool(e) => write!(f, "{}", e),
+            UpdateSanctionedAddressesError::Database(e) => write!(f, "{}", e),
+            UpdateSanctionedAddressesError::MinReq(e) => write!(f, "{}", e),
+            UpdateSanctionedAddressesError::HTTP(e) => write!(f, "{}", e),
+        }
+    }
+}
+
+impl std::error::Error for UpdateSanctionedAddressesError {}
+
+impl From<minreq::Error> for UpdateSanctionedAddressesError {
+    fn from(err: minreq::Error) -> Self {
+        UpdateSanctionedAddressesError::MinReq(err)
+    }
+}
+
+impl From<diesel::result::Error> for UpdateSanctionedAddressesError {
+    fn from(err: diesel::result::Error) -> Self {
+        UpdateSanctionedAddressesError::Database(err)
+    }
+}
+
+fn update_sanctioned_addresses(
+    sanctioned_addresses_url: String,
+    db_pool: &db_pool::PgPool,
+) -> Result<(), UpdateSanctionedAddressesError> {
+    let response = minreq::get(sanctioned_addresses_url.clone())
+        .with_timeout(TIMEOUT_HTTP_GET_REQUEST)
+        .send()?;
+
+    if response.status_code >= 400 {
+        log::error!(
+            target: LOG_TARGET_UPDATE_SANCTIONED_ADDRESSES,
+            "Failed to load sanctioned addresses from {}: {} {}",
+            sanctioned_addresses_url,
+            response.status_code,
+            response.reason_phrase,
+        );
+        return Err(UpdateSanctionedAddressesError::HTTP(format!(
+            "{} returned: {} {}",
+            sanctioned_addresses_url, response.status_code, response.reason_phrase
+        )));
+    }
+
+    let addresses: Vec<shared_model::SanctionedAddress> = response
+        .as_str()?
+        .lines()
+        .map(|a| shared_model::SanctionedAddress {
+            address: a.to_string(),
+        })
+        .collect();
+
+    log::info!(
+        target: LOG_TARGET_UPDATE_SANCTIONED_ADDRESSES,
+        "Loaded {} sanctioned addresses from {}",
+        addresses.len(),
+        sanctioned_addresses_url
+    );
+
+    let mut conn = match db_pool.get() {
+        Ok(c) => c,
+        Err(e) => {
+            log::error!(
+                target: LOG_TARGET_UPDATE_SANCTIONED_ADDRESSES,
+                "Could not get a connection from the connection pool: {}",
+                e
+            );
+            return Err(UpdateSanctionedAddressesError::DBPool(e.to_string()));
+        }
+    };
+
+    match db::replace_sanctioned_addresses(addresses, &mut conn) {
+        Ok(()) => {
+            log::info!(
+                target: LOG_TARGET_UPDATE_SANCTIONED_ADDRESSES,
+                "Replaced the sanctioned addresses in the database.",
+            );
+        }
+        Err(e) => {
+            log::error!(
+                target: LOG_TARGET_RETAG_TX,
+                "Could not replace the sanctioned addresses in the database: {}",
+                e,
+            );
+            return Err(e.into());
+        }
+    };
+
+    return Ok(());
+}
+
+fn start_sanctioned_addresses_updater_thread(
+    url: String,
+    db_pool: db_pool::PgPool,
+) -> Result<(), UpdateSanctionedAddressesError> {
+    // first do one update during start-up
+    update_sanctioned_addresses(url.clone(), &db_pool.clone())?;
+    // and then periodcially
+    thread::spawn(move || loop {
+        thread::sleep(WAIT_TIME_BETWEEN_SANCTIONED_ADDRESS_UPDATES);
+
+        if let Err(e) = update_sanctioned_addresses(url.clone(), &db_pool) {
+            log::error!(
+                target: LOG_TARGET_UPDATE_SANCTIONED_ADDRESSES,
+                "Could not update sanctioned address list from {}: {}",
+                url,
+                e
+            );
+        }
+    });
+    Ok(())
 }
 
 fn start_retry_unknown_pool_identification_thread(rpc_client: Client, db_pool: db_pool::PgPool) {

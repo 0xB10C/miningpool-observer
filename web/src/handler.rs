@@ -341,8 +341,6 @@ Disallow: /debug/*";
         .body(robots_txt))
 }
 
-include!(concat!(env!("OUT_DIR"), "/list_sanctioned_addr.rs"));
-
 pub async fn faq(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
@@ -360,7 +358,6 @@ pub async fn faq(
     ctx.insert("NAV_PAGE_FAQ", &true);
     ctx.insert("CONFIG", config.get_ref());
     ctx.insert("NODE_VERSION", node_version.get_ref());
-    ctx.insert("SANCTIONED_ADDRESSES", &get_sanctioned_addresses());
 
     let mut conn = pool.get().expect("couldn't get db connection from pool");
     let recent_sanctioned_utxo_scan_info =
@@ -371,6 +368,11 @@ pub async fn faq(
         "recent_sanctioned_utxo_scan_info",
         &recent_sanctioned_utxo_scan_info,
     );
+    let mut conn = pool.get().expect("couldn't get db connection from pool");
+    let sanctioned_addresses = web::block(move || db::sanctioned_addresses(&mut conn))
+        .await?
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+    ctx.insert("SANCTIONED_ADDRESSES", &sanctioned_addresses);
 
     let s = tmpl
         .render("faq.html", &ctx)

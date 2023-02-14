@@ -3,9 +3,9 @@ use std::error::Error;
 use std::iter::FromIterator;
 
 use miningpool_observer_shared::model::{
-    Block, ConflictingTransaction, DebugTemplateSelectionInfo, NewBlock, SanctionedTransactionInfo,
-    SanctionedUtxo, SanctionedUtxoScanInfo, Transaction, TransactionOnlyInBlock,
-    TransactionOnlyInTemplate,
+    Block, ConflictingTransaction, DebugTemplateSelectionInfo, NewBlock, SanctionedAddress,
+    SanctionedTransactionInfo, SanctionedUtxo, SanctionedUtxoScanInfo, Transaction,
+    TransactionOnlyInBlock, TransactionOnlyInTemplate,
 };
 use miningpool_observer_shared::schema;
 
@@ -183,11 +183,33 @@ pub fn insert_debug_template_selection_infos(
     Ok(())
 }
 
+pub fn replace_sanctioned_addresses(
+    addr: Vec<SanctionedAddress>,
+    conn: &mut PgConnection,
+) -> Result<(), diesel::result::Error> {
+    conn.transaction::<_, diesel::result::Error, _>(|conn| {
+        use schema::sanctioned_addresses::dsl::*;
+        diesel::delete(sanctioned_addresses).execute(conn)?;
+        diesel::insert_into(sanctioned_addresses)
+            .values(addr)
+            .execute(conn)?;
+        Ok(())
+    })?;
+    Ok(())
+}
+
 pub fn all_transactions(
     conn: &mut PgConnection,
 ) -> Result<Vec<Transaction>, diesel::result::Error> {
     use schema::transaction::dsl::*;
     transaction.load::<Transaction>(conn)
+}
+
+pub fn sanctioned_addresses(
+    conn: &mut PgConnection,
+) -> Result<Vec<SanctionedAddress>, diesel::result::Error> {
+    use schema::sanctioned_addresses::dsl::*;
+    sanctioned_addresses.load::<SanctionedAddress>(conn)
 }
 
 pub fn unknown_pool_blocks(conn: &mut PgConnection) -> Result<Vec<Block>, diesel::result::Error> {

@@ -4,8 +4,9 @@ use crate::model::{
     MissingTransaction, MissingTransactionBlockInfo, PoolSanctionedTableEntry,
 };
 use miningpool_observer_shared::model::{
-    Block, ConflictingTransaction, DebugTemplateSelectionInfo, SanctionedTransactionInfo,
-    SanctionedUtxoScanInfo, Transaction, TransactionOnlyInBlock, TransactionOnlyInTemplate,
+    Block, ConflictingTransaction, DebugTemplateSelectionInfo, SanctionedAddress,
+    SanctionedTransactionInfo, SanctionedUtxoScanInfo, Transaction, TransactionOnlyInBlock,
+    TransactionOnlyInTemplate,
 };
 use miningpool_observer_shared::schema;
 
@@ -749,4 +750,10 @@ pub fn get_node_info(conn: &mut PgConnection) -> Result<String, diesel::result::
     use schema::node_info::dsl::*;
     let info = node_info.select(version).first::<String>(conn)?;
     Ok(info)
+}
+
+pub fn sanctioned_addresses(conn: &mut PgConnection) -> Result<Vec<String>, diesel::result::Error> {
+    use schema::sanctioned_addresses::dsl::*;
+    let addresses = sanctioned_addresses.load::<SanctionedAddress>(conn)?;
+    Ok(addresses.iter().map(|a| a.address.clone()).collect())
 }

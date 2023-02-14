@@ -8,15 +8,6 @@ Generally, format code with `cargo fmt`.
 
 The `miningpool-observer-daemon` and `miningpool-observer-web` crate share code via the `miningpool_observer_shared` crate.
 
-## Updating the Sanctioned Address List
-
-The [JSON list of sanctioned addresses](../sanctioned_addresses_XBT.json) is created with this python script [ofac-sanctioned-digital-currency-addresses](https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses).
-This list of sanctioned addresses is automatically updated (checked each night) https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses/blob/lists/sanctioned_addresses_XBT.json
-
-The JSON list in this repository should be updated as soon as new addresses are added.
-
-The JSON file is used for Rust code generation during compilation. See [daemon/build.rs](../daemon/build.rs) and [web/build.rs](../web/build.rs).
-
 ## Icons and Logos
 
 The icons and logos are created with Inkscape.

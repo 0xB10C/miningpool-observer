@@ -30,6 +30,11 @@ rpc_port = 8332
 # Requires Bitcoin Core with txindex and no prune.
 retag_transactions = false
 
+# URL where to query the OFAC sanctioend transactions from. This is optional
+# and defaults to:
+# https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.txt
+sanctioned_addresses_url = https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.txt
+
 # Prometheus Metric Server
 # Don't expose this publicly.
 [prometheus]
