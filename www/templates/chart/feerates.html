@@ -1,136 +1,116 @@
 
 <script src="/static/js/d3.v6.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-color@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-interpolate@3"></script>
+<script src="https://cdn.jsdelivr.net/npm/d3-scale-chromatic@3"></script>
+
 <script>
 
 const Y_MIN = 1 - 1 * 0.15
 
 var margin = ({top: 10, right: 15, bottom: 40, left: 50})
-var width = 900;
-var height = 300;
+//var width = 1200;
+//var height = 4000;
 
 var x = function(d) { return d[0]; };
 var y = function(d) { return d[1]; };
 
+var canvasDiv = d3.select("#feerate-chart")
 
-// append the svg object to the body of the page
-var svg = d3.select("#feerate-chart")
-  .append("svg")
-    .attr("viewBox", "0 0 " + width + " " + height )
+var width = canvasDiv.node().clientWidth
+var height = canvasDiv.node().clientHeight
 
-var g = svg.append("g")
+var canvas = canvasDiv
+  .append('canvas')
+  .attr('width', width)
+  .attr('height', 0); // we calculate this later on
+
+var context = canvas.node().getContext('2d');
 
 var block = null
 var template = null
 
-function draw(template_data, block_data) {
-    let template_and_block_data = template_data.concat(block_data);
+const ROW_HEIGHT = 8 // pixel
+const ROW_WIDTH = width // pixel
+const PADDING = 2 // pixel
+const SCALE_FACTOR = 8
 
-    var yMaxQuantile = d3.quantile(template_and_block_data, 0.998, d => y(d));
-    let xMax = Math.max(4_000_000);
+const BLOCK_WEIGHT = 4_000_000;
 
-    let xPadding = xMax * 0.01 // %
+function calc_rects(tx_data, feerate_data) {
+    const max_feerate = Math.max(...feerate_data)
+    const max_feerate_log = Math.log10(max_feerate)
 
-    // X Scale and Axis
-    var xScale = d3.scaleLinear()
-      .domain([-xPadding, xMax+xPadding])
-      .range([margin.left, width - margin.right])
+    let rect_list = [];
+    let row = 0;
+    let row_pos = 0;
+    let weight_sum = 0;
+    for(const i in tx_data) {
+      let feerate = feerate_data[i];
+      let color = d3.interpolateWarm(
+        (max_feerate_log - Math.log10(feerate)) / max_feerate_log
+      )
 
-    svg.append("g")
-        .attr("transform", `translate(0,${height - margin.bottom})`)
-        .call(d3.axisBottom(xScale).tickFormat(d3.format(".2s")))
+      let tx_size = tx_data[i];
+      weight_sum += tx_size;
+      let size = Math.floor(tx_size / ROW_HEIGHT / SCALE_FACTOR);
 
-    // Y Scale and Axis
-    var yScale = d3.scaleLog()
-      .domain([Y_MIN, yMaxQuantile])
-      .range([height - margin.bottom, margin.top])
+      if (row_pos + size < ROW_WIDTH) {
+        rect_list.push({x: row_pos, y: row * (ROW_HEIGHT+PADDING), width: size, height: ROW_HEIGHT, color: color})
+        row_pos += size + PADDING
+      } else if (row_pos + size > ROW_WIDTH) {
+        let remaining_size = size
+        let remaining_row_space = ROW_WIDTH - row_pos;
+        // fill current row
+        rect_list.push({x: row_pos, y: row * (ROW_HEIGHT+PADDING), width: remaining_row_space, height: ROW_HEIGHT, color: color})
+        remaining_size =- remaining_row_space
+        row_pos = 0
+        row += 1
+        while (remaining_size > ROW_WIDTH) {
+          // fill the row
+          rect_list.push({x: row_pos, y: row * (ROW_HEIGHT+PADDING), width: ROW_WIDTH, height: ROW_HEIGHT, color: color})
+          remaining_size =- ROW_WIDTH
+          row_pos = 0
+          row += 1
+        }
+        rect_list.push({x: row_pos, y: row * (ROW_HEIGHT+PADDING), width: remaining_size, height: ROW_HEIGHT, color: color})
+        row_pos = remaining_size + PADDING
+      }
+  }
+  let rows = row;
+  if (row_pos > 0) {
+    rows++
+  }
+  console.log(weight_sum)
+  return {rows: row, rects: rect_list}
+}
 
-    svg.append("g")
-        .attr("transform", `translate(${margin.left},0)`)
-        .call(d3.axisLeft(yScale).ticks(10, "~s"))
+function draw(tx_data, feerate_data) {
+  let rects_info = calc_rects(tx_data, feerate_data)
+  let height = rects_info.rows * (ROW_HEIGHT+PADDING)
+  console.log("height", height, rects_info)
+  canvas.attr("height", height)
 
-    var template = svg.append("path")
-        .datum(template_data)
-        .attr("id", "feerates-template")
-        .attr("stroke", "blue")
-        .attr("fill", "blue")
-        .attr("fill-opacity", 0.66)
-        .attr("stroke-opacity", 1)
-        .attr("stroke-width", 1)
-        .attr("d",
-            d3.area().curve(d3.curveStepAfter)
-                .x(d => xScale(x(d)) )
-                .y(d => yScale(y(d)) )
-        )
-
-    d3.select("#checkbox-show-template").on("change", function() {
-        template.attr("stroke-opacity", this.checked ? 0.0 : 1)
-    });
-
-    d3.select("#checkbox-show-block").on("change", function() {
-        block.attr("fill-opacity", this.checked ? 0 : 0.66)
-    });
-
-    var block = svg.append("path")
-        .datum(block_data)
-        .attr("id", "feerates-block")
-        .attr("stroke", "red")
-        .attr("fill", "red")
-        .attr("fill-opacity", 0.66)
-        .attr("stroke-opacity", 1)
-        .attr("stroke-width", 0)
-        .attr("d",
-            d3.area().curve(d3.curveStepAfter)
-                .x(d => xScale(x(d)) )
-                .y0(yScale(Y_MIN))
-                .y1(d => yScale(y(d)) )
-        )
-
-    svg.append("text")
-        .attr("class", "fw-light")
-        .attr("text-anchor", "middle")
-        .attr("x", width/2)
-        .attr("y", height - 6)
-        .text("template and block weight in WU");
-
-    svg.append("text")
-        .attr("class", "fw-light")
-        .attr("text-anchor", "middle")
-        .attr("y", 15 )
-        .attr("x", -(height - margin.bottom)/2 )
-        .text("feerate in sat/vByte")
-        .attr("transform", "rotate(-90)");
+  context.fillStyle = '#000';
+  context.fillRect(0, 0, width, height);
+  for(i in rects_info.rects) {
+    let rect = rects_info.rects[i]
+    context.fillStyle = rect["color"];
+    context.fillRect(rect["x"], rect["y"], rect["width"], rect["height"])
+  }
 
 }
 
-d3.select("#nRadius").on("input", function() {
-  update(+this.value);
-});
+
 
 const zip = (a, b) => a.map((k, i) => [k, b[i]]);
-const accumulate = (weights) => {
-    acc_w = 0;
-    acc_weights = [];
-    for(w in weights) {
-        acc_w = acc_w + weights[w];
-        acc_weights.push(acc_w);
-    }
-    return acc_weights;
-}
 
-template_pkg_weights_acc = accumulate(template_pkg_weights)
-template_data = zip(template_pkg_weights_acc, template_pkg_feerates)
-
-block_pkg_weights_acc = accumulate(block_pkg_weights)
-block_data = zip(block_pkg_weights_acc, block_pkg_feerates)
-
-// set zero-fee values to Y_MIN as a zero value breaks the y-axis log scale
-block_data.forEach(function(part, index) {
-    if (this[index][1] == 0) { this[index][1] = Y_MIN }
-}, block_data);
+let template_data = zip(template_pkg_weights, template_pkg_feerates)
+let block_data = zip(block_pkg_weights, block_pkg_feerates)
 
 draw(
-    template_data,
-    block_data
+    block_pkg_weights,
+    block_pkg_feerates
 );
 
 </script>
