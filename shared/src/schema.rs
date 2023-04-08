@@ -32,6 +32,7 @@ diesel::table! {
         template_weight -> Int4,
         template_pkg_weights -> Array<Int8>,
         template_pkg_feerates -> Array<Float4>,
+        template_sigops -> Int8,
     }
 }
 
