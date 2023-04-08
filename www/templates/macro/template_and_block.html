@@ -19,6 +19,9 @@
                 {{ block::info_col(label="packages", value=var_pkgs_template, value_extra="") }}
                 {{ block::info_col(label="fees", value=block.template_cb_fees / 100000000, value_extra=" BTC") }}
                 {{ block::info_col(label="creation time", value=block.template_time | date(format="%Y-%m-%d %H:%M:%S UTC"), value_extra="") }}
+                {% if block.template_sigops > 0 %}
+                  {{ block::info_col(label="sigops", value=block.template_sigops, value_extra="") }}
+                {% endif %}
             </div>
         </div>
 
