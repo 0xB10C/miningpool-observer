@@ -44,6 +44,10 @@ lazy_static! {
     pub static ref STAT_CURRENT_TEMPLATE_COINBASE_VALUE_GAUGE: IntGauge =
         register_int_gauge!(format!("{}_stats_current_template_coinbase_value_sat", PREFIX), "Output value of the coinbase transaction in the block template.").unwrap();
 
+    /// Sigops in the most recently queried block template.
+    pub static ref STAT_CURRENT_TEMPLATE_SIGOPS_GAUGE: IntGauge =
+        register_int_gauge!(format!("{}_stats_current_template_sigops", PREFIX), "Sigops of the transactions in the block template.").unwrap();
+
     /// Number of conflicting transaction sets between template and block.
     pub static ref STAT_CONFLICTING_TRANSACTION_SETS: IntCounter =
         register_int_counter!(format!("{}_stats_conflicting_transaction_sets", PREFIX), "Total number of processed conflicting transaction sets.").unwrap();
