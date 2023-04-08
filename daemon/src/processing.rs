@@ -758,6 +758,11 @@ pub fn build_block(
         template_cb_fees: template_fees.to_sat() as i64,
         template_pkg_weights: template_pkg_weights.to_vec(),
         template_pkg_feerates: template_pkg_feerates.to_vec(),
+        template_sigops: template
+            .transactions
+            .iter()
+            .map(|tx| tx.sigops as u64)
+            .sum::<u64>() as i64,
     }
 }
 

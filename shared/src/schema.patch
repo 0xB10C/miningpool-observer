@@ -7,7 +7,7 @@ diff --git a/shared/src/schema.rs b/shared/src/schema.rs
 index 8b77f0a..8d5a1a1 100644
 --- a/shared/src/schema.rs
 +++ b/shared/src/schema.rs
-@@ -3,48 +3,48 @@
+@@ -3,49 +3,49 @@
  diesel::table! {
      block (hash) {
          id -> Int4,
@@ -45,6 +45,7 @@ index 8b77f0a..8d5a1a1 100644
 -        template_pkg_feerates -> Array<Nullable<Float4>>,
 +        template_pkg_weights -> Array<Int8>,
 +        template_pkg_feerates -> Array<Float4>,
+         template_sigops -> Int8,
      }
  }
  

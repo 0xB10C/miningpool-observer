@@ -57,6 +57,7 @@ pub struct Block {
     pub template_weight: i32,
     pub template_pkg_weights: Vec<i64>,
     pub template_pkg_feerates: Vec<f32>,
+    pub template_sigops: i64,
 }
 
 /// This is used to construct a [Block] for insertion into the database.
@@ -103,6 +104,7 @@ pub struct NewBlock {
     pub template_weight: i32,
     pub template_pkg_weights: Vec<i64>,
     pub template_pkg_feerates: Vec<f32>,
+    pub template_sigops: i64,
 }
 
 #[derive(Debug, Insertable, Queryable, Serialize, Clone)]
