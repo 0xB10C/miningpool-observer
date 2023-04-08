@@ -758,11 +758,12 @@ fn select_best_template_for_block(
 fn log_template_infos(t: &GetBlockTemplateResult) {
     log::info!(
         target: LOG_TARGET_STATS,
-        "New Template based on {} | height {} | {} tx | coinbase {}",
+        "New Template based on {} | height {} | {} tx | coinbase {} | sigops {}",
         t.previous_block_hash,
         t.height,
         t.transactions.len(),
-        t.coinbase_value
+        t.coinbase_value,
+        t.transactions.iter().map(|tx| tx.sigops as u64).sum::<u64>(),
     );
 
     metrics::STAT_CURRENT_TEMPLATE_TRANSACTIONS_GAUGE.set(t.transactions.len() as i64);
