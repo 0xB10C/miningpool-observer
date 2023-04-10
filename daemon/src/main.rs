@@ -819,7 +819,7 @@ fn scantxoutset_sanctioned_tx(
         .unspents
         .iter()
         .map(|utxo| {
-            let mut txid_reversed = utxo.txid.to_vec();
+            let mut txid_reversed = utxo.txid.to_byte_array().to_vec();
             txid_reversed.reverse();
 
             shared_model::SanctionedUtxo {
@@ -956,7 +956,7 @@ fn retag_transactions(rpc_client: Client, db_pool: db_pool::PgPool) {
             let mut reversed_txid = tx_in_db.txid.clone();
             reversed_txid.reverse();
             let hash = bitcoin::hashes::sha256d::Hash::from_slice(&reversed_txid).unwrap();
-            let txid: Txid = Txid::from_hash(hash);
+            let txid: Txid = Txid::from_raw_hash(hash);
             if let Ok(tx) = rpc_client.get_raw_transaction(&txid, None) {
                 let tx_info = TxInfo {
                     txid,
