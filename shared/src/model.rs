@@ -58,6 +58,7 @@ pub struct Block {
     pub template_pkg_weights: Vec<i64>,
     pub template_pkg_feerates: Vec<f32>,
     pub template_sigops: i64,
+    pub block_sigops: i64,
 }
 
 /// This is used to construct a [Block] for insertion into the database.
@@ -105,6 +106,7 @@ pub struct NewBlock {
     pub template_pkg_weights: Vec<i64>,
     pub template_pkg_feerates: Vec<f32>,
     pub template_sigops: i64,
+    pub block_sigops: i64,
 }
 
 #[derive(Debug, Insertable, Queryable, Serialize, Clone)]
@@ -121,6 +123,7 @@ pub struct Transaction {
     pub inputs: Vec<String>,
     pub output_count: i32,
     pub outputs: Vec<String>,
+    pub sigops: i64,
 }
 
 impl Hash for Transaction {
