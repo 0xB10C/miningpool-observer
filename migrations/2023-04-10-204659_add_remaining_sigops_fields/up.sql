@@ -1,0 +1,3 @@
+ALTER TABLE block ADD "block_sigops" BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE transaction ADD "sigops" BIGINT NOT NULL DEFAULT -1;

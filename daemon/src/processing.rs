@@ -14,7 +14,9 @@ use miningpool_observer_shared::{model as shared_model, tags};
 
 use bitcoin_pool_identification::{IdentificationMethod, PoolIdentification};
 use rawtx_rs::tx::TxInfo as RawTxInfo;
-use rawtx_rs::tx::{is_opreturn_counterparty, is_p2ms_counterparty, is_p2sh_counterparty};
+use rawtx_rs::tx::{
+    is_opreturn_counterparty, is_p2ms_counterparty, is_p2sh_counterparty, TransactionSigops,
+};
 use rawtx_rs::{input::InputType, output::OutputType};
 
 use bitcoin::hash_types::Txid;
@@ -426,6 +428,7 @@ pub fn build_transaction(
         inputs: inputs_strs,
         output_count: tx_info.tx.output.len() as i32,
         outputs: outputs_strs,
+        sigops: tx_info.tx.sigops().unwrap_or_default() as i64,
     });
 }
 
@@ -777,6 +780,11 @@ pub fn build_block(
             .iter()
             .map(|tx| tx.sigops as u64)
             .sum::<u64>() as i64,
+        block_sigops: block
+            .txdata
+            .iter()
+            .map(|tx| tx.sigops().unwrap_or_default() as i64)
+            .sum(),
     }
 }
 
