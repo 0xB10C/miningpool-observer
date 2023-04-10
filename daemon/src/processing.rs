@@ -18,6 +18,8 @@ use rawtx_rs::tx::{is_opreturn_counterparty, is_p2ms_counterparty, is_p2sh_count
 use rawtx_rs::{input::InputType, output::OutputType};
 
 use bitcoin::hash_types::Txid;
+use bitcoin::hashes::Hash;
+use bitcoin::locktime::absolute::LockTime;
 use bitcoin::{network::constants::Network, Address, Amount, Transaction};
 
 pub const LOG_TARGET_PROCESSING: &str = "processing";
@@ -96,7 +98,8 @@ fn is_tx_from_sanctioned(
         .iter()
         .map(|input| input.previous_output)
         .any(|outpoint| {
-            outpoint_to_sanctioned_utxo_map.contains_key(&(outpoint.txid.to_vec(), outpoint.vout))
+            outpoint_to_sanctioned_utxo_map
+                .contains_key(&(outpoint.txid.to_byte_array().to_vec(), outpoint.vout))
         })
 }
 
@@ -140,11 +143,11 @@ fn tx_sanctioned_addresses_from(
     let mut addresses: HashSet<String> = HashSet::new();
     for input in &tx.input {
         if let Some(utxo) = outpoint_to_sanctioned_utxo_map.get(&(
-            input.previous_output.txid.to_vec(),
+            input.previous_output.txid.to_byte_array().to_vec(),
             input.previous_output.vout,
         )) {
             if let Ok(address) = Address::from_script(
-                &bitcoin::Script::from(utxo.script_pubkey.clone()),
+                &bitcoin::ScriptBuf::from(utxo.script_pubkey.clone()),
                 Network::Bitcoin,
             ) {
                 addresses.insert(address.to_string());
@@ -279,11 +282,17 @@ fn get_transaction_tags(
         tags.push(tags::TxTag::Consolidation as i32);
     }
 
-    if raw_tx_info.locktime.is_height() && raw_tx_info.locktime.is_enforced() {
+    if raw_tx_info.locktime.is_block_height()
+        && tx_info.tx.is_lock_time_enabled()
+        && raw_tx_info.locktime > LockTime::from_consensus(0)
+    {
         tags.push(tags::TxTag::LockByHeight as i32);
     }
 
-    if raw_tx_info.locktime.is_timestamp() && raw_tx_info.locktime.is_enforced() {
+    if raw_tx_info.locktime.is_block_time()
+        && tx_info.tx.is_lock_time_enabled()
+        && raw_tx_info.locktime > LockTime::from_consensus(0)
+    {
         tags.push(tags::TxTag::LockByTimestamp as i32);
     }
 
@@ -410,7 +419,7 @@ pub fn build_transaction(
             sanctioned_addresses,
         ),
         fee: tx_info.fee.to_sat() as i64,
-        vsize: (tx_info.tx.weight() as f32 / 4.0).ceil() as i32,
+        vsize: tx_info.tx.vsize() as i32,
         output_sum: tx_info.tx.output.iter().map(|o| o.value).sum::<u64>() as i64,
         tags,
         input_count: tx_info.tx.input.len() as i32,
@@ -437,7 +446,7 @@ pub fn build_transactions_only_in_block(
                 panic!("Could not find {} in txids_only_in_block.", txid);
             }
         };
-        let mut txid_to_reverse = tx_info.txid.to_vec();
+        let mut txid_to_reverse = tx_info.txid.to_byte_array().to_vec();
         txid_to_reverse.reverse();
 
         transactions_only_in_block.push(shared_model::TransactionOnlyInBlock {
@@ -494,7 +503,7 @@ pub fn build_sanctioned_transaction_infos(
             outpoint_to_sanctioned_utxo_map,
             sanctioned_addresses,
         ) {
-            let mut txid_to_reverse = tx_info.txid.to_vec();
+            let mut txid_to_reverse = tx_info.txid.to_byte_array().to_vec();
             txid_to_reverse.reverse();
 
             match build_transaction(
@@ -539,7 +548,7 @@ pub fn build_sanctioned_transaction_infos(
             outpoint_to_sanctioned_utxo_map,
             sanctioned_addresses,
         ) {
-            let mut txid_to_reverse = tx_info.txid.to_vec();
+            let mut txid_to_reverse = tx_info.txid.to_byte_array().to_vec();
             txid_to_reverse.reverse();
 
             match build_transaction(
@@ -592,6 +601,7 @@ pub fn build_newly_created_sanctioned_utxos(
                         height: block.bip34_block_height().unwrap_or_default() as i32,
                         txid: to_sanctioned_tx
                             .txid()
+                            .to_byte_array()
                             .to_vec()
                             .iter()
                             .rev()
@@ -690,13 +700,17 @@ pub fn build_block(
     sanctioned_addresses: &HashSet<String>,
 ) -> shared_model::NewBlock {
     let (pool_name, pool_link, pool_id_method) = get_pool_info_or_default(block.identify_pool());
-    let mut block_hash = block.block_hash().to_vec();
+    let mut block_hash = block.block_hash().to_byte_array().to_vec();
     block_hash.reverse();
-    let mut prev_block_hash = block.header.prev_blockhash.to_vec();
+    let mut prev_block_hash = block.header.prev_blockhash.to_byte_array().to_vec();
     prev_block_hash.reverse();
 
     let mut block_tags: Vec<i32> = vec![];
-    if signals_softfork_via_version_bit(block.header.version, VERSION_BIT_TAPROOT) {
+    if block
+        .header
+        .version
+        .is_signalling_soft_fork(VERSION_BIT_TAPROOT)
+    {
         block_tags.push(tags::BlockTag::TaprootSignaling as i32);
     }
 
@@ -714,7 +728,7 @@ pub fn build_block(
         block_time: chrono::NaiveDateTime::from_timestamp_opt(block.header.time as i64, 0)
             .expect("block timestamp out of range"),
         block_tx: block.txdata.len() as i32,
-        block_weight: block.weight() as i32,
+        block_weight: block.weight().to_wu() as i32,
         block_sanctioned: block
             .txdata
             .iter()
@@ -784,7 +798,7 @@ pub fn build_transactions_only_in_template(
                 panic!("Could not find {} in template_txid_to_txinfo_map.", txid);
             }
         };
-        let mut txid_to_reverse = tx_info.txid.to_vec();
+        let mut txid_to_reverse = tx_info.txid.to_byte_array().to_vec();
         txid_to_reverse.reverse();
 
         transactions_only_in_template.push(shared_model::TransactionOnlyInTemplate {
@@ -1004,19 +1018,27 @@ pub fn build_conflicting_transactions(
                 .template_transactions
                 .borrow()
                 .iter()
-                .map(|tx| tx.txid.iter().rev().copied().collect())
+                .map(|tx| tx.txid.to_byte_array().iter().rev().copied().collect())
                 .collect(),
             block_txids: conflict
                 .block_transactions
                 .borrow()
                 .iter()
-                .map(|tx| tx.txid.iter().rev().copied().collect())
+                .map(|tx| tx.txid.to_byte_array().iter().rev().copied().collect())
                 .collect(),
             conflicting_outpoints_txids: conflict
                 .conflicting_outpoints
                 .borrow()
                 .iter()
-                .map(|outpoint| outpoint.txid.iter().rev().copied().collect())
+                .map(|outpoint| {
+                    outpoint
+                        .txid
+                        .to_byte_array()
+                        .iter()
+                        .rev()
+                        .copied()
+                        .collect()
+                })
                 .collect(),
             conflicting_outpoints_vouts: conflict
                 .conflicting_outpoints
@@ -1027,7 +1049,7 @@ pub fn build_conflicting_transactions(
         });
 
         for t_tx in conflict.template_transactions.borrow().iter() {
-            let mut txid_to_reverse = t_tx.txid.to_vec();
+            let mut txid_to_reverse = t_tx.txid.to_byte_array().to_vec();
             txid_to_reverse.reverse();
             match build_transaction(
                 &txid_to_reverse,
@@ -1047,7 +1069,7 @@ pub fn build_conflicting_transactions(
         }
 
         for t_tx in conflict.block_transactions.borrow().iter() {
-            let mut txid_to_reverse = t_tx.txid.to_vec();
+            let mut txid_to_reverse = t_tx.txid.to_byte_array().to_vec();
             txid_to_reverse.reverse();
             match build_transaction(
                 &txid_to_reverse,
@@ -1068,11 +1090,6 @@ pub fn build_conflicting_transactions(
     }
 
     conflicting_transactions
-}
-
-fn signals_softfork_via_version_bit(version: i32, version_bit: u8) -> bool {
-    assert!(version_bit <= 32);
-    version & (1 << version_bit) != 0
 }
 
 pub fn get_sanctioned_missing_tx_count(
@@ -1127,8 +1144,7 @@ mod tests {
     use super::*;
     use crate::model::TxInfo;
     use bitcoin::{
-        consensus, Amount, OutPoint, PackedLockTime, Script, Sequence, Transaction, TxIn, TxOut,
-        Witness,
+        consensus, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
     };
     use hex;
 
@@ -1223,7 +1239,7 @@ mod tests {
 
         // fake tx that spends from A and B
         let tx_e = Transaction {
-            lock_time: PackedLockTime(0),
+            lock_time: LockTime::from_consensus(0),
             version: 1,
             input: vec![
                 TxIn {
@@ -1232,7 +1248,7 @@ mod tests {
                         vout: 0,
                     },
                     witness: Witness::new(),
-                    script_sig: Script::new(),
+                    script_sig: ScriptBuf::from_bytes(vec![]),
                     sequence: Sequence(1337),
                 },
                 TxIn {
@@ -1241,12 +1257,12 @@ mod tests {
                         vout: 0,
                     },
                     witness: Witness::new(),
-                    script_sig: Script::new(),
+                    script_sig: ScriptBuf::from_bytes(vec![]),
                     sequence: Sequence(1338),
                 },
             ],
             output: vec![TxOut {
-                script_pubkey: Script::new(),
+                script_pubkey: ScriptBuf::from_bytes(vec![]),
                 value: 1,
             }],
         };
@@ -1272,7 +1288,7 @@ mod tests {
         println!("The package weight should be the sum of the four transaction weights");
         assert_eq!(
             package.weight(),
-            tx_a.weight + tx_b.weight + tx_c.weight + tx_e.weight()
+            tx_a.weight + tx_b.weight + tx_c.weight + tx_e.weight().to_wu() as usize
         );
 
         println!("Transactions in the package should be sorted by position (asceding). The new transaction should be the last.");

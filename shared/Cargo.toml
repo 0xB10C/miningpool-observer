@@ -14,6 +14,5 @@ diesel = { version = "2", features = ["postgres", "r2d2", "chrono"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Requirements to switch to upstream rust-bitcoincore-rpc:
-# 1. merging https://github.com/rust-bitcoin/rust-bitcoincore-rpc/pull/163
-# 2. some way of getting the fees from getblock with verbosity 2, currently only a minimal implementation in the mpo branch
-bitcoincore-rpc = { git = "https://github.com/0xb10c/rust-bitcoincore-rpc", branch = "mpo" }
+# - some way of getting the fees from getblock with verbosity 2, currently only a minimal implementation in the mpo branch
+bitcoincore-rpc = { git = "https://github.com/0xb10c/rust-bitcoincore-rpc", branch = "mpo-0.17" }
