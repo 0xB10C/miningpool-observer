@@ -7,6 +7,7 @@
         {% set var_fees_diff = (block.block_cb_fees - block.template_cb_fees) / 100000 %}
         {% set var_weight_diff = block.block_weight - block.template_weight %}
         {% set var_sanctioned_diff = block.block_sanctioned - block.template_sanctioned %}
+        {% set var_sigops_diff = block.block_sigops - block.template_sigops %}
 
         <div class="col my-2 my-md-0">
             <div class="row row-cols-1">
@@ -36,6 +37,9 @@
                 {{ block::info_col_with_diff(label="packages", value=var_pkgs_block, value_extra="", diff=var_pkgs_diff, diff_extra="") }}
                 {{ block::info_col_with_diff(label="fees", value=block.block_cb_fees / 100000000, value_extra=" BTC", diff=var_fees_diff, diff_extra=" mBTC") }}
                 {{ block::info_col(label="miner-set time", value=block.block_time | date(format="%Y-%m-%d %H:%M:%S UTC"), value_extra="") }}
+                {% if block.block_sigops > 0 %}
+                    {{ block::info_col_with_diff(label="sigops", value=block.block_sigops, value_extra="", diff=var_sigops_diff, diff_extra="") }}
+                {% endif %}
             </div>
         </div>
 

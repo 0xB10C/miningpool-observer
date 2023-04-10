@@ -18,6 +18,9 @@
             {{ transaction::info_col(label="feerate", value=tx.1.fee / tx.1.vsize | round(method="ceil", precision=2), value_extra=" sat/vByte") }}
             {{ transaction::info_col(label="vsize", value=tx.1.vsize, value_extra=" vByte") }}
             {{ transaction::info_col(label="output sum", value=tx.1.output_sum / 100000000, value_extra=" BTC") }}
+            {% if tx.1.sigops >= 0 %}
+                {{ transaction::info_col(label="sigops", value=tx.1.sigops, value_extra="") }}
+            {% endif %}
             {{ transaction::inputs(ins=tx.1.inputs, count=tx.1.input_count) }}
             {{ transaction::outputs(outs=tx.1.outputs, count=tx.1.output_count) }}
             {% if place == "template" %}
