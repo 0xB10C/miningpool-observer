@@ -11,6 +11,9 @@
             {{ transaction::info_col(label="feerate", value=missing.transaction.fee / missing.transaction.vsize | round(method="ceil", precision=2), value_extra=" sat/vByte") }}
             {{ transaction::info_col(label="vsize", value=missing.transaction.vsize, value_extra=" vByte") }}
             {{ transaction::info_col(label="output sum", value=missing.transaction.output_sum / 100000000, value_extra=" BTC") }}
+            {% if missing.transaction.sigops > 0 %}
+              {{ transaction::info_col(label="sigops", value=missing.transaction.sigops, value_extra="") }}
+            {% endif %}
             {{ transaction::inputs(ins=missing.transaction.inputs, count=missing.transaction.input_count) }}
             {{ transaction::outputs(outs=missing.transaction.outputs, count=missing.transaction.output_count) }}
         </div>
