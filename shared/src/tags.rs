@@ -3,11 +3,15 @@ use std::convert::TryFrom;
 use serde::Serialize;
 
 const COIN: u64 = 100_000_000;
+pub const SIGOP_LIMIT: u64 = 80_000;
+
 pub const THRESHOLD_TRANSACTION_CONSIDERED_LARGE: u64 = 2500; // vByte
 pub const THRESHOLD_FEERATE_CONSIDERED_HIGH: f32 = 1000.0; // sat/vByte
 pub const THRESHOLD_OUTPUT_CONSIDERED_DUST: u64 = 1000; // sat
 pub const THRESHOLD_VALUE_CONSIDERED_HIGH: u64 = 100 * COIN; // sat (100 BTC)
 pub const THRESHOLD_TRANSACTION_CONSIDERED_YOUNG: u64 = 90; // seconds
+pub const THRESHOLD_SIGOPS_CONSIDERED_MANY: u64 = 1000; // sigops
+pub const THRESHOLD_SIGOP_LIMIT_CLOSE: u64 = 70_000; // sigops
 
 type BootstrapColor = &'static str;
 // const BLUE: BootstrapColor = "primary";
@@ -42,6 +46,7 @@ pub enum TxTag {
     ZeroFee = 2110,
     HighFeerate = 2120,
     HighValue = 2130,
+    ManySigops = 2140,
 
     // informational (3000-3999)
     // DEPRECATED = 3100, (can be reused)
@@ -91,6 +96,7 @@ impl TryFrom<i32> for TxTag {
             x if x == TxTag::HighValue as i32 => Ok(TxTag::HighValue),
             x if x == TxTag::Conflicting as i32 => Ok(TxTag::Conflicting),
             x if x == TxTag::Young as i32 => Ok(TxTag::Young),
+            x if x == TxTag::ManySigops as i32 => Ok(TxTag::ManySigops),
             // FIXME: add new tags here
             _ => Err(()),
         }
@@ -98,7 +104,7 @@ impl TryFrom<i32> for TxTag {
 }
 
 impl TxTag {
-    pub const TX_TAGS: &'static [TxTag; 21] = &[
+    pub const TX_TAGS: &'static [TxTag; 22] = &[
         // important / danger
         TxTag::FromSanctioned,
         TxTag::ToSanctioned,
@@ -108,6 +114,7 @@ impl TxTag {
         TxTag::ZeroFee,
         TxTag::HighFeerate,
         TxTag::HighValue,
+        TxTag::ManySigops,
         // informational
         TxTag::Young,
         // secondary
@@ -334,6 +341,16 @@ impl TxTag {
                     text_color: BLACK,
                 }
             },
+            TxTag::ManySigops => {
+                Tag {
+                    name: "Many-Sigops".to_string(),
+                    description: vec![
+                            format!("The transaction has more than {} sigops (signature operations).", THRESHOLD_SIGOPS_CONSIDERED_MANY),
+                        ],
+                    color: YELLOW,
+                    text_color: BLACK,
+                }
+            },
             TxTag::Conflicting => {
                 Tag {
                     name: "Conflicting".to_string(),
@@ -372,7 +389,7 @@ pub enum BlockTag {
     // StartHere = 1100,
 
     // warning (2000-2999)
-    // StartHere = 2100,
+    SigopsLimitClose = 2100,
 
     // informational (3000-3999)
     TaprootSignaling = 3100,
@@ -386,6 +403,7 @@ impl TryFrom<i32> for BlockTag {
     fn try_from(v: i32) -> Result<Self, Self::Error> {
         match v {
             x if x == BlockTag::TaprootSignaling as i32 => Ok(BlockTag::TaprootSignaling),
+            x if x == BlockTag::SigopsLimitClose as i32 => Ok(BlockTag::SigopsLimitClose),
             // FIXME: add new tags here
             _ => Err(()),
         }
@@ -393,10 +411,11 @@ impl TryFrom<i32> for BlockTag {
 }
 
 impl BlockTag {
-    pub const BLOCK_TAGS: &'static [BlockTag; 1] = &[
+    pub const BLOCK_TAGS: &'static [BlockTag; 2] = &[
         // important / danger
         //
         // warning
+        BlockTag::SigopsLimitClose,
         //
         // informational
         BlockTag::TaprootSignaling,
@@ -406,6 +425,16 @@ impl BlockTag {
 
     pub fn value(&self) -> Tag {
         match self {
+            BlockTag::SigopsLimitClose => Tag {
+                name: "Close to Sigop Limit".to_string(),
+                description: vec![format!(
+                    "The block is close (> {} sigops) to the sigop limit of {}.",
+                    THRESHOLD_SIGOP_LIMIT_CLOSE, SIGOP_LIMIT
+                )
+                .to_string()],
+                color: CYAN,
+                text_color: WHITE,
+            },
             BlockTag::TaprootSignaling => Tag {
                 name: "Taproot Signaling".to_string(),
                 description: vec!["The block signals for Taproot.".to_string()],

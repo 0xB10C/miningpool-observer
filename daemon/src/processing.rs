@@ -237,6 +237,10 @@ fn get_transaction_tags(
         tags.push(tags::TxTag::HighValue as i32);
     }
 
+    if tx_info.tx.sigops().unwrap_or_default() as u64 > tags::THRESHOLD_SIGOPS_CONSIDERED_MANY {
+        tags.push(tags::TxTag::ManySigops as i32);
+    }
+
     // normal
     if raw_tx_info.is_spending_segwit() {
         tags.push(tags::TxTag::SegWit as i32);
@@ -708,7 +712,15 @@ pub fn build_block(
     let mut prev_block_hash = block.header.prev_blockhash.to_byte_array().to_vec();
     prev_block_hash.reverse();
 
+    let block_sigops: i64 = block
+        .txdata
+        .iter()
+        .map(|tx| tx.sigops().unwrap_or_default() as i64)
+        .sum();
     let mut block_tags: Vec<i32> = vec![];
+    if block_sigops as u64 > tags::THRESHOLD_SIGOP_LIMIT_CLOSE {
+        block_tags.push(tags::BlockTag::SigopsLimitClose as i32);
+    }
     if block
         .header
         .version
