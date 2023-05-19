@@ -54,7 +54,16 @@ pub fn tx_tag_id_to_tag() -> impl tera::Function {
         move |args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
             match args.get("id") {
                 Some(val) => match tera::from_value::<i32>(val.clone()) {
-                    Ok(v) => Ok(tera::to_value(tags::TxTag::try_from(v).unwrap().value()).unwrap()),
+                    Ok(v) => {
+                        match tags::TxTag::try_from(v) {
+                            Ok(v) => {
+                                Ok(tera::to_value(v.value()).unwrap())
+                            },
+                            Err(e) => {
+                                Err(format!("Could not find TxTag for value {:?}. Is the mapping implemented?: {:?}", v, e).into())
+                            }
+                        }
+                    }
                     Err(_) => Err(format!("Can't parse 'id' with val={} as i32.", val).into()),
                 },
                 None => Err("No parameter 'id' passed to tag_id_to_tag()".into()),
@@ -69,7 +78,14 @@ pub fn block_tag_id_to_tag() -> impl tera::Function {
             match args.get("id") {
                 Some(val) => match tera::from_value::<i32>(val.clone()) {
                     Ok(v) => {
-                        Ok(tera::to_value(tags::BlockTag::try_from(v).unwrap().value()).unwrap())
+                        match tags::BlockTag::try_from(v) {
+                            Ok(v) => {
+                                Ok(tera::to_value(v.value()).unwrap())
+                            },
+                            Err(e) => {
+                                Err(format!("Could not find BlockTag for value {:?}. Is the mapping implemented?: {:?}", v, e).into())
+                            }
+                        }
                     }
                     Err(_) => Err(format!("Can't parse 'id' with val={} as i32.", val).into()),
                 },
