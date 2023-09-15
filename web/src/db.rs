@@ -431,6 +431,8 @@ const QUERY_MISSING_TRANSACTIONS: &str = r#"
 	    transaction_only_in_template.position < (block.template_tx - block.template_tx * 0.02)
 	    AND
 	    block.block_tx > 1
+        AND
+	    block_id > (SELECT max(block_id) FROM transaction_only_in_template) - 20000
     GROUP BY transaction_txid
     HAVING
         count(*) > 2
@@ -455,6 +457,8 @@ const QUERY_COUNT_MISSING_TRANSACTIONS: &str = r#"
                 transaction_only_in_template.position < (block.template_tx - block.template_tx * 0.02)
                 AND
                 block.block_tx > 1
+                AND
+	            block_id > (SELECT max(block_id) FROM transaction_only_in_template) - 20000
             GROUP BY transaction_txid
             HAVING
                 COUNT(transaction_txid) > 2
