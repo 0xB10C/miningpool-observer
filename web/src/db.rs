@@ -425,8 +425,6 @@ const QUERY_MISSING_TRANSACTIONS: &str = r#"
         max(block_id) max_block_id,
         transaction_txid txid
     FROM transaction_only_in_template
-    JOIN transaction
-        ON transaction.txid = transaction_txid
     JOIN block
 	    on block.id = block_id
     WHERE
