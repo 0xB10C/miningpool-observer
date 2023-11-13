@@ -162,11 +162,11 @@
 <div class="list-group-item p-0 rounded">
     <div class="row p-3">
         <span class="col-12">
-            {% for tag_id in tx.transaction.tags %}
             {% if tx.missing_info.mempool_age_seconds >= 0 and tx.missing_info.mempool_age_seconds < THRESHOLD_TRANSACTION_CONSIDERED_YOUNG %}
-                {{ transaction::tag(tag=tx_tag_id_to_tag(id=TAG_ID_YOUNG)) }}
+              {{ transaction::tag(tag=tx_tag_id_to_tag(id=TAG_ID_YOUNG)) }}
             {% endif %}
-                {{ transaction::tag(tag=tx_tag_id_to_tag(id=tag_id)) }}
+            {% for tag_id in tx.transaction.tags %}
+              {{ transaction::tag(tag=tx_tag_id_to_tag(id=tag_id)) }}
             {% endfor %}
         </span>
         <span class="col-12">
