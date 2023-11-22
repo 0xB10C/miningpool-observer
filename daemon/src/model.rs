@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
 use bitcoin::hash_types::Txid;
@@ -16,6 +15,14 @@ pub struct TxInfo {
 impl TxInfo {
     pub fn feerate(&self) -> f32 {
         self.fee.to_sat() as f32 / self.tx.vsize() as f32
+    }
+
+    pub fn prev_output_txids(&self) -> HashSet<Txid> {
+        self.tx
+            .input
+            .iter()
+            .map(|input| input.previous_output.txid)
+            .collect()
     }
 }
 
@@ -35,26 +42,6 @@ impl TxPackage {
             .iter()
             .map(|i| i.tx.weight().to_wu() as usize)
             .sum::<usize>()
-    }
-}
-
-#[derive(PartialEq, Eq, Clone)]
-pub struct TxPackageForPackageConstruction {
-    pub txns: RefCell<Vec<TxInfo>>,
-}
-
-impl TxPackageForPackageConstruction {
-    pub fn min_tx_pos(&self) -> i32 {
-        self.txns
-            .borrow()
-            .iter()
-            .map(|tx_info| tx_info.pos)
-            .min()
-            .unwrap_or(-1)
-    }
-
-    pub fn txids(&self) -> HashSet<Txid> {
-        self.txns.borrow().iter().map(|t| t.txid).collect()
     }
 }
 

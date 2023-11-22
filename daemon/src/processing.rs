@@ -2,9 +2,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::metrics;
-use crate::model::{
-    BlockTxData, TemplateTxData, TxInfo, TxPackage, TxPackageForPackageConstruction,
-};
+use crate::model::{BlockTxData, TemplateTxData, TxInfo, TxPackage};
 
 use miningpool_observer_shared::bitcoincore_rpc::json::{
     GetBlockTemplateResult, GetBlockTxFeesResult,
@@ -323,79 +321,59 @@ fn get_pool_info_or_default(
     }
 }
 
-/// Builds a vector of transaction packages
+/// Builds a vector of transaction packages. These Packages are similar to what
+/// Bitcoin Core (currently) puts into blocks.
 pub fn build_packages(txns: &[TxInfo]) -> Vec<TxPackage> {
-    let mut packages_construction: Vec<TxPackageForPackageConstruction> = vec![];
-    let mut seen_outpoints: HashSet<Txid> = HashSet::new();
+    let txids_in_txns: HashSet<Txid> = txns.iter().map(|ti| ti.tx.txid()).collect();
+    let mut packages: Vec<TxPackage> = vec![];
 
-    for tx_info in txns.iter() {
-        let outpoints_spend: HashSet<Txid> = tx_info
-            .tx
-            .input
-            .iter()
-            .map(|i| i.previous_output.txid)
-            .collect();
+    // Bitcoin Core places transactions that belong to a package next to each other.
+    // We consider locality when building packages.
+    // Bitcoin Core currently uses the best ancestor set as a package. See
+    // https://gist.github.com/murchandamus/5cb413fe9f26dbce57abfd344ebbfaf2#file-asb-vs-csb-png
 
-        let mut parent_packages: Vec<&TxPackageForPackageConstruction> = vec![];
-        for outpoint in outpoints_spend {
-            if seen_outpoints.contains(&outpoint) {
-                '_p_finder: for package in packages_construction.iter() {
-                    if package.txids().contains(&outpoint) {
-                        parent_packages.push(package);
-                        break '_p_finder;
-                    }
-                }
-            }
-        }
-
-        match parent_packages.len() {
-            0 => {
-                packages_construction.push(TxPackageForPackageConstruction {
-                    txns: RefCell::new(vec![tx_info.clone()]),
+    let mut package_txns: Vec<TxInfo> = vec![];
+    // by iterating in reverse order, we know about the children first
+    // This is helpful, as children reference their parents and we can directly link them
+    for tx_info in txns.iter().rev() {
+        if package_txns.is_empty() {
+            package_txns.push(tx_info.clone());
+        } else {
+            let parent_txids: HashSet<Txid> =
+                package_txns.iter().fold(HashSet::new(), |mut txids, tx| {
+                    txids.extend(&tx.prev_output_txids());
+                    txids
                 });
-            }
-            1 => {
-                parent_packages
-                    .first()
-                    .unwrap() // We can unwrap here as we know there is a first (as there is exactly 1)
-                    .txns
-                    .borrow_mut()
-                    .push(tx_info.clone());
-            }
-            _ => {
-                let min_tx_pos_package = parent_packages
-                    .iter()
-                    .min_by_key(|p| p.min_tx_pos())
-                    .unwrap(); // We can unwrap here as we know there is more than one item, which yields a min item.
-
-                let mut new_txns: Vec<TxInfo> = vec![tx_info.clone()];
-                for p in parent_packages.iter() {
-                    // the tnxs can be empty because we can have visited the package before
-                    // as the parent packages vec can contain duplicate packages. This happens,
-                    // for example, when transaction spends from both transactions in a package.
-                    if !p.txns.borrow().is_empty() {
-                        new_txns.append(&mut p.txns.borrow_mut());
-                    }
-                }
-                new_txns.sort_by_key(|tx| tx.pos);
-                min_tx_pos_package.txns.replace(new_txns);
+            if parent_txids.contains(&tx_info.tx.txid()) {
+                // belongs to the same package if the tx is a parent of a tx in the package
+                package_txns.push(tx_info.clone());
+            } else if tx_info
+                .prev_output_txids()
+                .iter()
+                .filter(|txid| txids_in_txns.contains(*txid))
+                .any(|txid| parent_txids.contains(txid))
+            {
+                // belongs to the same package if the transaction shares a parent with a
+                // transaction already in the package (if this parent is in the `txns` set of
+                // transactions)
+                package_txns.push(tx_info.clone());
+            } else {
+                packages.push(TxPackage {
+                    txns: package_txns.clone(),
+                });
+                package_txns.clear();
+                package_txns.push(tx_info.clone());
             }
         }
-        // remove empty packages (we empty packages on merge)
-        packages_construction.retain(|p| !p.txns.borrow().is_empty());
-
-        seen_outpoints.insert(tx_info.txid);
     }
-
-    let packages: Vec<TxPackage> = packages_construction
-        .iter()
-        .map(|construction_package| TxPackage {
-            txns: construction_package.txns.take(),
-        })
-        .collect();
+    if !package_txns.is_empty() {
+        packages.push(TxPackage {
+            txns: package_txns.clone(),
+        });
+    }
+    packages.reverse();
 
     let total_tx: usize = packages.iter().map(|p| p.txns.len()).sum();
-
     assert_eq!(txns.len(), total_tx);
 
     packages
@@ -1240,7 +1218,7 @@ mod tests {
         //
         // 'X <- Y' means Y spends X; X is the partent of Y
         // A <- B <- C
-        let mut txns = vec![tx_a_info.clone(), tx_b_info.clone(), tx_d_info, tx_c_info];
+        let mut txns = vec![tx_a_info.clone(), tx_b_info.clone(), tx_c_info, tx_d_info]; // order matters
         let packages = build_packages(&txns.clone());
 
         println!("There should be exactly two packages");
@@ -1252,10 +1230,6 @@ mod tests {
 
         println!("The package weight should be the sum of the three transaction weights");
         assert_eq!(package.weight(), tx_a.weight + tx_b.weight + tx_c.weight);
-
-        println!("Transactions in the package should be sorted by position (asceding)");
-        assert_eq!(package.txns.first().unwrap().pos, 0);
-        assert_eq!(package.txns.last().unwrap().pos, 2);
 
         // fake tx that spends from A and B
         let tx_e = Transaction {
@@ -1294,7 +1268,7 @@ mod tests {
             tx: tx_e.clone(),
         };
 
-        txns.push(tx_e_info);
+        txns.insert(3, tx_e_info); // order matters
 
         let packages = build_packages(&txns);
 
@@ -1310,9 +1284,5 @@ mod tests {
             package.weight(),
             tx_a.weight + tx_b.weight + tx_c.weight + tx_e.weight().to_wu() as usize
         );
-
-        println!("Transactions in the package should be sorted by position (asceding). The new transaction should be the last.");
-        assert_eq!(package.txns.first().unwrap().pos, 0);
-        assert_eq!(package.txns.last().unwrap().pos, 3);
     }
 }
