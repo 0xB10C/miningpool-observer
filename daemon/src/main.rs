@@ -8,8 +8,10 @@ use std::thread;
 use std::time;
 use std::time::Instant;
 
+use bitcoin::address::NetworkUnchecked;
 use bitcoin::hash_types::Txid;
 use bitcoin::hashes::Hash;
+use bitcoin::Address;
 use bitcoin::{Amount, Block};
 use bitcoin_pool_identification::PoolIdentification;
 use simple_logger::SimpleLogger;
@@ -791,8 +793,19 @@ fn scantxoutset_sanctioned_tx(
         "Starting UTXO set scan for Sanctioned UTXOs with {} addresses.",
         addrs.len()
     );
+
     let descriptors: Vec<ScanTxOutRequest> = addrs
         .iter()
+        .filter(|addr| {
+            let address: Result<Address<NetworkUnchecked>, bitcoin::address::Error> = addr.parse();
+            match address {
+                Ok(_) => true,
+                Err(e) => {
+                    log::warn!("Could not parse address='{}' - skipping: {}", addr, e);
+                    false
+                }
+            }
+        })
         .map(|addr| ScanTxOutRequest::Single(format!("addr({})", addr)))
         .collect();
     let start = Instant::now();
@@ -1074,6 +1087,16 @@ fn update_sanctioned_addresses(
         .lines()
         .map(|a| shared_model::SanctionedAddress {
             address: a.to_string(),
+        })
+        .filter(|addr| {
+            let address: Result<Address<NetworkUnchecked>, bitcoin::address::Error> = addr.address.parse();
+            match address {
+                Ok(_) => true,
+                Err(e) => {
+                    log::warn!("While updating sanctioned addresses: Could not parse address='{}' - skipping: {}", addr.address, e);
+                    false
+                }
+            }
         })
         .collect();
 
