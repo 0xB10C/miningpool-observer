@@ -15,7 +15,7 @@ use rawtx_rs::tx::TxInfo as RawTxInfo;
 use rawtx_rs::tx::{
     is_opreturn_counterparty, is_p2ms_counterparty, is_p2sh_counterparty, TransactionSigops,
 };
-use rawtx_rs::{input::InputType, output::OutputType};
+use rawtx_rs::{input::InputInscriptionDetection, input::InputType, output::OutputType};
 
 use bitcoin::hash_types::Txid;
 use bitcoin::hashes::Hash;
@@ -261,6 +261,15 @@ fn get_transaction_tags(
         || is_p2sh_counterparty(&tx_info.tx)
     {
         tags.push(tags::TxTag::CounterParty as i32);
+    }
+
+    if tx_info
+        .tx
+        .input
+        .iter()
+        .any(|input| input.reveals_inscription().unwrap_or(false))
+    {
+        tags.push(tags::TxTag::Inscription as i32);
     }
 
     if raw_tx_info

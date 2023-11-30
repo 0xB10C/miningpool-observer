@@ -1708,9 +1708,9 @@ dependencies = [
 
 [[package]]
 name = "rawtx-rs"
-version = "0.1.4"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74a5171c76983382ec1301428821fbfa14e2fa6d84b131704ff56195cbd05c3b"
+checksum = "929f6c77ec31c14ee939f2c9519ef358fb451c44b8014b70f6f0120225cf032f"
 dependencies = [
  "bitcoin",
  "hex",
