@@ -68,6 +68,7 @@ pub enum TxTag {
     LockByTimestamp = 4160,
     Consolidation = 4170,
     DustOutput = 4180,
+    Inscription = 4190,
 }
 
 impl TryFrom<i32> for TxTag {
@@ -97,6 +98,7 @@ impl TryFrom<i32> for TxTag {
             x if x == TxTag::Conflicting as i32 => Ok(TxTag::Conflicting),
             x if x == TxTag::Young as i32 => Ok(TxTag::Young),
             x if x == TxTag::ManySigops as i32 => Ok(TxTag::ManySigops),
+            x if x == TxTag::Inscription as i32 => Ok(TxTag::Inscription),
             // FIXME: add new tags here
             _ => Err(()),
         }
@@ -104,7 +106,7 @@ impl TryFrom<i32> for TxTag {
 }
 
 impl TxTag {
-    pub const TX_TAGS: &'static [TxTag; 22] = &[
+    pub const TX_TAGS: &'static [TxTag; 23] = &[
         // important / danger
         TxTag::FromSanctioned,
         TxTag::ToSanctioned,
@@ -131,6 +133,7 @@ impl TxTag {
         TxTag::Coinjoin,
         TxTag::Consolidation,
         TxTag::DustOutput,
+        TxTag::Inscription,
     ];
 
     pub fn value(&self) -> Tag {
@@ -374,6 +377,16 @@ impl TxTag {
                             "If this transaction wasn't included in a block, it could be that the transaction hadn't propagated to the pool when the block was constructed.".to_string(),
                         ],
                     color: CYAN,
+                    text_color: WHITE,
+                }
+            },
+            TxTag::Inscription => {
+                Tag {
+                    name: "Inscription".to_string(),
+                    description: vec![
+                            format!("The transaction has at least one input revealing an Ordinals inscription."),
+                        ],
+                    color: GRAY,
                     text_color: WHITE,
                 }
             },
