@@ -13,7 +13,7 @@ log = "0.4"
 simple_logger = "1.9.0"
 
 bitcoin = "0.30"
-bitcoin-pool-identification = "0.2.4"
+bitcoin-pool-identification = "0.2.5"
 rawtx-rs = { version = "0.1.6", features = [ "counterparty" ]}
 
 hex = "0.4"
