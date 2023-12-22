@@ -8,12 +8,13 @@ use std::thread;
 use std::time;
 use std::time::Instant;
 
-use bitcoin::address::NetworkUnchecked;
-use bitcoin::hash_types::Txid;
-use bitcoin::hashes::Hash;
-use bitcoin::Address;
-use bitcoin::{Amount, Block};
-use bitcoin_pool_identification::PoolIdentification;
+use miningpool_observer_shared::bitcoincore_rpc::bitcoin;
+use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{
+    address::NetworkUnchecked, address::ParseError, hash_types::Txid, hashes::Hash, Address,
+    Amount, Block, Network,
+};
+
+use bitcoin_pool_identification::{parse_json, PoolIdentification, DEFAULT_MAINNET_POOL_LIST};
 use simple_logger::SimpleLogger;
 
 use miningpool_observer_shared::bitcoincore_rpc::json::{
@@ -264,6 +265,7 @@ fn startup_db_mirgation(conn_pool: &db_pool::PgPool) {
 }
 
 fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
+    let pools = parse_json(DEFAULT_MAINNET_POOL_LIST);
     // stores up to the last MAX_OLD_TEMPLATES GetBlockTemplateResults to lookup older templates
     // based on miner block timestamps.
     let mut last_templates: VecDeque<GetBlockTemplateResult> =
@@ -429,8 +431,8 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
                 target: LOG_TARGET_STATS,
                 "Processing missed block {} mined by {}",
                 bitcoin_block.block_hash(),
-                match bitcoin_block.identify_pool() {
-                    Some(pool) => pool.name,
+                match bitcoin_block.identify_pool(Network::Bitcoin, &pools) {
+                    Some(result) => result.pool.name,
                     None => "UNKNOWN".to_string(),
                 }
             );
@@ -469,8 +471,8 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool) {
             target: LOG_TARGET_STATS,
             "New block detected {} mined by {}",
             bitcoin_block.block_hash(),
-            match bitcoin_block.identify_pool() {
-                Some(pool) => pool.name,
+            match bitcoin_block.identify_pool(Network::Bitcoin, &pools) {
+                Some(result) => result.pool.name,
                 None => "UNKNOWN".to_string(),
             }
         );
@@ -797,7 +799,7 @@ fn scantxoutset_sanctioned_tx(
     let descriptors: Vec<ScanTxOutRequest> = addrs
         .iter()
         .filter(|addr| {
-            let address: Result<Address<NetworkUnchecked>, bitcoin::address::Error> = addr.parse();
+            let address: Result<Address<NetworkUnchecked>, ParseError> = addr.parse();
             match address {
                 Ok(_) => true,
                 Err(e) => {
@@ -1089,7 +1091,7 @@ fn update_sanctioned_addresses(
             address: a.to_string(),
         })
         .filter(|addr| {
-            let address: Result<Address<NetworkUnchecked>, bitcoin::address::Error> = addr.address.parse();
+            let address: Result<Address<NetworkUnchecked>, ParseError> = addr.address.parse();
             match address {
                 Ok(_) => true,
                 Err(e) => {
@@ -1175,7 +1177,7 @@ fn start_retry_unknown_pool_identification_thread(rpc_client: Client, db_pool: d
                 return;
             }
         };
-
+        let pools = parse_json(DEFAULT_MAINNET_POOL_LIST);
         let blocks_with_unknown_pools = match db::unknown_pool_blocks(&mut conn) {
             Ok(blocks) => blocks,
             Err(e) => {
@@ -1226,14 +1228,14 @@ fn start_retry_unknown_pool_identification_thread(rpc_client: Client, db_pool: d
                 }
             };
 
-            if let Some(pool) = bitcoin_block.identify_pool() {
-                match db::update_pool_name_with_block_id(&mut conn, block.id, &pool.name) {
+            if let Some(result) = bitcoin_block.identify_pool(Network::Bitcoin, &pools) {
+                match db::update_pool_name_with_block_id(&mut conn, block.id, &result.pool.name) {
                     Ok(_) => {
                         log::info!(
                             target: LOG_TARGET_REIDUNKNOWNPOOLS,
                             "Updated pool of {} to {}.",
                             bitcoin_block.block_hash(),
-                            pool.name
+                            result.pool.name
                         );
                     }
                     Err(e) => {
