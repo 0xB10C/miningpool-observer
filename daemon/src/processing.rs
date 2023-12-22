@@ -10,17 +10,20 @@ use miningpool_observer_shared::bitcoincore_rpc::json::{
 use miningpool_observer_shared::chrono;
 use miningpool_observer_shared::{model as shared_model, tags};
 
-use bitcoin_pool_identification::{IdentificationMethod, PoolIdentification};
+use bitcoin_pool_identification::{
+    parse_json, IdentificationMethod, PoolIdentification, DEFAULT_MAINNET_POOL_LIST,
+};
 use rawtx_rs::tx::TxInfo as RawTxInfo;
 use rawtx_rs::tx::{
     is_opreturn_counterparty, is_p2ms_counterparty, is_p2sh_counterparty, TransactionSigops,
 };
 use rawtx_rs::{input::InputInscriptionDetection, input::InputType, output::OutputType};
 
-use bitcoin::hash_types::Txid;
-use bitcoin::hashes::Hash;
-use bitcoin::locktime::absolute::LockTime;
-use bitcoin::{network::constants::Network, Address, Amount, Transaction};
+use miningpool_observer_shared::bitcoincore_rpc::bitcoin;
+use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{
+    hash_types::Txid, hashes::Hash, locktime::absolute::LockTime, network::Network, Address,
+    Amount, Transaction,
+};
 
 pub const LOG_TARGET_PROCESSING: &str = "processing";
 
@@ -208,12 +211,12 @@ fn get_transaction_tags(
         tags.push(tags::TxTag::FromSanctioned as i32);
     }
 
-    if tx_info.tx.is_coin_base() {
+    if tx_info.tx.is_coinbase() {
         tags.push(tags::TxTag::Coinbase as i32);
     }
 
     // warnings
-    if tx_info.fee.to_sat() == 0 && !tx_info.tx.is_coin_base() {
+    if tx_info.fee.to_sat() == 0 && !tx_info.tx.is_coinbase() {
         tags.push(tags::TxTag::ZeroFee as i32);
     }
 
@@ -313,13 +316,13 @@ fn get_transaction_tags(
 }
 
 fn get_pool_info_or_default(
-    pool_option: Option<bitcoin_pool_identification::Pool>,
+    result_option: Option<bitcoin_pool_identification::IdentificationResult>,
 ) -> (String, String, String) {
-    if let Some(pool) = pool_option {
+    if let Some(result) = result_option {
         (
-            pool.name,
-            pool.link.unwrap_or_default(),
-            if pool.identification_method == IdentificationMethod::Tag {
+            result.pool.name,
+            result.pool.link,
+            if result.identification_method == IdentificationMethod::Tag {
                 "coinbase tag".to_string()
             } else {
                 "coinbase output address".to_string()
@@ -413,7 +416,12 @@ pub fn build_transaction(
         ),
         fee: tx_info.fee.to_sat() as i64,
         vsize: tx_info.tx.vsize() as i32,
-        output_sum: tx_info.tx.output.iter().map(|o| o.value).sum::<u64>() as i64,
+        output_sum: tx_info
+            .tx
+            .output
+            .iter()
+            .map(|o| o.value.to_sat())
+            .sum::<u64>() as i64,
         tags,
         input_count: tx_info.tx.input.len() as i32,
         inputs: inputs_strs,
@@ -590,7 +598,7 @@ pub fn build_newly_created_sanctioned_utxos(
             if let Ok(address) = Address::from_script(&output.script_pubkey, Network::Bitcoin) {
                 if sanctioned_addresses.contains(&address.to_string()) {
                     new_sanctioned_utxos.push(shared_model::SanctionedUtxo {
-                        amount: output.value as i64,
+                        amount: output.value.to_sat() as i64,
                         script_pubkey: output.script_pubkey.to_bytes(),
                         height: block.bip34_block_height().unwrap_or_default() as i32,
                         txid: to_sanctioned_tx
@@ -693,7 +701,9 @@ pub fn build_block(
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
     sanctioned_addresses: &HashSet<String>,
 ) -> shared_model::NewBlock {
-    let (pool_name, pool_link, pool_id_method) = get_pool_info_or_default(block.identify_pool());
+    let pools = parse_json(DEFAULT_MAINNET_POOL_LIST);
+    let (pool_name, pool_link, pool_id_method) =
+        get_pool_info_or_default(block.identify_pool(Network::Bitcoin, &pools));
     let mut block_hash = block.block_hash().to_byte_array().to_vec();
     block_hash.reverse();
     let mut prev_block_hash = block.header.prev_blockhash.to_byte_array().to_vec();
@@ -744,7 +754,7 @@ pub fn build_block(
             .unwrap() // blocks must have at least one transaction
             .output
             .iter()
-            .map(|o| o.value)
+            .map(|o| o.value.to_sat())
             .sum::<u64>() as i64,
         block_cb_fees: block_fees.to_sat() as i64,
         block_pkg_weights: block_pkg_weights.to_vec(),
@@ -1154,6 +1164,7 @@ mod tests {
         consensus, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
     };
     use hex;
+    use rawtx_rs::bitcoin::transaction::Version;
 
     #[test]
     fn test_build_packages() {
@@ -1243,7 +1254,7 @@ mod tests {
         // fake tx that spends from A and B
         let tx_e = Transaction {
             lock_time: LockTime::from_consensus(0),
-            version: 1,
+            version: Version::ONE,
             input: vec![
                 TxIn {
                     previous_output: OutPoint {
@@ -1266,7 +1277,7 @@ mod tests {
             ],
             output: vec![TxOut {
                 script_pubkey: ScriptBuf::from_bytes(vec![]),
-                value: 1,
+                value: Amount::ONE_BTC,
             }],
         };
 

@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use bitcoin::hash_types::Txid;
-use bitcoin::{Amount, Transaction};
+use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{hash_types::Txid, Amount, Transaction};
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct TxInfo {
