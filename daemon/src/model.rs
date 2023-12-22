@@ -1,6 +1,10 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
+use bitcoin_pool_identification::Pool;
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{hash_types::Txid, Amount, Transaction};
+
+pub type SharedPoolIDData = Arc<Mutex<Vec<Pool>>>;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct TxInfo {

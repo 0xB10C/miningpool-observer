@@ -2,7 +2,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::metrics;
-use crate::model::{BlockTxData, TemplateTxData, TxInfo, TxPackage};
+use crate::model::{BlockTxData, SharedPoolIDData, TemplateTxData, TxInfo, TxPackage};
 
 use miningpool_observer_shared::bitcoincore_rpc::json::{
     GetBlockTemplateResult, GetBlockTxFeesResult,
@@ -10,9 +10,7 @@ use miningpool_observer_shared::bitcoincore_rpc::json::{
 use miningpool_observer_shared::chrono;
 use miningpool_observer_shared::{model as shared_model, tags};
 
-use bitcoin_pool_identification::{
-    parse_json, IdentificationMethod, PoolIdentification, DEFAULT_MAINNET_POOL_LIST,
-};
+use bitcoin_pool_identification::{IdentificationMethod, PoolIdentification};
 use rawtx_rs::tx::TxInfo as RawTxInfo;
 use rawtx_rs::tx::{
     is_opreturn_counterparty, is_p2ms_counterparty, is_p2sh_counterparty, TransactionSigops,
@@ -700,10 +698,10 @@ pub fn build_block(
     template_fees: &Amount,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
     sanctioned_addresses: &HashSet<String>,
+    pools: SharedPoolIDData,
 ) -> shared_model::NewBlock {
-    let pools = parse_json(DEFAULT_MAINNET_POOL_LIST);
     let (pool_name, pool_link, pool_id_method) =
-        get_pool_info_or_default(block.identify_pool(Network::Bitcoin, &pools));
+        get_pool_info_or_default(block.identify_pool(Network::Bitcoin, &pools.lock().unwrap()));
     let mut block_hash = block.block_hash().to_byte_array().to_vec();
     block_hash.reverse();
     let mut prev_block_hash = block.header.prev_blockhash.to_byte_array().to_vec();
