@@ -178,3 +178,27 @@ impl From<log::ParseLevelError> for ConfigError {
         ConfigError::InvalidLogLevel(err)
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn load_example_config() {
+        use crate::config;
+        use std::env;
+
+        const EXAMPLE_DAEMON_CONFIG: &str = "../daemon-config.toml.example";
+        env::set_var(config::ENVVAR_CONFIG_FILE, EXAMPLE_DAEMON_CONFIG);
+        let _cfg = config::load_daemon_config().expect(&format!(
+            "We should be able to load the deamon config file '{}'",
+            EXAMPLE_DAEMON_CONFIG
+        ));
+
+        const EXAMPLE_WEB_CONFIG: &str = "../web-config.toml.example";
+        env::set_var(config::ENVVAR_CONFIG_FILE, EXAMPLE_WEB_CONFIG);
+        let _cfg = config::load_web_config().expect(&format!(
+            "We should be able to load the web config file '{}'",
+            EXAMPLE_DAEMON_CONFIG
+        ));
+    }
+}

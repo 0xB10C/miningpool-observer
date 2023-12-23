@@ -22,8 +22,8 @@ rpc_port = 8332
 #
 # RPC user and password
 # Generate with https://github.com/bitcoin/bitcoin/tree/master/share/rpcauth !
-# rpc_user = ""
-# rpc_password = ""
+rpc_user = "miningpoolobserver"
+rpc_password = ""
 
 # Re-process all database transactions and apply new tags on deamon-startup.
 # This might be requried after an update. You don't need to run this everytime.
