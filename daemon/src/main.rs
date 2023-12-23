@@ -9,13 +9,15 @@ use std::thread;
 use std::time;
 use std::time::Instant;
 
+use bitcoin_pool_identification::{
+    parse_json, Pool, PoolIdentification, DEFAULT_MAINNET_POOL_LIST,
+};
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin;
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{
     address::NetworkUnchecked, address::ParseError, hash_types::Txid, hashes::Hash, Address,
     Amount, Block, Network,
 };
-
-use bitcoin_pool_identification::{parse_json, PoolIdentification, DEFAULT_MAINNET_POOL_LIST};
+use miningpool_observer_shared::bitcoincore_rpc::jsonrpc::serde_json;
 use simple_logger::SimpleLogger;
 
 use miningpool_observer_shared::bitcoincore_rpc::json::{
@@ -43,6 +45,8 @@ const WAIT_TIME_BETWEEN_UTXO_SET_SCANS: time::Duration = time::Duration::from_se
 const WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 5); // 5 minutes
 const WAIT_TIME_BETWEEN_SANCTIONED_ADDRESS_UPDATES: time::Duration =
     time::Duration::from_secs(60 * 60 * 24); // 1 day
+const WAIT_TIME_BETWEEN_POOL_IDENTIFICATOIN_DATASET_UPDATES: time::Duration =
+    time::Duration::from_secs(60 * 60 * 24); // 1 day
 const TIMEOUT_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 8); // 8 minutes
 const MAX_OLD_TEMPLATES: usize = 15;
 const TIMEOUT_HTTP_GET_REQUEST: u64 = 10; // seconds
@@ -55,6 +59,7 @@ const LOG_TARGET_DBPOOL: &str = "dbpool";
 const LOG_TARGET_STARTUP: &str = "startup";
 const LOG_TARGET_RETAG_TX: &str = "retagtx";
 const LOG_TARGET_UPDATE_SANCTIONED_ADDRESSES: &str = "sanctionupdate";
+const LOG_TARGET_UPDATE_POOL_ID_DATASET: &str = "pooldataupdate";
 
 fn main() {
     let config = match config::load_daemon_config() {
@@ -151,8 +156,15 @@ fn main() {
     };
 
     // Mining pool identification
-    let miningpool_identification_data: model::SharedPoolIDData =
-        Arc::new(Mutex::new(parse_json(DEFAULT_MAINNET_POOL_LIST)));
+    let miningpool_identification_data: model::SharedPoolIDData = Arc::new(Mutex::new(
+        parse_json(DEFAULT_MAINNET_POOL_LIST)
+            .expect("the default pool dataset should be parseable"),
+    ));
+
+    start_pool_identification_update_thread(
+        miningpool_identification_data.clone(),
+        config.pool_identification_dataset_url,
+    );
 
     // Build a custom transport here to be able to configure the timeout.
     let custom_timeout_transport = jsonrpc::simple_http::Builder::new()
@@ -1173,6 +1185,85 @@ fn start_sanctioned_addresses_updater_thread(
         }
     });
     Ok(())
+}
+
+#[derive(Debug)]
+enum UpdatePoolIdentificationDatasetError {
+    MinReq(minreq::Error),
+    HTTP(String),
+    ParseError(serde_json::Error),
+}
+
+impl Display for UpdatePoolIdentificationDatasetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            UpdatePoolIdentificationDatasetError::MinReq(e) => write!(f, "{}", e),
+            UpdatePoolIdentificationDatasetError::HTTP(e) => write!(f, "{}", e),
+            UpdatePoolIdentificationDatasetError::ParseError(e) => write!(f, "{}", e),
+        }
+    }
+}
+
+impl std::error::Error for UpdatePoolIdentificationDatasetError {}
+
+impl From<minreq::Error> for UpdatePoolIdentificationDatasetError {
+    fn from(err: minreq::Error) -> Self {
+        UpdatePoolIdentificationDatasetError::MinReq(err)
+    }
+}
+
+impl From<serde_json::Error> for UpdatePoolIdentificationDatasetError {
+    fn from(err: serde_json::Error) -> Self {
+        UpdatePoolIdentificationDatasetError::ParseError(err)
+    }
+}
+
+fn load_pool_identification_dataset(
+    url: String,
+) -> Result<Vec<Pool>, UpdatePoolIdentificationDatasetError> {
+    let response = minreq::get(url.clone())
+        .with_timeout(TIMEOUT_HTTP_GET_REQUEST)
+        .send()?;
+
+    if response.status_code >= 400 {
+        log::error!(
+            target: LOG_TARGET_UPDATE_POOL_ID_DATASET,
+            "Failed to load the pool identification dataset from {}: {} {}",
+            url,
+            response.status_code,
+            response.reason_phrase,
+        );
+        return Err(UpdatePoolIdentificationDatasetError::HTTP(format!(
+            "{} returned: {} {}",
+            url, response.status_code, response.reason_phrase
+        )));
+    }
+
+    let dataset: Vec<Pool> = parse_json(response.as_str()?)?;
+
+    log::info!(
+        target: LOG_TARGET_UPDATE_POOL_ID_DATASET,
+        "Loaded a pool identification dataset with {} entries from {}",
+        dataset.len(),
+        url
+    );
+    Ok(dataset)
+}
+
+fn start_pool_identification_update_thread(pools: model::SharedPoolIDData, url: String) {
+    // first do one update during start-up
+    if let Ok(new_pools) = load_pool_identification_dataset(url.clone()) {
+        let mut unlocked_pools = pools.lock().unwrap();
+        *unlocked_pools = new_pools;
+    }
+    // and then periodcially
+    thread::spawn(move || loop {
+        thread::sleep(WAIT_TIME_BETWEEN_POOL_IDENTIFICATOIN_DATASET_UPDATES);
+        if let Ok(new_pools) = load_pool_identification_dataset(url.clone()) {
+            let mut unlocked_pools = pools.lock().unwrap();
+            *unlocked_pools = new_pools;
+        }
+    });
 }
 
 fn start_retry_unknown_pool_identification_thread(

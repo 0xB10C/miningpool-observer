@@ -30,10 +30,15 @@ rpc_port = 8332
 # Requires Bitcoin Core with txindex and no prune.
 retag_transactions = false
 
-# URL where to query the OFAC sanctioend transactions from. This is optional
+# URL where to query the OFAC sanctioned transactions from. This is optional
 # and defaults to:
 # https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.txt
-sanctioned_addresses_url = https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.txt
+sanctioned_addresses_url = "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.txt"
+
+# URL where to query the pool identification dataset from. This is optional
+# and defaults to:
+# https://raw.githubusercontent.com/bitcoin-data/mining-pools/generated/pool-list.json
+pool_identification_dataset_url = "https://raw.githubusercontent.com/bitcoin-data/mining-pools/generated/pool-list.json"
 
 # Prometheus Metric Server
 # Don't expose this publicly.
