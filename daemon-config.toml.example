@@ -35,10 +35,15 @@ retag_transactions = false
 # https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.txt
 sanctioned_addresses_url = "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.txt"
 
-# URL where to query the pool identification dataset from. This is optional
-# and defaults to:
-# https://raw.githubusercontent.com/bitcoin-data/mining-pools/generated/pool-list.json
-pool_identification_dataset_url = "https://raw.githubusercontent.com/bitcoin-data/mining-pools/generated/pool-list.json"
+[pool_identification]
+    # URL where to query the pool identification dataset from. This is optional
+    # and defaults to:
+    # https://raw.githubusercontent.com/bitcoin-data/mining-pools/generated/pool-list.
+    dataset_url = "https://raw.githubusercontent.com/bitcoin-data/mining-pools/generated/pool-list.json"
+    # Valid networks for the pool identification are: "bitcoin" (i.e. mainnet),
+    # "testnet", "signet", and "regtest". Make sure to use the pool-list for the
+    # right network too.
+    network = "bitcoin"
 
 # Prometheus Metric Server
 # Don't expose this publicly.
