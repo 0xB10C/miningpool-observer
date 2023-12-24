@@ -699,9 +699,10 @@ pub fn build_block(
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
     sanctioned_addresses: &HashSet<String>,
     pools: SharedPoolIDData,
+    network: Network,
 ) -> shared_model::NewBlock {
     let (pool_name, pool_link, pool_id_method) =
-        get_pool_info_or_default(block.identify_pool(Network::Bitcoin, &pools.lock().unwrap()));
+        get_pool_info_or_default(block.identify_pool(network, &pools.lock().unwrap()));
     let mut block_hash = block.block_hash().to_byte_array().to_vec();
     block_hash.reverse();
     let mut prev_block_hash = block.header.prev_blockhash.to_byte_array().to_vec();

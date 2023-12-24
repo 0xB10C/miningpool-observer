@@ -15,9 +15,10 @@ use bitcoin_pool_identification::{
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin;
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{
     address::NetworkUnchecked, address::ParseError, hash_types::Txid, hashes::Hash, Address,
-    Amount, Block, Network,
+    Amount, Block,
 };
 use miningpool_observer_shared::bitcoincore_rpc::jsonrpc::serde_json;
+use miningpool_observer_shared::config::PoolIdentificationConfig;
 use simple_logger::SimpleLogger;
 
 use miningpool_observer_shared::bitcoincore_rpc::json::{
@@ -163,7 +164,7 @@ fn main() {
 
     start_pool_identification_update_thread(
         miningpool_identification_data.clone(),
-        config.pool_identification_dataset_url,
+        config.pool_identification.clone().dataset_url,
     );
 
     // Build a custom transport here to be able to configure the timeout.
@@ -198,6 +199,7 @@ fn main() {
         reid_rpc_client,
         reid_conn_pool,
         miningpool_identification_data.clone(),
+        config.pool_identification.clone(),
     );
 
     match rpc_client.get_network_info() {
@@ -253,7 +255,12 @@ fn main() {
         retag_transactions(retag_rpc_client, retag_conn_pool);
     }
 
-    main_loop(&rpc_client, &conn_pool, miningpool_identification_data);
+    main_loop(
+        &rpc_client,
+        &conn_pool,
+        config.pool_identification.clone(),
+        miningpool_identification_data,
+    );
 }
 
 fn startup_db_mirgation(conn_pool: &db_pool::PgPool) {
@@ -285,7 +292,12 @@ fn startup_db_mirgation(conn_pool: &db_pool::PgPool) {
     }
 }
 
-fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool, pools: model::SharedPoolIDData) {
+fn main_loop(
+    rpc: &Client,
+    db_pool: &db_pool::PgPool,
+    pool_identification_config: config::PoolIdentificationConfig,
+    pools: model::SharedPoolIDData,
+) {
     // stores up to the last MAX_OLD_TEMPLATES GetBlockTemplateResults to lookup older templates
     // based on miner block timestamps.
     let mut last_templates: VecDeque<GetBlockTemplateResult> =
@@ -451,7 +463,7 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool, pools: model::SharedPoolID
                 target: LOG_TARGET_STATS,
                 "Processing missed block {} mined by {}",
                 bitcoin_block.block_hash(),
-                match bitcoin_block.identify_pool(Network::Bitcoin, &pools.lock().unwrap()) {
+                match bitcoin_block.identify_pool(pool_identification_config.clone().network, &pools.lock().unwrap()) {
                     Some(result) => result.pool.name,
                     None => "UNKNOWN".to_string(),
                 }
@@ -464,6 +476,7 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool, pools: model::SharedPoolID
                 &block_tx_fees,
                 &mut last_templates,
                 pools.clone(),
+                pool_identification_config.clone(),
             );
 
             last_templates.push_back(current_template);
@@ -492,7 +505,7 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool, pools: model::SharedPoolID
             target: LOG_TARGET_STATS,
             "New block detected {} mined by {}",
             bitcoin_block.block_hash(),
-            match bitcoin_block.identify_pool(Network::Bitcoin, &pools.lock().unwrap()) {
+            match bitcoin_block.identify_pool(pool_identification_config.network.clone(), &pools.lock().unwrap()) {
                 Some(result) => result.pool.name,
                 None => "UNKNOWN".to_string(),
             }
@@ -505,6 +518,7 @@ fn main_loop(rpc: &Client, db_pool: &db_pool::PgPool, pools: model::SharedPoolID
             &block_tx_fees,
             &mut last_templates,
             pools.clone(),
+            pool_identification_config.clone(),
         );
     }
 }
@@ -516,6 +530,7 @@ fn process(
     block_tx_fees: &GetBlockTxFeesResult,
     last_templates: &mut VecDeque<GetBlockTemplateResult>,
     pools: model::SharedPoolIDData,
+    pool_identification_config: PoolIdentificationConfig,
 ) {
     let block_tx_data = processing::build_block_tx_data(bitcoin_block, block_tx_fees);
 
@@ -641,6 +656,7 @@ fn process(
         &outpoint_to_sanctioned_utxo_map,
         &sanctioned_addresses,
         pools,
+        pool_identification_config.network,
     );
 
     let block_id = match db::insert_block(&block, &mut connection) {
@@ -1270,6 +1286,7 @@ fn start_retry_unknown_pool_identification_thread(
     rpc_client: Client,
     db_pool: db_pool::PgPool,
     pools: model::SharedPoolIDData,
+    pool_identification_config: config::PoolIdentificationConfig,
 ) {
     thread::spawn(move || {
         let mut conn = match db_pool.get() {
@@ -1334,8 +1351,8 @@ fn start_retry_unknown_pool_identification_thread(
                 }
             };
 
-            if let Some(result) =
-                bitcoin_block.identify_pool(Network::Bitcoin, &pools.lock().unwrap())
+            if let Some(result) = bitcoin_block
+                .identify_pool(pool_identification_config.network, &pools.lock().unwrap())
             {
                 match db::update_pool_name_with_block_id(&mut conn, block.id, &result.pool.name) {
                     Ok(_) => {

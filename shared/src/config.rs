@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::{env, error, fmt, fs, io};
 
+use bitcoincore_rpc::bitcoin::Network;
 use bitcoincore_rpc::Auth;
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
@@ -10,8 +11,9 @@ const ENVVAR_CONFIG_FILE: &str = "CONFIG_FILE";
 const DEFAULT_DAEMON_CONFIG: &str = "daemon-config.toml";
 const DEFAULT_WEB_CONFIG: &str = "web-config.toml";
 const DEFAULT_SANCTIONED_ADDRESSES_URL: &str = "https://raw.githubusercontent.com/0xB10C/ofac-sanctioned-digital-currency-addresses/lists/sanctioned_addresses_XBT.txt";
-const DEFAULT_POOL_IDENTIFICATION_DATASET_URL: &str =
+const DEFAULT_POOL_IDENTIFICATOIN_DATASET_URL: &str =
     "https://raw.githubusercontent.com/bitcoin-data/mining-pools/generated/pool-list.json";
+const DEFAULT_POOL_IDENTIFICATOIN_NETWORK: Network = Network::Bitcoin;
 
 #[derive(Deserialize)]
 struct DaemonTomlConfig {
@@ -25,13 +27,51 @@ struct DaemonTomlConfig {
     retag_transactions: bool,
     prometheus: PrometheusConfig,
     sanctioned_addresses_url: Option<String>,
-    pool_identification_dataset_url: Option<String>,
+    pool_identificatoin: Option<PoolIdentificationTomlConfig>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct PrometheusConfig {
     pub enable: bool,
     pub address: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PoolIdentificationTomlConfig {
+    pub dataset_url: Option<String>,
+    pub network: Option<String>,
+}
+
+impl Default for PoolIdentificationTomlConfig {
+    fn default() -> Self {
+        PoolIdentificationTomlConfig {
+            dataset_url: Some(DEFAULT_POOL_IDENTIFICATOIN_DATASET_URL.to_string()),
+            network: Some(DEFAULT_POOL_IDENTIFICATOIN_NETWORK.to_string()),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct PoolIdentificationConfig {
+    pub dataset_url: String,
+    pub network: Network,
+}
+
+impl From<PoolIdentificationTomlConfig> for PoolIdentificationConfig {
+    fn from(toml: PoolIdentificationTomlConfig) -> Self {
+        PoolIdentificationConfig {
+            dataset_url: toml
+                .dataset_url
+                .unwrap_or(DEFAULT_POOL_IDENTIFICATOIN_DATASET_URL.to_string()),
+            network: Network::from_str(
+                &toml
+                    .network
+                    .unwrap_or(DEFAULT_POOL_IDENTIFICATOIN_NETWORK.to_string())
+                    .to_lowercase(),
+            )
+            .expect("invalid pool identification network"),
+        }
+    }
 }
 
 pub struct DaemonConfig {
@@ -42,7 +82,7 @@ pub struct DaemonConfig {
     pub retag_transactions: bool,
     pub prometheus: PrometheusConfig,
     pub sanctioned_addresses_url: String,
-    pub pool_identification_dataset_url: String,
+    pub pool_identification: PoolIdentificationConfig,
 }
 
 pub fn load_daemon_config() -> Result<DaemonConfig, ConfigError> {
@@ -79,9 +119,7 @@ pub fn load_daemon_config() -> Result<DaemonConfig, ConfigError> {
         sanctioned_addresses_url: config
             .sanctioned_addresses_url
             .unwrap_or(DEFAULT_SANCTIONED_ADDRESSES_URL.to_string()),
-        pool_identification_dataset_url: config
-            .pool_identification_dataset_url
-            .unwrap_or(DEFAULT_POOL_IDENTIFICATION_DATASET_URL.to_string()),
+        pool_identification: config.pool_identificatoin.unwrap_or_default().into(),
     });
 }
 
