@@ -12,6 +12,7 @@ use miningpool_observer_shared::{model as shared_model, tags};
 
 use bitcoin_pool_identification::{IdentificationMethod, PoolIdentification};
 use rawtx_rs::tx::TxInfo as RawTxInfo;
+use rawtx_rs::tx::TxInfoError as RawTxInfoError;
 use rawtx_rs::tx::{
     is_opreturn_counterparty, is_p2ms_counterparty, is_p2sh_counterparty, TransactionSigops,
 };
@@ -395,7 +396,7 @@ pub fn build_transaction(
     is_conflicting_tx: bool,
     outpoint_to_sanctioned_utxo_map: &HashMap<(Vec<u8>, u32), &shared_model::SanctionedUtxo>,
     sanctioned_addresses: &HashSet<String>,
-) -> Result<shared_model::Transaction, bitcoin::blockdata::script::Error> {
+) -> Result<shared_model::Transaction, RawTxInfoError> {
     let raw_tx_info = RawTxInfo::new(&tx_info.tx)?;
     let (inputs_strs, outputs_strs) = in_and_outputs_to_strings(&raw_tx_info);
     let tags = get_transaction_tags(
@@ -736,8 +737,9 @@ pub fn build_block(
         sanctioned_missing_tx,
         equality: 0.0, // TODO: can be implemented later, if needed
         block_seen_time: chrono::Utc::now().naive_utc(),
-        block_time: chrono::NaiveDateTime::from_timestamp_opt(block.header.time as i64, 0)
-            .expect("block timestamp out of range"),
+        block_time: chrono::DateTime::from_timestamp(block.header.time as i64, 0)
+            .expect("block timestamp out of range")
+            .naive_utc(),
         block_tx: block.txdata.len() as i32,
         block_weight: block.weight().to_wu() as i32,
         block_sanctioned: block
@@ -762,8 +764,9 @@ pub fn build_block(
         pool_link,
         pool_id_method,
         template_cb_value: template.coinbase_value.to_sat() as i64,
-        template_time: chrono::NaiveDateTime::from_timestamp_opt(template.current_time as i64, 0)
-            .expect("template timestamp out of range"),
+        template_time: chrono::DateTime::from_timestamp(template.current_time as i64, 0)
+            .expect("template timestamp out of range")
+            .naive_utc(),
         template_tx: template.transactions.len() as i32,
         template_sanctioned: template_txid_to_txinfo_map
             .iter()
@@ -1139,8 +1142,9 @@ pub fn build_debug_template_selection_infos(
             let template_txids: HashSet<Txid> = t.transactions.iter().map(|t| t.txid).collect();
             shared_model::DebugTemplateSelectionInfo {
                 block_id,
-                template_time: chrono::NaiveDateTime::from_timestamp_opt(t.current_time as i64, 0)
-                    .expect("template timestamp out of range"),
+                template_time: chrono::DateTime::from_timestamp(t.current_time as i64, 0)
+                    .expect("template timestamp out of range")
+                    .naive_utc(),
                 count_missing: template_txids.difference(&block_txids).count() as i32,
                 count_shared: block_txids.intersection(&template_txids).count() as i32,
                 count_extra: block_txids.difference(&template_txids).count() as i32,
