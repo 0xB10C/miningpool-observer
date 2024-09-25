@@ -1,10 +1,10 @@
 use miningpool_observer_shared::bitcoincore_rpc::json::serde_hex;
 use miningpool_observer_shared::chrono::NaiveDateTime;
-use miningpool_observer_shared::diesel::prelude::*;
+use miningpool_observer_shared::diesel;
 use miningpool_observer_shared::diesel::sql_types::{BigInt, Double, Text};
-use serde::Serialize;
-
+use miningpool_observer_shared::diesel::{deserialize::Queryable, deserialize::QueryableByName};
 use miningpool_observer_shared::model;
+use serde::Serialize;
 
 // Web-only models
 
