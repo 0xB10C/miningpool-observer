@@ -335,7 +335,7 @@ fn get_pool_info_or_default(
 /// Builds a vector of transaction packages. These Packages are similar to what
 /// Bitcoin Core (currently) puts into blocks.
 pub fn build_packages(txns: &[TxInfo]) -> Vec<TxPackage> {
-    let txids_in_txns: HashSet<Txid> = txns.iter().map(|ti| ti.tx.txid()).collect();
+    let txids_in_txns: HashSet<Txid> = txns.iter().map(|ti| ti.tx.compute_txid()).collect();
     let mut packages: Vec<TxPackage> = vec![];
 
     // Bitcoin Core places transactions that belong to a package next to each other.
@@ -355,7 +355,7 @@ pub fn build_packages(txns: &[TxInfo]) -> Vec<TxPackage> {
                     txids.extend(&tx.prev_output_txids());
                     txids
                 });
-            if parent_txids.contains(&tx_info.tx.txid()) {
+            if parent_txids.contains(&tx_info.tx.compute_txid()) {
                 // belongs to the same package if the tx is a parent of a tx in the package
                 package_txns.push(tx_info.clone());
             } else if tx_info
@@ -601,7 +601,7 @@ pub fn build_newly_created_sanctioned_utxos(
                         script_pubkey: output.script_pubkey.to_bytes(),
                         height: block.bip34_block_height().unwrap_or_default() as i32,
                         txid: to_sanctioned_tx
-                            .txid()
+                            .compute_txid()
                             .to_byte_array()
                             .to_vec()
                             .iter()
@@ -631,7 +631,7 @@ pub fn build_block_tx_data(
         .collect();
 
     for (i, tx) in block.txdata.iter().enumerate() {
-        let txid = tx.txid();
+        let txid = tx.compute_txid();
         txids.insert(txid);
         let tx_info = TxInfo {
             txid,
@@ -666,9 +666,9 @@ pub fn build_template_tx_data(template: &GetBlockTemplateResult) -> TemplateTxDa
                 continue;
             }
         };
-        txids.insert(deser_tx.txid());
+        txids.insert(deser_tx.compute_txid());
         let tx_info = TxInfo {
-            txid: deser_tx.txid(),
+            txid: deser_tx.compute_txid(),
             tx: deser_tx,
             pos: i as i32,
             fee: tx.fee,
@@ -1188,7 +1188,7 @@ mod tests {
         let tx_a_info = TxInfo {
             fee: tx_a.fee,
             pos: 0,
-            txid: tx_a.tx.txid(),
+            txid: tx_a.tx.compute_txid(),
             tx: tx_a.tx,
         };
 
@@ -1202,7 +1202,7 @@ mod tests {
         let tx_b_info = TxInfo {
             fee: tx_b.fee,
             pos: 1,
-            txid: tx_b.tx.txid(),
+            txid: tx_b.tx.compute_txid(),
             tx: tx_b.tx,
         };
 
@@ -1216,7 +1216,7 @@ mod tests {
         let tx_c_info = TxInfo {
             fee: tx_c.fee,
             pos: 2,
-            txid: tx_c.tx.txid(),
+            txid: tx_c.tx.compute_txid(),
             tx: tx_c.tx,
         };
 
@@ -1230,7 +1230,7 @@ mod tests {
         let tx_d_info = TxInfo {
             fee: tx_d.fee,
             pos: 2,
-            txid: tx_d.tx.txid(),
+            txid: tx_d.tx.compute_txid(),
             tx: tx_d.tx,
         };
 
@@ -1287,7 +1287,7 @@ mod tests {
         let tx_e_info = TxInfo {
             fee: Amount::from_sat(2),
             pos: 3,
-            txid: tx_e.txid(),
+            txid: tx_e.compute_txid(),
             tx: tx_e.clone(),
         };
 
