@@ -15,4 +15,4 @@ chrono = { version = "0.4", features = ["serde"] }
 
 # Requirements to switch to upstream rust-bitcoincore-rpc:
 # - some way of getting the fees from getblock with verbosity 2, currently only a minimal implementation in the mpo branch
-bitcoincore-rpc = { git = "https://github.com/0xb10c/rust-bitcoincore-rpc", branch = "mpo-0.18" }
+bitcoincore-rpc = { git = "https://github.com/0xb10c/rust-bitcoincore-rpc", branch = "mpo-0.19" }
