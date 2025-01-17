@@ -109,7 +109,7 @@ fn conflicting_transactions_data(
     conn: &mut PgConnection,
     page: u32,
 ) -> Result<ConflictingTransactionsData, diesel::result::Error> {
-    let block_ids: Vec<i32>;
+    let block_ids: Vec<i64>;
     let total_block_count: i64;
     {
         use schema::block::dsl::*;
@@ -121,10 +121,10 @@ fn conflicting_transactions_data(
             .offset(MAX_BLOCKS_PER_PAGE * page as i64)
             .distinct()
             .order(height.desc())
-            .load::<(i32, i32)>(conn)?
+            .load::<(i64, i32)>(conn)?
             .iter()
             .map(|(a, _)| *a)
-            .collect::<Vec<i32>>();
+            .collect::<Vec<i64>>();
         // SQL: DISTINCT needs the height in the SELECT when it's used in to ORDER BY height.
         // We don't need the height.
 
@@ -334,7 +334,7 @@ pub fn missing_sanctioned_txns_for_block(
     req_hash: &[u8],
     conn: &mut PgConnection,
 ) -> Result<Vec<MissingSanctionedTransaction>, diesel::result::Error> {
-    let this_block_id: i32;
+    let this_block_id: i64;
     {
         use schema::block::dsl::*;
         this_block_id = block.select(id).filter(hash.eq(req_hash)).first(conn)?;
@@ -396,7 +396,7 @@ pub fn avg_fees_by_pool(
 }
 
 fn transaction_only_in_template_by_block_id(
-    p_block_id: i32,
+    p_block_id: i64,
     conn: &mut PgConnection,
 ) -> Result<Vec<(TransactionOnlyInTemplate, Transaction)>, diesel::result::Error> {
     use schema::transaction_only_in_template::dsl::*;
@@ -408,7 +408,7 @@ fn transaction_only_in_template_by_block_id(
 }
 
 fn transaction_only_in_block_by_block_id(
-    p_block_id: i32,
+    p_block_id: i64,
     conn: &mut PgConnection,
 ) -> Result<Vec<(TransactionOnlyInBlock, Transaction)>, diesel::result::Error> {
     use schema::transaction_only_in_block::dsl::*;
@@ -483,11 +483,11 @@ pub fn missing_transactions(
 ) -> Result<(Vec<MissingTransaction>, u32), diesel::result::Error> {
     let missing_transactions_data = missing_transactions_data(conn, page)?;
 
-    let block_id_to_block_map: HashMap<i32, &Block> = missing_transactions_data
+    let block_id_to_block_map: HashMap<i64, &Block> = missing_transactions_data
         .blocks
         .iter()
         .map(|b| (b.id, b))
-        .collect::<HashMap<i32, &Block>>();
+        .collect::<HashMap<i64, &Block>>();
 
     let mut missing_txns: Vec<MissingTransaction> = vec![];
     for tx in missing_transactions_data.transactions {
@@ -563,7 +563,7 @@ fn missing_transactions_data(
         .order_by(block_id.desc())
         .load::<TransactionOnlyInTemplate>(conn)?;
 
-    let block_ids: Vec<i32> = txns_only_in_template.iter().map(|a| a.block_id).collect();
+    let block_ids: Vec<i64> = txns_only_in_template.iter().map(|a| a.block_id).collect();
 
     let blocks: Vec<Block> = block.filter(id.eq_any(block_ids)).load::<Block>(conn)?;
 
@@ -592,7 +592,7 @@ pub fn single_missing_transaction_data(
             .order_by(block_id.desc())
             .load::<TransactionOnlyInTemplate>(conn)?;
 
-    let block_ids: Vec<i32> = transaction_only_in_templates_not_included_in_block
+    let block_ids: Vec<i64> = transaction_only_in_templates_not_included_in_block
         .iter()
         .map(|a| a.block_id)
         .collect();
@@ -613,10 +613,10 @@ pub fn single_missing_transaction(
     let (tx, transaction_only_in_templates_not_included_in_block, block_infos) =
         single_missing_transaction_data(req_txid, conn)?;
 
-    let block_id_to_block_map: HashMap<i32, &Block> = block_infos
+    let block_id_to_block_map: HashMap<i64, &Block> = block_infos
         .iter()
         .map(|b| (b.id, b))
-        .collect::<HashMap<i32, &Block>>();
+        .collect::<HashMap<i64, &Block>>();
 
     let mut blocks_the_transaction_is_missing_from: Vec<MissingTransactionBlockInfo> =
         transaction_only_in_templates_not_included_in_block
@@ -683,13 +683,13 @@ pub fn debug_template_selection_infos(
 ) -> Result<(Vec<DebugTemplateSelectionInfosAndBlock>, u32), diesel::result::Error> {
     use schema::debug_template_selection::dsl::*;
 
-    let block_ids: Vec<i32> = debug_template_selection
+    let block_ids: Vec<i64> = debug_template_selection
         .select(block_id)
         .limit(MAX_BLOCKS_PER_PAGE)
         .distinct()
         .offset(MAX_BLOCKS_PER_PAGE * page as i64)
         .order(block_id.desc())
-        .load::<i32>(conn)?;
+        .load::<i64>(conn)?;
 
     let infos: Vec<DebugTemplateSelectionInfo> = debug_template_selection
         .filter(block_id.eq_any(block_ids.clone()))

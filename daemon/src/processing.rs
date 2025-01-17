@@ -431,7 +431,7 @@ pub fn build_transaction(
 }
 
 pub fn build_transactions_only_in_block(
-    block_id: i32,
+    block_id: i64,
     txids_only_in_block: &HashSet<&Txid>,
     block_txid_to_txinfo_map: &HashMap<Txid, TxInfo>,
     transactions: &mut HashMap<Vec<u8>, shared_model::Transaction>,
@@ -476,7 +476,7 @@ pub fn build_transactions_only_in_block(
 }
 
 pub fn build_sanctioned_transaction_infos(
-    block_id: i32,
+    block_id: i64,
     block_tx_data: &BlockTxData,
     template_txids: &HashSet<Txid>,
     template_txid_to_txinfo_map: &HashMap<Txid, TxInfo>,
@@ -800,7 +800,7 @@ pub fn build_block(
 }
 
 pub fn build_transactions_only_in_template(
-    block_id: i32,
+    block_id: i64,
     txids_only_in_template: &HashSet<&Txid>,
     template_txid_to_txinfo_map: &HashMap<Txid, TxInfo>,
     template_txid_to_mempool_age: &HashMap<Txid, i32>,
@@ -868,7 +868,7 @@ fn add_to_transactions(
 }
 
 pub fn build_conflicting_transactions(
-    block_id: i32,
+    block_id: i64,
     txids_only_in_template: &HashSet<&Txid>,
     template_txid_to_txinfo_map: &HashMap<Txid, TxInfo>,
     txids_only_in_block: &HashSet<&Txid>,
@@ -1131,7 +1131,7 @@ pub fn get_sanctioned_missing_tx_count(
 }
 
 pub fn build_debug_template_selection_infos(
-    block_id: i32,
+    block_id: i64,
     templates: &VecDeque<GetBlockTemplateResult>,
     block_txids: HashSet<Txid>,
     selected_template_time: u64,

@@ -18,7 +18,7 @@ use std::hash::{Hash, Hasher};
 #[diesel(primary_key(hash))]
 #[diesel(table_name = block)]
 pub struct Block {
-    pub id: i32,
+    pub id: i64,
     #[serde(with = "serde_hex")]
     pub hash: Vec<u8>,
     #[serde(with = "serde_hex")]
@@ -135,7 +135,7 @@ impl Hash for Transaction {
 #[derive(Insertable, Queryable, Serialize)]
 #[diesel(table_name = transaction_only_in_block)]
 pub struct TransactionOnlyInBlock {
-    pub block_id: i32,
+    pub block_id: i64,
     pub position: i32,
     pub transaction_txid: Vec<u8>,
 }
@@ -143,7 +143,7 @@ pub struct TransactionOnlyInBlock {
 #[derive(Insertable, Queryable, Serialize, Clone)]
 #[diesel(table_name = transaction_only_in_template)]
 pub struct TransactionOnlyInTemplate {
-    pub block_id: i32,
+    pub block_id: i64,
     pub position: i32,
     pub mempool_age_seconds: i32,
     pub transaction_txid: Vec<u8>,
@@ -152,7 +152,7 @@ pub struct TransactionOnlyInTemplate {
 #[derive(Insertable, Queryable, Serialize)]
 #[diesel(table_name = sanctioned_transaction_info)]
 pub struct SanctionedTransactionInfo {
-    pub block_id: i32,
+    pub block_id: i64,
     pub transaction_txid: Vec<u8>,
     pub in_block: bool,
     pub in_template: bool,
@@ -162,7 +162,7 @@ pub struct SanctionedTransactionInfo {
 #[derive(Insertable, Queryable, Serialize, Debug)]
 #[diesel(table_name = conflicting_transactions)]
 pub struct ConflictingTransaction {
-    pub block_id: i32,
+    pub block_id: i64,
     pub template_txids: Vec<Vec<u8>>,
     pub block_txids: Vec<Vec<u8>>,
     pub conflicting_outpoints_txids: Vec<Vec<u8>>,
@@ -193,7 +193,7 @@ pub struct SanctionedUtxoScanInfo {
 #[derive(Insertable, Queryable, Serialize, Debug, Clone)]
 #[diesel(table_name = debug_template_selection)]
 pub struct DebugTemplateSelectionInfo {
-    pub block_id: i32,
+    pub block_id: i64,
     pub template_time: NaiveDateTime,
     pub count_missing: i32,
     pub count_shared: i32,
