@@ -2,7 +2,7 @@
 
 diesel::table! {
     block (hash) {
-        id -> Int4,
+        id -> Int8,
         hash -> Bytea,
         prev_hash -> Bytea,
         height -> Int4,
@@ -39,7 +39,7 @@ diesel::table! {
 
 diesel::table! {
     conflicting_transactions (block_id, template_txids, block_txids) {
-        block_id -> Int4,
+        block_id -> Int8,
         template_txids -> Array<Bytea>,
         block_txids -> Array<Bytea>,
         conflicting_outpoints_txids -> Array<Bytea>,
@@ -49,7 +49,7 @@ diesel::table! {
 
 diesel::table! {
     debug_template_selection (block_id, template_time) {
-        block_id -> Int4,
+        block_id -> Int8,
         template_time -> Timestamp,
         count_missing -> Int4,
         count_shared -> Int4,
@@ -73,7 +73,7 @@ diesel::table! {
 
 diesel::table! {
     sanctioned_transaction_info (block_id, transaction_txid) {
-        block_id -> Int4,
+        block_id -> Int8,
         transaction_txid -> Bytea,
         in_block -> Bool,
         in_template -> Bool,
@@ -119,7 +119,7 @@ diesel::table! {
 
 diesel::table! {
     transaction_only_in_block (block_id, transaction_txid) {
-        block_id -> Int4,
+        block_id -> Int8,
         position -> Int4,
         transaction_txid -> Bytea,
     }
@@ -127,7 +127,7 @@ diesel::table! {
 
 diesel::table! {
     transaction_only_in_template (block_id, transaction_txid) {
-        block_id -> Int4,
+        block_id -> Int8,
         position -> Int4,
         mempool_age_seconds -> Int4,
         transaction_txid -> Bytea,

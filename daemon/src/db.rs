@@ -24,7 +24,7 @@ pub fn run_migrations(
 }
 
 /// Insert a single block
-pub fn insert_block(b: &NewBlock, conn: &mut PgConnection) -> Result<i32, diesel::result::Error> {
+pub fn insert_block(b: &NewBlock, conn: &mut PgConnection) -> Result<i64, diesel::result::Error> {
     use schema::block::dsl::*;
     diesel::insert_into(block)
         .values(b)
@@ -222,7 +222,7 @@ pub fn unknown_pool_blocks(conn: &mut PgConnection) -> Result<Vec<Block>, diesel
 
 pub fn update_pool_name_with_block_id(
     conn: &mut PgConnection,
-    block_id: i32,
+    block_id: i64,
     new_pool_name: &str,
 ) -> Result<(), diesel::result::Error> {
     use schema::block::dsl::*;
