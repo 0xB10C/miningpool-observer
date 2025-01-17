@@ -129,6 +129,15 @@ async fn main() -> std::io::Result<()> {
                 "/og_image/missing/{txid}.png",
                 web::get().to(ogimage::ogimage_missing_transaction),
             )
+            // MISSING SANCTIONED
+            .route(
+                "/missing-sanctioned",
+                web::get().to(handler::missing_sanctioned),
+            )
+            .route(
+                "/og_image/missing-sanctioned.png",
+                web::get().to(ogimage::ogimage_mainpage_sanctioned_transactions),
+            )
             //
             // CONFLICTING TRANSACTION PAGES
             //

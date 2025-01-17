@@ -162,6 +162,32 @@ pub async fn missing_sanctioned_transactions_rss(
         .body(s))
 }
 
+pub async fn missing_sanctioned(
+    tmpl: web::Data<tera::Tera>,
+    pool: web::Data<db_pool::PgPool>,
+    config: web::Data<config::WebSiteConfig>,
+    node_version: web::Data<String>,
+) -> Result<HttpResponse, Error> {
+    let mut ctx = tera::Context::new();
+    ctx.insert("MAX_BLOCKS_PER_PAGE", &MAX_BLOCKS_PER_PAGE);
+    ctx.insert("CONFIG", config.get_ref());
+    ctx.insert("NODE_VERSION", node_version.get_ref());
+    ctx.insert("NAV_PAGE_SANCTIONED", &true);
+
+    let mut conn = pool.get().expect("couldn't get db connection from pool");
+    let blocks_with_missing_sanctioned =
+        web::block(move || db::blocks_with_missing_sanctioned(&mut conn))
+            .await?
+            .map_err(actix_web::error::ErrorInternalServerError)?;
+    ctx.insert("blocks", &blocks_with_missing_sanctioned);
+    ctx.insert("ENTRY_COUNT", &blocks_with_missing_sanctioned.len());
+
+    let s = tmpl
+        .render("missing-sanctioned.html", &ctx)
+        .map_err(error::template_error)?;
+    Ok(HttpResponse::Ok().content_type("text/html").body(s))
+}
+
 //##### MISSING TRANSCTIONS
 
 pub async fn missing_transactions(

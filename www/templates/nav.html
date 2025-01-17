@@ -36,7 +36,10 @@
                     <img class="d-inline-block d-lg-none align-middle mx-2" width=32 height=32 src="/static/img/block-conflicting.svg"/>
                     Conflicting Transactions
                 </a>
-
+                <a class="nav-link {%if NAV_PAGE_SANCTIONED%}active{%endif%}" href="{{CONFIG.base_url}}/missing-sanctioned">
+                    <img class="d-inline-block d-lg-none align-middle mx-2" width=32 height=32 src="/static/img/block-sanctioned.svg"/>
+                    Sanctioned Transactions
+                </a>
                 <!-- separator -->
                 <li class="nav-item d-lg-none"><hr class="my-1"></li><li class="nav-item d-none d-lg-block mx-2 border-end"><wbr></li>
                 

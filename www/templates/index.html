@@ -96,6 +96,20 @@
               <a class="stretched-link" href="{{CONFIG.base_url}}/conflicting"></a>
             </div>
             <div class="col position-relative grow-on-hover">
+              <div class="card h-100 shadow-sm">
+                <img src="/static/img/block-sanctioned.svg" width="120" height="120" class="card-img-top p-3 border-bottom" alt="Sanctioned Transactions">
+                <div class="card-body">
+                    <h4 class="card-title">Sanctioned Transactions</h4>
+                    <h6 class="card-subtitle mb-2 text-muted">Sanctioned transactions missing from Blocks</h6>
+                    <p class="card-text">
+                      When a sanctioned transaction is missing from a block, it can be - but doesn't have to be - an indication that a mining pool is filtering these.
+                      This page lists sanctioned transactions missing from blocks.
+                    </p>
+                </div>
+              </div>
+              <a class="stretched-link" href="{{CONFIG.base_url}}/missing-sanctioned"></a>
+            </div>
+            <div class="col position-relative grow-on-hover">
                 <div class="card h-100 shadow-sm">
                   <img src="/static/img/faq.svg" width="120" height="120" class="card-img-top p-3 border-bottom" alt="Conflicting Transactions">
                   <div class="card-body">
