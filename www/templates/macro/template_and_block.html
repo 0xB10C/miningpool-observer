@@ -107,7 +107,7 @@
 
 {% macro sanctioned(block) %}
     {% if block.sanctioned_missing_tx > 0 %}
-        <div class="alert alert-warning text-center mt-2" role="alert">
+        <div class="alert alert-danger text-center mt-2" role="alert">
             <p class="mb-0">
                 The block template includes <strong>{{block.sanctioned_missing_tx}} sanctioned transaction{{ block.sanctioned_missing_tx | pluralize }}</strong> which {{ block.sanctioned_missing_tx | pluralize(singular="is", plural="are") }} not present in the block.
                 <br>

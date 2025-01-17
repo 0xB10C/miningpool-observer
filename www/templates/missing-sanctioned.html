@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% import "macro/template_and_block.html" as block %}
+{% import "macro/opengraph.html" as opengraph %}
+
+{% block opengraph %}
+{{
+    opengraph::og(
+        title="Missing Sanctioned Transaction",
+        description="Sanctioned Transactions Missing from Blocks",
+        url="/missing-sanctioned",
+        image_url="/og_image/missing-sanctioned.png"
+    )
+}}
+{% endblock opengraph %}
+
+{% block content %}
+<section>
+    <div class="bg-white p-3 mb-4">
+        <h1>
+            Missing Sanctioned Transactions
+        </h1>
+
+        <p>
+            This page lists blocks where one or more <a href="{{CONFIG.base_url}}/faq#sanctioned">sanctioned transactions</a> are missing from a block.
+            While frequent missing sanctioned can be an indication that a mining pool filters these, there can be false positives.
+            Detailed analysis like <a href="https://b10c.me/observations/08-missing-sanctioned-transactions/">this</a> (November 2023)
+            or <a href="https://b10c.me/observations/13-missing-sanctioned-transactions-2024-12/">this</a> (January 2025) might be needed first.
+        </p>
+
+        {% if ENTRY_COUNT == 0 %}
+            <div class="alert alert-light" role="alert">
+                <h4 class="alert-heading">No blocks with missing sanctioned transactions in the database yet!</h4>
+                <span>There don't seem to be any entries in the database yet.</span>
+                <span>Please check back later.</span>
+            </div>
+        {% else %}
+
+            <h3>
+                Recent Blocks with Missing Sanctioned Transactions ({{ENTRY_COUNT}})
+            </h3>
+            <div>
+                {% for block in blocks %}
+                    <div class="border my-3 px-3 py-2 position-relative grow-on-hover shadow-sm">
+                        {% for tag_id in block.tags %}
+                            {{ block::tag(tag=block_tag_id_to_tag(id=tag_id)) }}
+                        {% endfor %}
+                        <h5 class="text-break fs-5">
+                            Template&nbsp;and&nbsp;Block&nbsp;for&nbsp;<span>{{block.hash}}</span>
+                        </h5>
+                        {{ block::info(block=block, show_previous=false) }}
+                        {{ block::diff(block=block) }}
+                        <hr class="my-2">
+                        {{ block::missing_shared_extra(missing=block.missing_tx, shared=block.shared_tx, extra=block.extra_tx )}}
+                        {{ block::sanctioned(block=block) }}
+
+                        <a href="{{CONFIG.base_url}}/template-and-block/{{block.hash}}" class="stretched-link"></a>
+                    </div>
+                {% endfor %}
+            <div>
+    {% endif %}
+
+    </div>
+</section>
+
+{% endblock content %}

@@ -287,6 +287,31 @@ pub async fn ogimage_mainpage_conflicting_transactions(
     }
 }
 
+pub async fn ogimage_mainpage_sanctioned_transactions(
+    config: web::Data<config::WebSiteConfig>,
+    usvg_opts: web::Data<usvg::Options>,
+    tmpl: web::Data<tera::Tera>,
+) -> Result<HttpResponse, Error> {
+    let mut ctx = tera::Context::new();
+    ctx.insert("config", config.get_ref());
+    let s = tmpl
+        .render("svg/mainpage_sanctioned_transactions.svg", &ctx)
+        .map_err(error::template_error)?;
+
+    match render_and_encode(&s, usvg_opts.get_ref()) {
+        Ok(png_data) => Ok(HttpResponse::Ok().content_type("image/png").body(png_data)),
+        Err(e) => {
+            log::error!(
+                "Could not render og::image mainpage_sanctioned_transactions: {}",
+                e
+            );
+            Err(actix_error::ErrorInternalServerError(
+                "Render or Encoding Error",
+            ))
+        }
+    }
+}
+
 pub async fn ogimage_mainpage_index(
     config: web::Data<config::WebSiteConfig>,
     usvg_opts: web::Data<usvg::Options>,
