@@ -20,7 +20,7 @@ hex = "0.4"
 diesel_migrations = "2"
 
 # prometheus metrics
-prometheus = "0.12.0"
+prometheus = "0.14.0"
 lazy_static = "1.4.0"
 
 minreq = {version = "2.6", features = [ "https" ]}

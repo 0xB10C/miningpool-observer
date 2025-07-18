@@ -8,7 +8,7 @@ edition = "2018"
 log = "0.4"
 serde = "1"
 toml = "0.5"
-prometheus = "0.12.0"
+prometheus = "0.14.0"
 
 diesel = { version = "2", features = ["postgres", "r2d2", "chrono"] }
 chrono = { version = "0.4", features = ["serde"] }
