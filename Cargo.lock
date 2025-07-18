@@ -1357,7 +1357,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd01039851e82f8799046eabbb354056283fb265c8ec0996af940f4e85a380ff"
 dependencies = [
  "serde",
- "toml 0.8.19",
+ "toml",
 ]
 
 [[package]]
@@ -1434,7 +1434,7 @@ dependencies = [
  "log",
  "prometheus",
  "serde",
- "toml 0.5.11",
+ "toml",
 ]
 
 [[package]]
@@ -2433,15 +2433,6 @@ dependencies = [
  "futures-sink",
  "pin-project-lite",
  "tokio",
-]
-
-[[package]]
-name = "toml"
-version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
-dependencies = [
- "serde",
 ]
 
 [[package]]
