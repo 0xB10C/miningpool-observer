@@ -23,7 +23,7 @@ diesel_migrations = "2"
 prometheus = "0.14.0"
 lazy_static = "1.4.0"
 
-minreq = {version = "2.6", features = [ "https" ]}
+minreq = {version = "2.14", features = [ "https" ]}
 
 [features]
 # Treat warnings as a build error.
