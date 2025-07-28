@@ -10,7 +10,7 @@ edition = "2018"
 miningpool_observer_shared = { path="../shared" }
 
 log = "0.4"
-simple_logger = "1.9.0"
+simple_logger = "5.0.0"
 
 bitcoin-pool-identification = "0.3.7"
 rawtx-rs = { version = "0.1.20", features = [ "counterparty" ]}
