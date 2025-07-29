@@ -22,7 +22,7 @@ tera = "1.7"
 
 # svg to png image rendering
 resvg = "0.14.1"
-usvg = "0.14.1"
+usvg = "0.45.1"
 tiny-skia = "0.5.1"
 
 
