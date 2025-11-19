@@ -23,7 +23,7 @@ pub async fn ogimage_missing_transaction(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
-    usvg_opts: web::Data<usvg::Options>,
+    usvg_opts: web::Data<usvg::Options<'static>>,
 ) -> Result<HttpResponse, Error> {
     let txid = util::parse_txid_str(&txid_str)?;
     let mut ctx = tera::Context::new();
@@ -84,7 +84,7 @@ pub async fn ogimage_template_and_block(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
-    usvg_opts: web::Data<usvg::Options>,
+    usvg_opts: web::Data<usvg::Options<'static>>,
 ) -> Result<HttpResponse, Error> {
     let hash = util::parse_block_hash_str(&hash_str)?;
     let mut ctx = tera::Context::new();
@@ -140,7 +140,7 @@ pub async fn ogimage_block_with_conflicting_transactions(
     tmpl: web::Data<tera::Tera>,
     pool: web::Data<db_pool::PgPool>,
     config: web::Data<config::WebSiteConfig>,
-    usvg_opts: web::Data<usvg::Options>,
+    usvg_opts: web::Data<usvg::Options<'static>>,
 ) -> Result<HttpResponse, Error> {
     let hash = util::parse_block_hash_str(&hash_str)?;
     let mut ctx = tera::Context::new();
@@ -192,7 +192,7 @@ pub async fn ogimage_block_with_conflicting_transactions(
 
 pub async fn ogimage_mainpage_templates_and_blocks(
     config: web::Data<config::WebSiteConfig>,
-    usvg_opts: web::Data<usvg::Options>,
+    usvg_opts: web::Data<usvg::Options<'static>>,
     tmpl: web::Data<tera::Tera>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
@@ -217,7 +217,7 @@ pub async fn ogimage_mainpage_templates_and_blocks(
 
 pub async fn ogimage_mainpage_faq(
     config: web::Data<config::WebSiteConfig>,
-    usvg_opts: web::Data<usvg::Options>,
+    usvg_opts: web::Data<usvg::Options<'static>>,
     tmpl: web::Data<tera::Tera>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
@@ -239,7 +239,7 @@ pub async fn ogimage_mainpage_faq(
 
 pub async fn ogimage_mainpage_missing_transactions(
     config: web::Data<config::WebSiteConfig>,
-    usvg_opts: web::Data<usvg::Options>,
+    usvg_opts: web::Data<usvg::Options<'static>>,
     tmpl: web::Data<tera::Tera>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
@@ -264,7 +264,7 @@ pub async fn ogimage_mainpage_missing_transactions(
 
 pub async fn ogimage_mainpage_conflicting_transactions(
     config: web::Data<config::WebSiteConfig>,
-    usvg_opts: web::Data<usvg::Options>,
+    usvg_opts: web::Data<usvg::Options<'static>>,
     tmpl: web::Data<tera::Tera>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
@@ -289,7 +289,7 @@ pub async fn ogimage_mainpage_conflicting_transactions(
 
 pub async fn ogimage_mainpage_sanctioned_transactions(
     config: web::Data<config::WebSiteConfig>,
-    usvg_opts: web::Data<usvg::Options>,
+    usvg_opts: web::Data<usvg::Options<'static>>,
     tmpl: web::Data<tera::Tera>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
@@ -314,7 +314,7 @@ pub async fn ogimage_mainpage_sanctioned_transactions(
 
 pub async fn ogimage_mainpage_index(
     config: web::Data<config::WebSiteConfig>,
-    usvg_opts: web::Data<usvg::Options>,
+    usvg_opts: web::Data<usvg::Options<'static>>,
     tmpl: web::Data<tera::Tera>,
 ) -> Result<HttpResponse, Error> {
     let mut ctx = tera::Context::new();
@@ -334,16 +334,18 @@ pub async fn ogimage_mainpage_index(
     }
 }
 
-fn render_and_encode(svg: &str, opts: &usvg::Options) -> Result<Vec<u8>, ImageError> {
+fn render_and_encode(svg: &str, opts: &usvg::Options<'static>) -> Result<Vec<u8>, ImageError> {
     let rtree = usvg::Tree::from_str(svg, opts)?;
-    let size = rtree.svg_node().size.to_screen_size();
+    let size = rtree.size().to_int_size();
     let mut pixmap = match Pixmap::new(size.width(), size.height()) {
         Some(pixmap) => pixmap,
         None => return Err(ImageError::PixmapCreationError),
     };
-    if resvg::render(&rtree, usvg::FitTo::Original, pixmap.as_mut()).is_none() {
-        return Err(ImageError::RenderError);
-    }
+    resvg::render(
+        &rtree,
+        tiny_skia::Transform::identity(),
+        &mut pixmap.as_mut(),
+    );
     match Pixmap::encode_png(&pixmap) {
         Ok(png_data) => Ok(png_data),
         Err(e) => Err(ImageError::PngEncodingError(e.to_string())),
@@ -354,7 +356,6 @@ fn render_and_encode(svg: &str, opts: &usvg::Options) -> Result<Vec<u8>, ImageEr
 pub enum ImageError {
     UsvgError(usvg::Error),
     PngEncodingError(String),
-    RenderError,
     PixmapCreationError,
 }
 
@@ -363,7 +364,6 @@ impl std::fmt::Display for ImageError {
         match *self {
             ImageError::UsvgError(ref e) => e.fmt(f),
             ImageError::PngEncodingError(ref e) => write!(f, "could not encoded as PNG: {}", e),
-            ImageError::RenderError => write!(f, "could not render the SVG"),
             ImageError::PixmapCreationError => write!(f, "could not create a new PixMap"),
         }
     }
@@ -373,7 +373,6 @@ impl std::error::Error for ImageError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match *self {
             ImageError::UsvgError(ref e) => Some(e),
-            ImageError::RenderError => None,
             ImageError::PngEncodingError(_) => None,
             ImageError::PixmapCreationError => None,
         }

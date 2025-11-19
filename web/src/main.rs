@@ -53,12 +53,12 @@ async fn main() -> std::io::Result<()> {
         let mut conn = pool.clone().get().unwrap();
         let node_version = db::get_node_info(&mut conn).unwrap();
 
-        let usvg_options: usvg::Options = {
+        let usvg_options: usvg::Options<'static> = {
             let mut opt = usvg::Options::default();
-            opt.fontdb
+            opt.fontdb_mut()
                 .load_fonts_dir(cloned_config.www_dir_path.clone() + "/static/fonts");
-            opt.fontdb.set_sans_serif_family("Roboto");
-            opt.fontdb.set_monospace_family("Roboto Mono");
+            opt.fontdb_mut().set_sans_serif_family("Roboto");
+            opt.fontdb_mut().set_monospace_family("Roboto Mono");
             opt
         };
 
