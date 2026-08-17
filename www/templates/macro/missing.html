@@ -1,21 +1,21 @@
-{% macro missing(missing, short) %}
+{% component missing.missing(missing, short, CONFIG) %}
     <div class="row position-relative {%if short%} grow-on-hover {%endif%}">
         <span class="col-12 fs-5 text-break">Missing Transaction {{ missing.transaction.txid }}</span>
         <span class="col-12 my-1">
             {% for tag_id in missing.transaction.tags %}
-                {{ transaction::tag(tag=tx_tag_id_to_tag(id=tag_id)) }}
+                {{ <transaction.tag tag={tx_tag_id_to_tag(id=tag_id)} CONFIG={CONFIG}/> }}
             {% endfor %}
         </span>
         <div class="row row-cols-1 row-cols-md-2 my-1">
-            {{ transaction::info_col(label="fee", value=missing.transaction.fee, value_extra=" sat") }}
-            {{ transaction::info_col(label="feerate", value=missing.transaction.fee / missing.transaction.vsize | round(method="ceil", precision=2), value_extra=" sat/vByte") }}
-            {{ transaction::info_col(label="vsize", value=missing.transaction.vsize, value_extra=" vByte") }}
-            {{ transaction::info_col(label="output sum", value=missing.transaction.output_sum / 100000000, value_extra=" BTC") }}
+            {{ <transaction.info_col label="fee" value={missing.transaction.fee} value_extra=" sat"/> }}
+            {{ <transaction.info_col label="feerate" value={missing.transaction.fee / missing.transaction.vsize | round(method="ceil", precision=2)} value_extra=" sat/vByte"/> }}
+            {{ <transaction.info_col label="vsize" value={missing.transaction.vsize} value_extra=" vByte"/> }}
+            {{ <transaction.info_col label="output sum" value={missing.transaction.output_sum / 100000000} value_extra=" BTC"/> }}
             {% if missing.transaction.sigops > 0 %}
-              {{ transaction::info_col(label="sigops", value=missing.transaction.sigops, value_extra="") }}
+              {{ <transaction.info_col label="sigops" value={missing.transaction.sigops} value_extra=""/> }}
             {% endif %}
-            {{ transaction::inputs(ins=missing.transaction.inputs, count=missing.transaction.input_count) }}
-            {{ transaction::outputs(outs=missing.transaction.outputs, count=missing.transaction.output_count) }}
+            {{ <transaction.inputs ins={missing.transaction.inputs} count={missing.transaction.input_count}/> }}
+            {{ <transaction.outputs outs={missing.transaction.outputs} count={missing.transaction.output_count}/> }}
         </div>
 
         {% if not short %}
@@ -23,7 +23,7 @@
             <summary>
                 open in block explorer
             </summary>
-            {{ transaction::explorers(txid=missing.transaction.txid) }}
+            {{ <transaction.explorers txid={missing.transaction.txid}/> }}
         </details>
         {% endif %}
 
@@ -35,7 +35,7 @@
 
     <p class="alert alert-light border my-3" role="alert">
         The transaction was present in <strong>{{missing.blocks | length }} block templates</strong> but wasn't included in blocks by
-        {% set var_pools=missing.blocks | map(attribute="pool") | unique %}
+        {% set var_pools=[b.pool for b in missing.blocks] | unique %}
         {% for pool in var_pools -%}
             {% if pool == "Unknown" -%}
                 <a href="{{CONFIG.base_url}}/faq#general-miningpool-unknown" class="text-decoration-none"><strong class="mark text-danger">Unknown pool</strong></a>{% if not loop.last -%},{% endif %}{% if loop.last -%}.{% endif %}
@@ -78,17 +78,17 @@
                         {% endif %}
                     </span>
                 </div>
-                {{ transaction::info_col(label="time", value=block.time | date(format="%Y-%m-%d %H:%M:%S UTC"), value_extra="") }}
-                {{ transaction::info_col(label="height", value=block.height, value_extra="") }}
-                {{ transaction::info_col(label="mempool age", value=seconds_to_duration(seconds=block.mempool_age), value_extra="") }}
-                {{ transaction::info_col(label="last block package feerate", value=block.last_block_pkg_feerate | round(method="ceil", precision=2), value_extra=" sat/vByte") }}
+                {{ <transaction.info_col label="time" value={block.time | date(format="%Y-%m-%d %H:%M:%S UTC")} value_extra=""/> }}
+                {{ <transaction.info_col label="height" value={block.height} value_extra=""/> }}
+                {{ <transaction.info_col label="mempool age" value={seconds_to_duration(seconds=block.mempool_age)} value_extra=""/> }}
+                {{ <transaction.info_col label="last block package feerate" value={block.last_block_pkg_feerate | round(method="ceil", precision=2)} value_extra=" sat/vByte"/> }}
                 <span class="col-12 col-md-12 col-lg-6">
                     <span class="text-muted small">transaction position in template (<span>{{ block.template_position }} of {{ block.template_tx_count }}</span>)</span>
                     <div class="progress" title="position in template: {{ block.template_position }} of {{ block.template_tx_count }}" style="height: 5px;">
-                        <div class="progress-bar" role="progressbar" style="width: {{ block.template_position/block.template_tx_count * 100 | round(n=2)}}%; background-color: lightgray;" aria-valuenow="{{ block.template_position }}" aria-valuemin="0" aria-valuemax="{{ block.template_tx_count }}"></div>
+                        <div class="progress-bar" role="progressbar" style="width: {{ block.template_position/block.template_tx_count * 100 | round(precision=2)}}%; background-color: lightgray;" aria-valuenow="{{ block.template_position }}" aria-valuemin="0" aria-valuemax="{{ block.template_tx_count }}"></div>
                         <div class="progress-bar" role="progressbar" style="width: 1%; background-color: #0077ff;" aria-valuenow="2" aria-valuemin="0" aria-valuemax="1"></div>
                         <div class="progress-bar d-lg-none" role="progressbar" style="width: 1%; background-color: #0077ff;" aria-valuenow="2" aria-valuemin="0" aria-valuemax="1"></div>
-                        <div class="progress-bar" role="progressbar" style="width: {{ 100 - (block.template_position/block.template_tx_count * 100) | round(n=2)}}%; background-color: lightgray;" aria-valuenow="{{ block.template_position }}" aria-valuemin="0" aria-valuemax="{{ block.template_tx_count }}"></div>
+                        <div class="progress-bar" role="progressbar" style="width: {{ 100 - (block.template_position/block.template_tx_count * 100) | round(precision=2)}}%; background-color: lightgray;" aria-valuenow="{{ block.template_position }}" aria-valuemin="0" aria-valuemax="{{ block.template_tx_count }}"></div>
                     </div>
                 </span>
                 <a href="{{CONFIG.base_url}}/template-and-block/{{block.hash}}" class="stretched-link"></a>
@@ -108,4 +108,4 @@
         {% endif %}
     {% endfor %}
     </ul>
-{% endmacro missing %}
+{% endcomponent missing.missing %}

@@ -1,34 +1,31 @@
 {% extends "base.html" %}
 
-{% import "macro/transaction.html" as transaction %}
-{% import "macro/template_and_block.html" as block %}
-{% import "macro/opengraph.html" as opengraph %}
-
 {% block opengraph %}
 {{
-    opengraph::og(
-        title="Template and Block " ~ block_with_tx.block.hash,
-        description="Template and Block for " ~ block_with_tx.block.hash ~ " mined by " ~ block_with_tx.block.pool_name,
-        url="/template-and-block/" ~ block_with_tx.block.hash,
-        image_url="/og_image/template-and-block/" ~ block_with_tx.block.hash ~ ".png"
-    )
+    <opengraph.og
+        title={"Template and Block " ~ block_with_tx.block.hash}
+        description={"Template and Block for " ~ block_with_tx.block.hash ~ " mined by " ~ block_with_tx.block.pool_name}
+        url={"/template-and-block/" ~ block_with_tx.block.hash}
+        image_url={"/og_image/template-and-block/" ~ block_with_tx.block.hash ~ ".png"}
+        CONFIG={CONFIG}
+    />
 }}
 {% endblock opengraph %}
 
 {% block content %}
 <div class="mx-0 p-3 bg-white shadow-sm">
     {% for tag_id in block_with_tx.block.tags %}
-        {{ block::tag(tag=block_tag_id_to_tag(id=tag_id)) }}
+        {{ <block.tag tag={block_tag_id_to_tag(id=tag_id)} CONFIG={CONFIG}/> }}
     {% endfor %}
     <h1 class="text-break fs-4">
         Template&nbsp;&&nbsp;Block&nbsp;<span>{{block_with_tx.block.hash}}</span>
     </h1>
-    {{ block::info(block=block_with_tx.block, show_previous=true) }}
-    {{ block::diff(block=block_with_tx.block) }}
+    {{ <block.info block={block_with_tx.block} show_previous={true} CONFIG={CONFIG}/> }}
+    {{ <block.diff block={block_with_tx.block}/> }}
     <div class="my-3">
-        {{ block::missing_shared_extra(missing=block_with_tx.block.missing_tx, shared=block_with_tx.block.shared_tx, extra=block_with_tx.block.extra_tx )}}
+        {{ <block.missing_shared_extra missing={block_with_tx.block.missing_tx} shared={block_with_tx.block.shared_tx} extra={block_with_tx.block.extra_tx}/> }}
     </div>
-    {{ block::explorers(hash=block_with_tx.block.hash) }}
+    {{ <block.explorers hash={block_with_tx.block.hash}/> }}
 </div>
 
 {% if sanctioned_missing_tx | length > 0 %}
@@ -50,7 +47,7 @@
     </p>
     <div class="text-dark">
         {% for tx in sanctioned_missing_tx %}
-            {{ block::sanctioned_transaction(tx=tx, template_tx_count=block_with_tx.block.template_tx) }}
+            {{ <block.sanctioned_transaction tx={tx} template_tx_count={block_with_tx.block.template_tx} CONFIG={CONFIG} TAG_ID_YOUNG={TAG_ID_YOUNG} THRESHOLD_TRANSACTION_CONSIDERED_YOUNG={THRESHOLD_TRANSACTION_CONSIDERED_YOUNG}/> }}
         {% endfor %}
     </div>
 </div>
@@ -106,7 +103,7 @@
                             </summary>
                     {% endif %}
 
-                    {{ transaction::block_transaction(tx=tx, place="template", tx_count=block_with_tx.block.template_tx) }}
+                    {{ <transaction.block_transaction tx={tx} place="template" tx_count={block_with_tx.block.template_tx} CONFIG={CONFIG} TAG_ID_YOUNG={TAG_ID_YOUNG} THRESHOLD_TRANSACTION_CONSIDERED_YOUNG={THRESHOLD_TRANSACTION_CONSIDERED_YOUNG}/> }}
 
                     {% if loop.last and loop.index >= 16 %}
                         </details>
@@ -137,7 +134,7 @@
                         </summary>
                 {% endif %}
 
-                    {{ transaction::block_transaction(tx=tx, place="block", tx_count=block_with_tx.block.block_tx) }}
+                    {{ <transaction.block_transaction tx={tx} place="block" tx_count={block_with_tx.block.block_tx} CONFIG={CONFIG} TAG_ID_YOUNG={TAG_ID_YOUNG} THRESHOLD_TRANSACTION_CONSIDERED_YOUNG={THRESHOLD_TRANSACTION_CONSIDERED_YOUNG}/> }}
                 
                 {% if loop.last and loop.index >= 16 %}
                     </details>

@@ -1,15 +1,14 @@
 {% extends "base.html" %}
 
-{% import "macro/opengraph.html" as opengraph %}
-
 {% block opengraph %}
 {{
-    opengraph::og(
-        title=CONFIG.title,
-        description="Transparency for Mining Pool Transaction Selection",
-        url="/",
+    <opengraph.og
+        title={CONFIG.title}
+        description="Transparency for Mining Pool Transaction Selection"
+        url="/"
         image_url="/og_image/index.png"
-    )
+        CONFIG={CONFIG}
+    />
 }}
 {% endblock opengraph %}
 

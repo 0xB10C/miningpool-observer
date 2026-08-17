@@ -1,16 +1,15 @@
 {% extends "base.html" %}
 
-{% import "macro/template_and_block.html" as block %}
-{% import "macro/opengraph.html" as opengraph %}
 
 {% block opengraph %}
 {{
-    opengraph::og(
-        title="DEBUG - Unknown Pools",
-        description="Shows blocks where the mining pool couldn't be identified ",
-        url="/debug/unknown",
+    <opengraph.og
+        title="DEBUG - Unknown Pools"
+        description="Shows blocks where the mining pool couldn't be identified "
+        url="/debug/unknown"
         image_url="/og_image/index.png"
-    )
+        CONFIG={CONFIG}
+    />
 }}
 {% endblock opengraph %}
 
@@ -44,7 +43,7 @@
             <tr>
                 <td scope="row">{{ block.height }}</td>
                 <td>{{ block.hash }}</td>
-                <td>{{ block::explorers(hash=block.hash) }}</td>
+                <td>{{ <block.explorers hash={block.hash}/> }}</td>
             </tr>
             {% endfor %}
         </tbody>

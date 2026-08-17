@@ -1,16 +1,15 @@
 {% extends "base.html" %}
 
-{% import "macro/pagination.html" as pagination %}
-{% import "macro/opengraph.html" as opengraph %}
 
 {% block opengraph %}
 {{
-    opengraph::og(
-        title="DEBUG - UTXO Set scans",
-        description="Shows information about recent UTXO set scans for sanctioned UTXOS",
-        url="/debug/sanctioned-utxo-scans",
+    <opengraph.og
+        title="DEBUG - UTXO Set scans"
+        description="Shows information about recent UTXO set scans for sanctioned UTXOS"
+        url="/debug/sanctioned-utxo-scans"
         image_url="/og_image/index.png"
-    )
+        CONFIG={CONFIG}
+    />
 }}
 {% endblock opengraph %}
 
@@ -62,7 +61,7 @@
             </tbody>
         </table>
     
-        {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE) }}
+        {{ <pagination.pagination MAX_PAGES={MAX_PAGES} CURRENT_PAGE={CURRENT_PAGE} QUERY_PAGE={QUERY_PAGE}/> }}
         
    
     {% endif %}

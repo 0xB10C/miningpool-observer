@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 
-{% import "macro/opengraph.html" as opengraph %}
 
 {% block opengraph %}
 {{
-    opengraph::og(
-        title="DEBUG - Index",
-        description="Lists the debug pages",
-        url="/debug/unknown",
+    <opengraph.og
+        title="DEBUG - Index"
+        description="Lists the debug pages"
+        url="/debug/unknown"
         image_url="/og_image/index.png"
-    )
+        CONFIG={CONFIG}
+    />
 }}
 {% endblock opengraph %}
 

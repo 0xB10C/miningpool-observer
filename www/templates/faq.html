@@ -1,15 +1,14 @@
 {% extends "base.html" %}
-{% import "macro/faq.html" as faq %}
-{% import "macro/opengraph.html" as opengraph %}
 
 {% block opengraph %}
 {{
-    opengraph::og(
-        title="Frequently Asked Questions",
-        description="Answering questions about " ~ CONFIG.title,
-        url="/faq",
+    <opengraph.og
+        title="Frequently Asked Questions"
+        description={"Answering questions about " ~ CONFIG.title}
+        url="/faq"
         image_url="/og_image/faq.png"
-    )
+        CONFIG={CONFIG}
+    />
 }}
 {% endblock opengraph %}
 
@@ -28,7 +27,7 @@
     <h4 id="general" name="general">General</h4>
     <div class="px-1 px-md-3">
         <dl class="row">
-            {{ faq::question(id="general-template", question="What is a block template?")}}
+            {{ <faq.question id="general-template" question="What is a block template?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 A list of unconfirmed transactions, profit maximized by the transaction feerate, while limited by the block size.
                 These transactions are used by a mining pool when constructing a new, still to be mined, block.
@@ -38,13 +37,13 @@
                 Some mining pools might use Bitcoin Core's RPC too, while others might have deployed their own transaction selection and template building algorithms and infrastructure.
             </dd>
 
-            {{ faq::question(id="general-template-update-interval", question="How often do mining pools update their template?")}}
+            {{ <faq.question id="general-template-update-interval" question="How often do mining pools update their template?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 Mining pools update their template directly when they learn about a new block.
                 Additionally, most of the public mining pools update their block template about every 30 seconds to include newly received transactions in their blocks.
             </dd>
 
-            {{ faq::question(id="general-miningpool-identification", question="How are the mining pools identified?")}}
+            {{ <faq.question id="general-miningpool-identification" question="How are the mining pools identified?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 Often, mining pools can be identified via their coinbase transaction they include in the block.
                 Two features of the coinbase output address can aid in pool identification.
@@ -56,7 +55,7 @@
                 This crate is based on the <a target="_blank" rel="noopener" href="https://github.com/0xB10C/known-mining-pools">github.com/0xB10C/known-mining-pools</a> project.
             </dd>
 
-            {{ faq::question(id="general-miningpool-unknown", question="What does <span class='mark text-danger'>Unknown pool</span> mean?")}}
+            {{ <faq.question id="general-miningpool-unknown" question="What does <span class='mark text-danger'>Unknown pool</span> mean?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 This marks the case when the pool which mined a block can't be identified.
                 Usually, the pool is newer and needs to be added to the <a target="_blank" rel="noopener" href="https://github.com/0xB10C/known-mining-pools">github.com/0xB10C/known-mining-pools</a> project.
@@ -75,7 +74,7 @@
             As this is not possible without actively capturing data from different mining pools (e.g. capturing the Stratum jobs), an assumption about template creation time is made.
         </p>
         <dl class="row">
-            {{ faq::question(id="general-template", question="How is the best template for the template to block comparison selected?")}}
+            {{ <faq.question id="general-template" question="How is the best template for the template to block comparison selected?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 A new block template is requested periodically via the <code>getblocktemplate</code> <abbr>RPC</abbr>, and the last block templates are kept in memory.
                 Once a new block is found, the best-fitting block template is selected for further comparison.
@@ -92,11 +91,11 @@
     <h4 id="missing" name="missing" >Missing Transactions</h4>
     <div class="px-1 px-md-3">
         <dl class="row">
-            {{ faq::question(id="missing-tx", question="What is a <i>Missing Transaction</i>?")}}
+            {{ <faq.question id="missing-tx" question="What is a <i>Missing Transaction</i>?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 A transaction is <i>missing</i> from a block when the block template includes it, but the final block mined by a mining pool does not.
             </dd>
-            {{ faq::question(id="missing-tx-reasons", question="Why can a transaction be missing from a block?")}}
+            {{ <faq.question id="missing-tx-reasons" question="Why can a transaction be missing from a block?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 Transactions can be missing from blocks for different reasons. 
                 <!-- Not propagated to us -->
@@ -127,19 +126,19 @@
     <h4 id="conflicting" name="conflicting">Conflicting Transactions</h4>
     <div class="px-1 px-md-3">
         <dl class="row">
-            {{ faq::question(id="conflicting-tx", question="What is a <i>Conflicting Transaction</i>?")}}
+            {{ <faq.question id="conflicting-tx" question="What is a <i>Conflicting Transaction</i>?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 Two Bitcoin transactions conflict, when they both spend the same Unspent Transaction Output (UTXO).
             </dd>
     
-            {{ faq::question(id="conflicting-tx-identification", question="How are sets of <i>Conflicting Transactions</i> identified?")}}
+            {{ <faq.question id="conflicting-tx-identification" question="How are sets of <i>Conflicting Transactions</i> identified?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 Conflicting transactions conflict on their inputs.
                 Conflicts can be found by comparing the transactions missing from the block (only in the template) with the extra transactions (only in the block).
                 The sets of transactions spending the same inputs conflict. 
             </dd>
 
-            {{ faq::question(id="conflicting-tx-double-spend-attempt", question="Is a <i>Conflicting Transaction</i> a double-spend attempt?")}}
+            {{ <faq.question id="conflicting-tx-double-spend-attempt" question="Is a <i>Conflicting Transaction</i> a double-spend attempt?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 No, not necessarily all conflicting transactions are double-spend attempts.
                 Most of the conflicts are between the replaced and replacement transaction created via Replace-by-Fee. 
@@ -158,7 +157,7 @@
 
     <div class="px-1 px-md-3">
         <dl class="row">
-            {{ faq::question(id="sanctioned-tx-sending-to", question="Can I test if a mining pool filters transactions to OFAC addresses?")}}
+            {{ <faq.question id="sanctioned-tx-sending-to" question="Can I test if a mining pool filters transactions to OFAC addresses?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 While <strong>not recommended</strong>, it is possible to test mining pool behavior by sending dust (very low value) outputs to sanctioned addresses.
                 Before doing so, consider the following questions:
@@ -171,7 +170,7 @@
                 </ul>
             </dd>
 
-            {{ faq::question(id="sanctioned-tx-addresses", question="Which addresses are sanctioned by the OFAC sanctions?")}}
+            {{ <faq.question id="sanctioned-tx-addresses" question="Which addresses are sanctioned by the OFAC sanctions?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 This site currently tracks {{ SANCTIONED_ADDRESSES | length }} OFAC sanctioned addresses.
                 An automatically updated list of sanctioned Bitcoin addresses can be found <a target="_blank" rel="noopener" href="https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses/blob/lists/sanctioned_addresses_XBT.txt">here</a> (generated with <a href="https://github.com/0xB10C/ofac-sanctioned-digital-currency-addresses/">this Open Source tool</a>).
@@ -187,7 +186,7 @@
                 </details>
             </dd>
             
-            {{ faq::question(id="sanctioned-tx-utxos", question="Which UTXOs are sanctioned by the OFAC sanction list?")}}
+            {{ <faq.question id="sanctioned-tx-utxos" question="Which UTXOs are sanctioned by the OFAC sanction list?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 There are {{ recent_sanctioned_utxo_scan_info.utxo_count }} UTXOs with a total value of {{ recent_sanctioned_utxo_scan_info.utxo_amount / 100000000 }} BTC belonging to Sanctioned Addresses at height {{ recent_sanctioned_utxo_scan_info.end_height }} ({{ recent_sanctioned_utxo_scan_info.end_time | date(format="%Y-%m-%d %H:%M:%S UTC") }}).
             
@@ -207,7 +206,7 @@
             
             </dd>
 
-            {{ faq::question(id="sanctioned-tx-utxos", question="How can I get notified on a Block with missing Sanctioned Transactions?")}}
+            {{ <faq.question id="sanctioned-tx-utxos" question="How can I get notified on a Block with missing Sanctioned Transactions?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 There is a RSS feed for Sanctioned Transactions missing from Blocks!
                 <br>
@@ -219,7 +218,7 @@
             
             </dd>
 
-            {{ faq::question(id="sanctioned-tx-other", question="Do other countries, besides the U.S., have sanctions on Bitcoin addresses?")}}
+            {{ <faq.question id="sanctioned-tx-other" question="Do other countries, besides the U.S., have sanctions on Bitcoin addresses?" CONFIG={CONFIG}/> }}
             <dd class="col-12 mb-3 ms-md-4">
                 No, not to our knowledge.
                 If you know about other countries sanctioning Bitcoin addresses please open an issue <a target="_blank" rel="noopener" href="https://github.com/0xB10C/miningpool-observer/issues/new">on GitHub</a>. 

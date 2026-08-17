@@ -14,7 +14,7 @@
         <title>Missing Transaction {{ missing.transaction.txid | truncate(length=16, end="...") }}</title>
         <link>{{ CONFIG.base_url }}/missing/{{ missing.transaction.txid }}</link>
         <description>
-          The transaction was present in {{missing.blocks | length }} block templates but wasn't included in blocks by {% set var_pools=missing.blocks | map(attribute="pool") | unique %}
+          The transaction was present in {{missing.blocks | length }} block templates but wasn't included in blocks by {% set var_pools=[b.pool for b in missing.blocks] | unique %}
           {%- for pool in var_pools -%}
             {{ pool }}
             {%- if not loop.last -%}, {% endif %}

@@ -1,19 +1,14 @@
 {% extends "base.html" %}
 
-{% import "macro/transaction.html" as transaction %}
-{% import "macro/missing.html" as missing %}
-{% import "macro/pagination.html" as pagination %}
-{% import "macro/opengraph.html" as opengraph %}
-{% import "macro/template_and_block.html" as block %}
-
 {% block opengraph %}
 {{
-    opengraph::og(
-        title="Missing Transactions",
-        description="A transaction is considered missing from a block, when the block template includes it, but the block mined by a mining pool does not. This page lists transactions that are missing from multiple blocks.",
-        url="/missing",
+    <opengraph.og
+        title="Missing Transactions"
+        description="A transaction is considered missing from a block, when the block template includes it, but the block mined by a mining pool does not. This page lists transactions that are missing from multiple blocks."
+        url="/missing"
         image_url="/og_image/missing.png"
-    )
+        CONFIG={CONFIG}
+    />
 }}
 {% endblock opengraph %}
 
@@ -50,10 +45,10 @@
 
         {% for missing in missing_transactions %}
             <div class="my-3 p-3 shadow-sm border">
-                {{ missing::missing(missing=missing, short=true) }}
+                {{ <missing.missing missing={missing} short={true} CONFIG={CONFIG}/> }}
             </div>
         {% endfor %}
-        {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE) }}
+        {{ <pagination.pagination MAX_PAGES={MAX_PAGES} CURRENT_PAGE={CURRENT_PAGE} QUERY_PAGE={QUERY_PAGE}/> }}
     {% endif %}
 </div>
 

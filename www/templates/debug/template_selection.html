@@ -1,17 +1,14 @@
 {% extends "base.html" %}
 
-{% import "macro/template_and_block.html" as block %}
-{% import "macro/pagination.html" as pagination %}
-{% import "macro/opengraph.html" as opengraph %}
-
 {% block opengraph %}
 {{
-    opengraph::og(
-        title="DEBUG - Template Selection",
-        description="Shows debug information about the template selection process",
-        url="/debug/template-selection",
+    <opengraph.og
+        title="DEBUG - Template Selection"
+        description="Shows debug information about the template selection process"
+        url="/debug/template-selection"
         image_url="/og_image/index.png"
-    )
+        CONFIG={CONFIG}
+    />
 }}
 {% endblock opengraph %}
 
@@ -69,10 +66,10 @@
             {% endfor %}
             </tbody>
         </table>
-        <span>{{ block::explorers(hash=infos_and_block.block.hash) }}</span>
+        <span>{{ <block.explorers hash={infos_and_block.block.hash}/> }}</span>
     </div>
     {% endfor %}
-    {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE) }}
+    {{ <pagination.pagination MAX_PAGES={MAX_PAGES} CURRENT_PAGE={CURRENT_PAGE} QUERY_PAGE={QUERY_PAGE}/> }}
 </div>
 
 {% endblock content %}

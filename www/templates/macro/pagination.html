@@ -1,4 +1,4 @@
-{% macro pagination(MAX_PAGES, CURRENT_PAGE, QUERY_PAGE, EXTRA_QUERY="") %}
+{% component pagination.pagination(MAX_PAGES, CURRENT_PAGE, QUERY_PAGE, EXTRA_QUERY="") %}
 
 {% set CONST_MAX_PAGINATIONS = 5 %}
 
@@ -29,4 +29,4 @@
     </ul>
 </nav>
 {% endif %}
-{% endmacro pagination %}
+{% endcomponent pagination.pagination %}

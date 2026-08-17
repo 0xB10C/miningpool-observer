@@ -1,16 +1,15 @@
 {% extends "base.html" %}
 
-{% import "macro/template_and_block.html" as block %}
-{% import "macro/opengraph.html" as opengraph %}
 
 {% block opengraph %}
 {{
-    opengraph::og(
-        title="DEBUG - Fees by Pool",
-        description="Shows the difference beetween template and block fees by pool",
-        url="/debug/unknown",
+    <opengraph.og
+        title="DEBUG - Fees by Pool"
+        description="Shows the difference beetween template and block fees by pool"
+        url="/debug/unknown"
         image_url="/og_image/index.png"
-    )
+        CONFIG={CONFIG}
+    />
 }}
 {% endblock opengraph %}
 

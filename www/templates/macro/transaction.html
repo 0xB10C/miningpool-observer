@@ -1,53 +1,53 @@
-{% macro block_transaction(tx, place, tx_count) %}
+{% component transaction.block_transaction(tx, place, tx_count, CONFIG, TAG_ID_YOUNG, THRESHOLD_TRANSACTION_CONSIDERED_YOUNG) %}
     <div class="list-group-item mx-2 px-1 py-2">
         <div class="row row-cols-2 m-0">
             <span class="col-12">
                 {% if place == "template" %}
-                    {% if tx.0.mempool_age_seconds >= 0 and tx.0.mempool_age_seconds < THRESHOLD_TRANSACTION_CONSIDERED_YOUNG %}
-                        {{ transaction::tag(tag=tx_tag_id_to_tag(id=TAG_ID_YOUNG)) }}
+                    {% if tx[0].mempool_age_seconds >= 0 and tx[0].mempool_age_seconds < THRESHOLD_TRANSACTION_CONSIDERED_YOUNG %}
+                        {{ <transaction.tag tag={tx_tag_id_to_tag(id=TAG_ID_YOUNG)} CONFIG={CONFIG}/> }}
                     {% endif %}
                 {% endif %}
-                {% for tag_id in tx.1.tags | sort %}
-                    {{ transaction::tag(tag=tx_tag_id_to_tag(id=tag_id)) }}
+                {% for tag_id in tx[1].tags | sort %}
+                    {{ <transaction.tag tag={tx_tag_id_to_tag(id=tag_id)} CONFIG={CONFIG}/> }}
                 {% endfor %}
             </span>
             <div class="col-12">
-                {{ transaction::txid(txid=tx.1.txid, half_width=true) }}
+                {{ <transaction.txid txid={tx[1].txid} half_width={true}/> }}
             </div>
-            {{ transaction::info_col(label="fee", value=tx.1.fee, value_extra=" sat") }}
-            {{ transaction::info_col(label="feerate", value=tx.1.fee / tx.1.vsize | round(method="ceil", precision=2), value_extra=" sat/vByte") }}
-            {{ transaction::info_col(label="vsize", value=tx.1.vsize, value_extra=" vByte") }}
-            {{ transaction::info_col(label="output sum", value=tx.1.output_sum / 100000000, value_extra=" BTC") }}
-            {% if tx.1.sigops >= 0 %}
-                {{ transaction::info_col(label="sigops", value=tx.1.sigops, value_extra="") }}
+            {{ <transaction.info_col label="fee" value={tx[1].fee} value_extra=" sat"/> }}
+            {{ <transaction.info_col label="feerate" value={tx[1].fee / tx[1].vsize | round(method="ceil", precision=2)} value_extra=" sat/vByte"/> }}
+            {{ <transaction.info_col label="vsize" value={tx[1].vsize} value_extra=" vByte"/> }}
+            {{ <transaction.info_col label="output sum" value={tx[1].output_sum / 100000000} value_extra=" BTC"/> }}
+            {% if tx[1].sigops >= 0 %}
+                {{ <transaction.info_col label="sigops" value={tx[1].sigops} value_extra=""/> }}
             {% endif %}
-            {{ transaction::inputs(ins=tx.1.inputs, count=tx.1.input_count) }}
-            {{ transaction::outputs(outs=tx.1.outputs, count=tx.1.output_count) }}
+            {{ <transaction.inputs ins={tx[1].inputs} count={tx[1].input_count}/> }}
+            {{ <transaction.outputs outs={tx[1].outputs} count={tx[1].output_count}/> }}
             {% if place == "template" %}
-                {{ transaction::info_col(label="mempool age", value=seconds_to_duration(seconds=tx.0.mempool_age_seconds), value_extra="") }}
+                {{ <transaction.info_col label="mempool age" value={seconds_to_duration(seconds=tx[0].mempool_age_seconds)} value_extra=""/> }}
             {% endif %}
             <span class="col-12">
-                <span class="text-muted small">transaction position in {{place}} (<span>{{ tx.0.position + 1 }} of {{ tx_count }}</span>)</span>
-                <div class="progress" title="position in template: {{ tx.0.position + 1 }} of {{ tx_count }}" style="height: 5px;">
-                    <div class="progress-bar" role="progressbar" style="width: {{ (tx.0.position + 1) /tx_count * 100 | round(n=2)}}%; background-color: lightgray;" aria-valuenow="{{ tx.0.position + 1 }}" aria-valuemin="0" aria-valuemax="{{ tx_count }}"></div>
+                <span class="text-muted small">transaction position in {{place}} (<span>{{ tx[0].position + 1 }} of {{ tx_count }}</span>)</span>
+                <div class="progress" title="position in template: {{ tx[0].position + 1 }} of {{ tx_count }}" style="height: 5px;">
+                    <div class="progress-bar" role="progressbar" style="width: {{ (tx[0].position + 1) /tx_count * 100 | round(precision=2)}}%; background-color: lightgray;" aria-valuenow="{{ tx[0].position + 1 }}" aria-valuemin="0" aria-valuemax="{{ tx_count }}"></div>
                     <div class="progress-bar" role="progressbar" style="width: 1%; background-color: #0077ff;" aria-valuenow="2" aria-valuemin="0" aria-valuemax="1"></div>
                     <div class="progress-bar d-lg-none" role="progressbar" style="width: 1%; background-color: #0077ff;" aria-valuenow="2" aria-valuemin="0" aria-valuemax="1"></div>
-                    <div class="progress-bar" role="progressbar" style="width: {{ 100 - ((tx.0.position + 1)/tx_count * 100) | round(n=2)}}%; background-color: lightgray;" aria-valuenow="{{ tx.0.position + 1 }}" aria-valuemin="0" aria-valuemax="{{ tx_count }}"></div>
+                    <div class="progress-bar" role="progressbar" style="width: {{ 100 - ((tx[0].position + 1)/tx_count * 100) | round(precision=2)}}%; background-color: lightgray;" aria-valuenow="{{ tx[0].position + 1 }}" aria-valuemin="0" aria-valuemax="{{ tx_count }}"></div>
                 </div>
             </span>
         </div>
     </div>
-{% endmacro block_transaction %}
+{% endcomponent transaction.block_transaction %}
 
-{% macro tag(tag) %}
+{% component transaction.tag(tag, CONFIG) %}
     <a href='{{CONFIG.base_url}}/faq#transaction-tag-{{tag.name | lower | replace(from=" ", to="-")}}'
     title="{{tag.description | first}}"
     class="badge bg-{{tag.color}} text-{{tag.text_color}} rounded-1 text-decoration-none">
         {{tag.name}}
     </a>
-{% endmacro tag %}
+{% endcomponent transaction.tag %}
 
-{% macro inputs(ins, count) %}
+{% component transaction.inputs(ins, count) %}
     <div class="col">
         <span class="row">
             <span class="text-muted small col">inputs</span>
@@ -65,9 +65,9 @@
             </span>
         </span>
     </div>
-{% endmacro inputs %}
+{% endcomponent transaction.inputs %}
 
-{% macro outputs(outs, count) %}
+{% component transaction.outputs(outs, count) %}
     <div class="col">
         <span class="row">
             <span class="text-muted small col">outputs</span>
@@ -85,39 +85,39 @@
             </span>
         </span>
     </div>
-{% endmacro outputs %}
+{% endcomponent transaction.outputs %}
 
-{% macro transaction(tx, half_width) %}
+{% component transaction.transaction(tx, half_width, CONFIG) %}
      <div class="list-group-item">
         <div class="row row-cols-2">
             <span class="col-12">
                 {% for tag_id in tx.tags | sort %}
-                    {{ transaction::tag(tag=tx_tag_id_to_tag(id=tag_id)) }}
+                    {{ <transaction.tag tag={tx_tag_id_to_tag(id=tag_id)} CONFIG={CONFIG}/> }}
                 {% endfor %}
             </span>
             <div class="col-12">
-                {{ transaction::txid(txid=tx.txid, half_width=half_width) }}
+                {{ <transaction.txid txid={tx.txid} half_width={half_width}/> }}
             </div>
-            {{ transaction::info_col(label="fee", value=tx.fee, value_extra=" sat") }}
-            {{ transaction::info_col(label="feerate", value=tx.fee / tx.vsize | round(method="ceil", precision=2), value_extra=" sat/vByte") }}
-            {{ transaction::info_col(label="vsize", value=tx.vsize, value_extra=" vByte") }}
-            {{ transaction::info_col(label="output sum", value=tx.output_sum / 100000000, value_extra=" BTC") }}
-            {{ transaction::inputs(ins=tx.inputs, count=tx.input_count) }}
-            {{ transaction::outputs(outs=tx.outputs, count=tx.output_count) }}
+            {{ <transaction.info_col label="fee" value={tx.fee} value_extra=" sat"/> }}
+            {{ <transaction.info_col label="feerate" value={tx.fee / tx.vsize | round(method="ceil", precision=2)} value_extra=" sat/vByte"/> }}
+            {{ <transaction.info_col label="vsize" value={tx.vsize} value_extra=" vByte"/> }}
+            {{ <transaction.info_col label="output sum" value={tx.output_sum / 100000000} value_extra=" BTC"/> }}
+            {{ <transaction.inputs ins={tx.inputs} count={tx.input_count}/> }}
+            {{ <transaction.outputs outs={tx.outputs} count={tx.output_count}/> }}
         </div>
     </div>
-{% endmacro transaction %}
+{% endcomponent transaction.transaction %}
 
-{% macro info_col(label, value, value_extra) %}
+{% component transaction.info_col(label, value, value_extra) %}
 <div class="col">
     <span class="row">
         <span class="text-muted small col">{{label}}</span>
         <span class="col-auto text-wrap">{{value}}{{value_extra}}</span>
     </span>
 </div>
-{% endmacro info_col %}
+{% endcomponent transaction.info_col %}
 
-{% macro txid(txid, half_width) %}
+{% component transaction.txid(txid, half_width) %}
     <details>
         <summary style="outline:none;">
             {% if half_width %}
@@ -145,12 +145,12 @@
                 </span>
             {% endif %}
         </summary>
-        {{ transaction::explorers(txid=txid) }}
+        {{ <transaction.explorers txid={txid}/> }}
     </details>
-{% endmacro txid %}
+{% endcomponent transaction.txid %}
 
 
-{% macro explorers(txid) %}
+{% component transaction.explorers(txid) %}
     <div class="row">
         <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center btn btn-sm btn-light m-1" target="_blank" rel="noopener" href="https://blockstream.info/tx/{{txid}}"><img width=28 height=28 src="/static/img/explorers/blockstream.png"/></a></div>
         <div class="col"><a target="_blank" rel="noopener noreferrer" class="w-100 text-center btn btn-sm btn-light m-1" target="_blank" rel="noopener" href="https://mempool.space/tx/{{txid}}"><img width=28 height=28 src="/static/img/explorers/mempool-space.ico"/></a></div>
@@ -164,4 +164,4 @@
             }
         </script>
     </div>
-{% endmacro explorers %}
+{% endcomponent transaction.explorers %}

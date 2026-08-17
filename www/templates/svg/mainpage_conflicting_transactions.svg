@@ -17,7 +17,7 @@
  </metadata>
  <text transform="matrix(.8235 0 0 .8235 .034272 1.214)" fill="#000000" font-family="sans-serif" font-size="10.583px" style="line-height:0.9;shape-inside:url(#rect1669);white-space:pre" xml:space="preserve"/>
  <text transform="matrix(.8235 0 0 .8235 .034272 1.214)" fill="#000000" font-family="sans-serif" font-size="10.583px" style="line-height:0.9;shape-inside:url(#rect1681);white-space:pre" xml:space="preserve"/>
- <text transform="matrix(1.2345 0 0 1.2345 11.708 22.651)" fill="#ffffff" fill-opacity=".10335" font-family="sans-serif" font-size="2.8222px" style="line-height:1.25;shape-inside:url(#rect9649);white-space:pre" xml:space="preserve"><tspan x="105.21875" y="71.082941"><tspan fill="#ffffff" fill-opacity=".10335">{{ now(utc=true) | date(format="%Y-%m-%d %H:%M:%S UTC") }}</tspan></tspan></text>
+ <text transform="matrix(1.2345 0 0 1.2345 11.708 22.651)" fill="#ffffff" fill-opacity=".10335" font-family="sans-serif" font-size="2.8222px" style="line-height:1.25;shape-inside:url(#rect9649);white-space:pre" xml:space="preserve"><tspan x="105.21875" y="71.082941"><tspan fill="#ffffff" fill-opacity=".10335">{{ now() | date(format="%Y-%m-%d %H:%M:%S UTC") }}</tspan></tspan></text>
  <text transform="matrix(.8235 0 0 .8235 .034272 1.214)" font-family="sans-serif" font-size="2.8222px" style="line-height:1.25;shape-inside:url(#rect11123);white-space:pre" xml:space="preserve"/>
  <rect width="211.67" height="110.6" fill="#fefefe" fill-rule="evenodd" style="paint-order:stroke markers fill"/>
  <rect transform="scale(1,-1)" x="-1.7764e-15" y="-110.6" width="211.67" height="16" fill="url(#a)" fill-rule="evenodd" style="paint-order:markers fill stroke"/>

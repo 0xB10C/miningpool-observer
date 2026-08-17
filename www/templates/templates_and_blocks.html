@@ -1,17 +1,14 @@
 {% extends "base.html" %}
 
-{% import "macro/template_and_block.html" as block %}
-{% import "macro/pagination.html" as pagination %}
-{% import "macro/opengraph.html" as opengraph %}
-
 {% block opengraph %}
 {{
-    opengraph::og(
-        title="Templates & Blocks",
-        description="Comparing Block Templates to Mining Pool Blocks",
-        url="/template-and-block",
+    <opengraph.og
+        title="Templates & Blocks"
+        description="Comparing Block Templates to Mining Pool Blocks"
+        url="/template-and-block"
         image_url="/og_image/template-and-block.png"
-    )
+        CONFIG={CONFIG}
+    />
 }}
 {% endblock opengraph %}
 
@@ -78,16 +75,16 @@
                 {% for block in blocks %}
                     <div class="border my-3 px-3 py-2 position-relative grow-on-hover shadow-sm">
                         {% for tag_id in block.tags %}
-                            {{ block::tag(tag=block_tag_id_to_tag(id=tag_id)) }}
+                            {{ <block.tag tag={block_tag_id_to_tag(id=tag_id)} CONFIG={CONFIG}/> }}
                         {% endfor %}
                         <h5 class="text-break fs-5">
                             Template&nbsp;and&nbsp;Block&nbsp;for&nbsp;<span>{{block.hash}}</span>
                         </h5>
-                        {{ block::info(block=block, show_previous=false) }}
-                        {{ block::diff(block=block) }}
+                        {{ <block.info block={block} show_previous={false} CONFIG={CONFIG}/> }}
+                        {{ <block.diff block={block}/> }}
                         <hr class="my-2">
-                        {{ block::missing_shared_extra(missing=block.missing_tx, shared=block.shared_tx, extra=block.extra_tx )}}
-                        {{ block::sanctioned(block=block) }}
+                        {{ <block.missing_shared_extra missing={block.missing_tx} shared={block.shared_tx} extra={block.extra_tx}/> }}
+                        {{ <block.sanctioned block={block}/> }}
 
                         <a href="{{CONFIG.base_url}}/template-and-block/{{block.hash}}" class="stretched-link"></a>
                     </div>
@@ -95,9 +92,9 @@
             <div>
 
             {% if CURRENT_POOL == "" %}
-                {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE) }}
+                {{ <pagination.pagination MAX_PAGES={MAX_PAGES} CURRENT_PAGE={CURRENT_PAGE} QUERY_PAGE={QUERY_PAGE}/> }}
             {% else %}
-                {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE, EXTRA_QUERY="&"~QUERY_POOL~"="~CURRENT_POOL) }}
+                {{ <pagination.pagination MAX_PAGES={MAX_PAGES} CURRENT_PAGE={CURRENT_PAGE} QUERY_PAGE={QUERY_PAGE} EXTRA_QUERY={"&"~QUERY_POOL~"="~CURRENT_POOL}/> }}
             {% endif %}
 
     {% endif %}

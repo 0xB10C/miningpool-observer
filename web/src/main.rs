@@ -39,16 +39,19 @@ async fn main() -> std::io::Result<()> {
     log::info!(target: "startup", "Successfully created a database connection pool with a max size of {} connections.", pool.max_size());
 
     HttpServer::new(move || {
-        let mut tera = match Tera::new(&(cloned_config.www_dir_path.clone() + "/templates/**/*")) {
-            Ok(tera) => tera,
-            Err(error) => {
-                log::error!("Tera template parsing failed: {}", error);
-                panic!("Tera template parsing failed.");
-            }
-        };
-        tera.register_function("block_tag_id_to_tag", util::block_tag_id_to_tag());
-        tera.register_function("tx_tag_id_to_tag", util::tx_tag_id_to_tag());
-        tera.register_function("seconds_to_duration", util::seconds_to_duration());
+        let mut tera = Tera::new();
+        tera.register_function("block_tag_id_to_tag", util::block_tag_id_to_tag);
+        tera.register_function("tx_tag_id_to_tag", util::tx_tag_id_to_tag);
+        tera.register_function("seconds_to_duration", util::seconds_to_duration);
+        tera.register_function("now", tera_contrib::dates::now);
+        tera.register_filter("date", tera_contrib::dates::date);
+        tera.register_filter("urlencode", tera_contrib::urlencode::urlencode);
+        if let Err(error) =
+            tera.load_from_glob(&(cloned_config.www_dir_path.clone() + "/templates/**/*"))
+        {
+            log::error!("Tera template parsing failed: {}", error);
+            panic!("Tera template parsing failed.");
+        }
 
         let mut conn = pool.clone().get().unwrap();
         let node_version = db::get_node_info(&mut conn).unwrap();

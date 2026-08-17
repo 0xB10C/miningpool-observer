@@ -1,19 +1,14 @@
 {% extends "base.html" %}
 
-{% import "macro/transaction.html" as transaction %}
-{% import "macro/template_and_block.html" as block %}
-{% import "macro/conflicting.html" as conflicting %}
-{% import "macro/pagination.html" as pagination %}
-{% import "macro/opengraph.html" as opengraph %}
-
 {% block opengraph %}
 {{
-    opengraph::og(
-        title="Conflicting Transactions",
-        description="Two Bitcoin transactions conflict, when they use the same Unspent Transaction Output (UTXO). This page lists the conflicts between templates and blocks.",
-        url="/conflicting",
+    <opengraph.og
+        title="Conflicting Transactions"
+        description="Two Bitcoin transactions conflict, when they use the same Unspent Transaction Output (UTXO). This page lists the conflicts between templates and blocks."
+        url="/conflicting"
         image_url="/og_image/conflicting.png"
-    )
+        CONFIG={CONFIG}
+    />
 }}
 {% endblock opengraph %}
 
@@ -54,11 +49,11 @@
 
         {% for block_with_conflicting_transaction in blocks_with_conflicting_transactions %}
             <div class="my-3 p-3 position-relative shadow-sm border">
-                {{conflicting::block(block_with_conflicting_transaction=block_with_conflicting_transaction, short=true)}}
+                {{ <conflicting.block block_with_conflicting_transaction={block_with_conflicting_transaction} short={true} CONFIG={CONFIG}/> }}
             </div>
         {% endfor %}
-        
-        {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE) }}
+
+        {{ <pagination.pagination MAX_PAGES={MAX_PAGES} CURRENT_PAGE={CURRENT_PAGE} QUERY_PAGE={QUERY_PAGE}/> }}
  
     {% endif %}
 

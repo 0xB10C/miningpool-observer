@@ -1,4 +1,4 @@
-{%- macro og(title, description, url, image_url) %}
+{%- component opengraph.og(title, description, url, image_url, CONFIG) %}
     <title>{{ title }}</title>
 
     <meta property="og:title" content="{{ title }}">
@@ -16,4 +16,4 @@
 
     <meta property="og:url" content="{{ CONFIG.base_url | safe }}{{ url | safe }}">
     <meta property="og:type" content="website">
-{% endmacro og %}
+{% endcomponent opengraph.og %}

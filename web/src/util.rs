@@ -1,9 +1,10 @@
-use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use actix_web::{error, Error};
 
 use miningpool_observer_shared::tags;
+
+use tera::{Error as TeraError, Kwargs, State, TeraResult, Value};
 
 const ERROR_INVALID_INT: &str = "INVALID INT";
 const ERROR_INVALID_BLOCK_HASH: &str = "INVALID BLOCK HASH";
@@ -49,86 +50,49 @@ pub fn parse_txid_str(txid_str: &str) -> Result<Vec<u8>, Error> {
     }
 }
 
-pub fn tx_tag_id_to_tag() -> impl tera::Function {
-    Box::new(
-        move |args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
-            match args.get("id") {
-                Some(val) => match tera::from_value::<i32>(val.clone()) {
-                    Ok(v) => {
-                        match tags::TxTag::try_from(v) {
-                            Ok(v) => {
-                                Ok(tera::to_value(v.value()).unwrap())
-                            },
-                            Err(e) => {
-                                Err(format!("Could not find TxTag for value {:?}. Is the mapping implemented?: {:?}", v, e).into())
-                            }
-                        }
-                    }
-                    Err(_) => Err(format!("Can't parse 'id' with val={} as i32.", val).into()),
-                },
-                None => Err("No parameter 'id' passed to tag_id_to_tag()".into()),
-            }
-        },
-    )
+pub fn tx_tag_id_to_tag(kwargs: Kwargs, _: &State) -> TeraResult<Value> {
+    let id: i32 = kwargs.must_get("id")?;
+    match tags::TxTag::try_from(id) {
+        Ok(v) => Ok(Value::from_serializable(&v.value())),
+        Err(e) => Err(TeraError::message(format!(
+            "Could not find TxTag for value {:?}. Is the mapping implemented?: {:?}",
+            id, e
+        ))),
+    }
 }
 
-pub fn block_tag_id_to_tag() -> impl tera::Function {
-    Box::new(
-        move |args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
-            match args.get("id") {
-                Some(val) => match tera::from_value::<i32>(val.clone()) {
-                    Ok(v) => {
-                        match tags::BlockTag::try_from(v) {
-                            Ok(v) => {
-                                Ok(tera::to_value(v.value()).unwrap())
-                            },
-                            Err(e) => {
-                                Err(format!("Could not find BlockTag for value {:?}. Is the mapping implemented?: {:?}", v, e).into())
-                            }
-                        }
-                    }
-                    Err(_) => Err(format!("Can't parse 'id' with val={} as i32.", val).into()),
-                },
-                None => Err("No parameter 'id' passed to tag_id_to_tag()".into()),
-            }
-        },
-    )
+pub fn block_tag_id_to_tag(kwargs: Kwargs, _: &State) -> TeraResult<Value> {
+    let id: i32 = kwargs.must_get("id")?;
+    match tags::BlockTag::try_from(id) {
+        Ok(v) => Ok(Value::from_serializable(&v.value())),
+        Err(e) => Err(TeraError::message(format!(
+            "Could not find BlockTag for value {:?}. Is the mapping implemented?: {:?}",
+            id, e
+        ))),
+    }
 }
 
 /// Converts seconds to a duration String.
-pub fn seconds_to_duration() -> impl tera::Function {
-    Box::new(
-        move |args: &HashMap<String, tera::Value>| -> tera::Result<tera::Value> {
-            match args.get("seconds") {
-                Some(val) => match tera::from_value::<i32>(val.clone()) {
-                    Ok(v) => Ok(if v < 0 {
-                        tera::to_value("Unknown").unwrap()
-                    } else {
-                        let d = std::time::Duration::from_secs(v as u64);
-                        let seconds = d.as_secs() % 60;
-                        let minutes = (d.as_secs() / 60) % 60;
-                        let hours = (d.as_secs() / 60) / 60 % 24;
-                        let days = (d.as_secs() / 60) / 60 / 24;
-                        if days > 0 {
-                            tera::to_value(format!(
-                                "{}d {}h {}m {}s",
-                                days, hours, minutes, seconds
-                            ))
-                            .unwrap()
-                        } else if hours > 0 {
-                            tera::to_value(format!("{}h {}m {}s", hours, minutes, seconds)).unwrap()
-                        } else if minutes > 0 {
-                            tera::to_value(format!("{}m {}s", minutes, seconds)).unwrap()
-                        } else {
-                            tera::to_value(format!("{}s", seconds)).unwrap()
-                        }
-                    }),
-                    Err(_) => Err("Can't parse 'seconds' as i32.".into()),
-                },
-                None => Err("No parameter 'seconds' passed to seconds_to_duration()".into()),
-            }
-        },
-    )
+pub fn seconds_to_duration(kwargs: Kwargs, _: &State) -> TeraResult<String> {
+    let seconds: i32 = kwargs.must_get("seconds")?;
+    Ok(if seconds < 0 {
+        "Unknown".to_string()
+    } else {
+        let d = std::time::Duration::from_secs(seconds as u64);
+        let secs = d.as_secs() % 60;
+        let minutes = (d.as_secs() / 60) % 60;
+        let hours = (d.as_secs() / 60) / 60 % 24;
+        let days = (d.as_secs() / 60) / 60 / 24;
+        if days > 0 {
+            format!("{}d {}h {}m {}s", days, hours, minutes, secs)
+        } else if hours > 0 {
+            format!("{}h {}m {}s", hours, minutes, secs)
+        } else if minutes > 0 {
+            format!("{}m {}s", minutes, secs)
+        } else {
+            format!("{}s", secs)
+        }
+    })
 }
 
 #[cfg(test)]
