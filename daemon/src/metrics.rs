@@ -4,6 +4,10 @@ use prometheus::{register_int_counter, register_int_gauge};
 
 // Prometheus Metrics
 
+// Only used inside the lazy_static! block below, which itself is only
+// reachable from `main()`. In `cargo test` builds `main()` is unreachable,
+// so rustc's dead-code analysis flags this as unused without the allow.
+#[allow(dead_code)]
 const PREFIX: &str = "miningpoolobserver_daemon";
 
 lazy_static! {
