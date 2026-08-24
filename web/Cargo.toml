@@ -18,7 +18,7 @@ actix-files = "0.6"
 serde = "1"
 hex = "0.4"
 
-tera = "1.7"
+tera = "2.2"
 
 # svg to png image rendering
 resvg = "0.45.1"
