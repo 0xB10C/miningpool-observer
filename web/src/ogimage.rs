@@ -1,7 +1,8 @@
 use actix_web::{error as actix_error, web, Error, HttpResponse, Result};
 use miningpool_observer_shared::{config, db_pool, tags};
+use resvg::tiny_skia::{self, Pixmap};
+use resvg::usvg;
 use serde::Serialize;
-use tiny_skia::Pixmap;
 
 use std::convert::TryFrom;
 
