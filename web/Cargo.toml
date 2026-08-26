@@ -21,9 +21,9 @@ hex = "0.4"
 tera = "1.7"
 
 # svg to png image rendering
-resvg = "0.45.1"
-usvg = "0.45.1"
-tiny-skia = "0.11.4"
+# usvg and tiny-skia are re-exported by resvg (as resvg::usvg / resvg::tiny_skia)
+# and used through that re-export so their versions can't drift out of sync with resvg.
+resvg = "0.47.0"
 
 
 [features]
