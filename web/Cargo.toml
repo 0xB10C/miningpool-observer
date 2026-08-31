@@ -18,7 +18,7 @@ actix-files = "0.7"
 serde = "1"
 hex = "0.4"
 
-tera = "1.7"
+tera = "2.3"
 
 # svg to png image rendering
 # usvg and tiny-skia are re-exported by resvg (as resvg::usvg / resvg::tiny_skia)
