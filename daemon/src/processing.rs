@@ -237,7 +237,7 @@ fn get_transaction_tags(
         tags.push(tags::TxTag::HighValue as i32);
     }
 
-    if tx_info.tx.sigops().unwrap_or_default() as u64 > tags::THRESHOLD_SIGOPS_CONSIDERED_MANY {
+    if raw_tx_info.sigops() as u64 > tags::THRESHOLD_SIGOPS_CONSIDERED_MANY {
         tags.push(tags::TxTag::ManySigops as i32);
     }
 
@@ -426,7 +426,7 @@ pub fn build_transaction(
         inputs: inputs_strs,
         output_count: tx_info.tx.output.len() as i32,
         outputs: outputs_strs,
-        sigops: tx_info.tx.sigops().unwrap_or_default() as i64,
+        sigops: raw_tx_info.sigops() as i64,
     });
 }
 
