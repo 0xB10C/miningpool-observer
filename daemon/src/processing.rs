@@ -1865,6 +1865,132 @@ mod tests {
     }
 
     #[test]
+    fn test_build_transaction() {
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2WPKH]);
+        let tx = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+                (2_000, script_for_address(ADDRESS_P2TR)),
+                (3_000, script_for_address(ADDRESS_P2PKH)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        let info = tx_info(&tx, 7, 123);
+        let mut reversed_txid = tx.compute_txid().to_byte_array().to_vec();
+        reversed_txid.reverse();
+
+        let built = build_transaction(
+            &reversed_txid,
+            &info,
+            false,
+            &HashMap::new(),
+            &HashSet::new(),
+        )
+        .unwrap();
+
+        assert_eq!(built.txid, reversed_txid);
+        assert!(!built.sanctioned);
+        assert_eq!(built.fee, 123);
+        assert_eq!(built.vsize, tx.vsize() as i32);
+        assert_eq!(built.output_sum, 6_000);
+        assert_eq!(built.input_count, 1);
+        assert_eq!(built.output_count, 3);
+        // the single P2PKH output is the only output with sigops
+        assert_eq!(built.sigops, 4);
+        assert_eq!(built.inputs, vec!["1x P2SH".to_string()]);
+        assert_eq!(
+            built.outputs,
+            vec![
+                "1x P2PKH".to_string(),
+                "1x P2TR".to_string(),
+                "1x P2WPKH v0".to_string()
+            ]
+        );
+        assert_eq!(built.tags, Vec::<i32>::new());
+
+        // the same transaction, but now paying to a sanctioned address
+        let built =
+            build_transaction(&reversed_txid, &info, true, &HashMap::new(), &sanctioned).unwrap();
+        assert!(built.sanctioned);
+        assert_eq!(
+            built.tags,
+            vec![TxTag::Conflicting as i32, TxTag::ToSanctioned as i32]
+        );
+    }
+
+    fn db_transaction(txid: Vec<u8>, tags: Vec<i32>, fee: i64) -> shared_model::Transaction {
+        shared_model::Transaction {
+            txid,
+            sanctioned: false,
+            vsize: 100,
+            fee,
+            output_sum: 1_000,
+            tags,
+            input_count: 1,
+            inputs: vec!["1x P2SH".to_string()],
+            output_count: 1,
+            outputs: vec!["1x P2WPKH v0".to_string()],
+            sigops: 0,
+        }
+    }
+
+    #[test]
+    fn test_add_to_transactions() {
+        let txid = vec![0xb1, 0x0c];
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+
+        let first = db_transaction(
+            txid.clone(),
+            vec![TxTag::SegWit as i32, TxTag::Coinjoin as i32],
+            111,
+        );
+        add_to_transactions(&first, &mut transactions);
+        assert_eq!(transactions.len(), 1);
+        assert_eq!(
+            transactions[&txid].tags,
+            vec![TxTag::SegWit as i32, TxTag::Coinjoin as i32]
+        );
+
+        // The same transaction with different tags merges the tags. The other
+        // fields of the transaction stay untouched.
+        let second = db_transaction(
+            txid.clone(),
+            vec![TxTag::OpReturn as i32, TxTag::Coinjoin as i32],
+            222,
+        );
+        add_to_transactions(&second, &mut transactions);
+        assert_eq!(transactions.len(), 1);
+        assert_eq!(
+            transactions[&txid].tags,
+            vec![
+                TxTag::Coinjoin as i32,
+                TxTag::SegWit as i32,
+                TxTag::OpReturn as i32,
+            ]
+        );
+        assert_eq!(transactions[&txid].fee, 111);
+
+        // Adding a transaction with the tags it already has changes nothing.
+        let third = db_transaction(txid.clone(), transactions[&txid].tags.clone(), 333);
+        add_to_transactions(&third, &mut transactions);
+        assert_eq!(transactions.len(), 1);
+        assert_eq!(
+            transactions[&txid].tags,
+            vec![
+                TxTag::Coinjoin as i32,
+                TxTag::SegWit as i32,
+                TxTag::OpReturn as i32,
+            ]
+        );
+
+        // a different transaction is added as a new entry
+        add_to_transactions(&db_transaction(vec![0x42], vec![], 1), &mut transactions);
+        assert_eq!(transactions.len(), 2);
+    }
+
+    #[test]
     fn test_build_packages_without_transactions() {
         assert!(build_packages(&[]).is_empty());
     }
