@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::{env, error, fmt, fs, io};
@@ -14,6 +15,8 @@ const DEFAULT_SANCTIONED_ADDRESSES_URL: &str = "https://raw.githubusercontent.co
 const DEFAULT_POOL_IDENTIFICATOIN_DATASET_URL: &str =
     "https://raw.githubusercontent.com/bitcoin-data/mining-pools/generated/pool-list.json";
 const DEFAULT_POOL_IDENTIFICATOIN_NETWORK: Network = Network::Bitcoin;
+const VALID_POOL_IDENTIFICATION_NETWORKS: &str =
+    "\"bitcoin\", \"testnet\", \"signet\", \"regtest\"";
 
 #[derive(Deserialize)]
 struct DaemonTomlConfig {
@@ -60,20 +63,21 @@ pub struct PoolIdentificationConfig {
     pub network: Network,
 }
 
-impl From<PoolIdentificationTomlConfig> for PoolIdentificationConfig {
-    fn from(toml: PoolIdentificationTomlConfig) -> Self {
-        PoolIdentificationConfig {
+impl TryFrom<PoolIdentificationTomlConfig> for PoolIdentificationConfig {
+    type Error = ConfigError;
+
+    fn try_from(toml: PoolIdentificationTomlConfig) -> Result<Self, Self::Error> {
+        let network_name = toml
+            .network
+            .unwrap_or(DEFAULT_POOL_IDENTIFICATOIN_NETWORK.to_string());
+        let network = Network::from_str(&network_name.to_lowercase())
+            .map_err(|_| ConfigError::InvalidNetwork(network_name))?;
+        Ok(PoolIdentificationConfig {
             dataset_url: toml
                 .dataset_url
                 .unwrap_or(DEFAULT_POOL_IDENTIFICATOIN_DATASET_URL.to_string()),
-            network: Network::from_str(
-                &toml
-                    .network
-                    .unwrap_or(DEFAULT_POOL_IDENTIFICATOIN_NETWORK.to_string())
-                    .to_lowercase(),
-            )
-            .expect("invalid pool identification network"),
-        }
+            network,
+        })
     }
 }
 
@@ -122,7 +126,9 @@ pub fn parse_daemon_config(toml_str: &str) -> Result<DaemonConfig, ConfigError> 
         sanctioned_addresses_url: config
             .sanctioned_addresses_url
             .unwrap_or(DEFAULT_SANCTIONED_ADDRESSES_URL.to_string()),
-        pool_identification: config.pool_identification.unwrap_or_default().into(),
+        pool_identification: PoolIdentificationConfig::try_from(
+            config.pool_identification.unwrap_or_default(),
+        )?,
     })
 }
 
@@ -178,6 +184,7 @@ pub enum ConfigError {
     CookieFileDoesNotExist,
     NoRpcAuth,
     InvalidLogLevel(log::ParseLevelError),
+    InvalidNetwork(String),
     TomlError(toml::de::Error),
     ReadError(io::Error),
 }
@@ -188,6 +195,7 @@ impl fmt::Display for ConfigError {
             ConfigError::CookieFileDoesNotExist => write!(f, "the .cookie file path set via rpc_cookie_file does not exist"),
             ConfigError::NoRpcAuth => write!(f, "please specify a Bitcoin Core RPC .cookie file (option: 'rpc_cookie_file') or a rpc_user and rpc_password"),
             ConfigError::InvalidLogLevel(e) => write!(f, "the specified log level is invalid: {}", e),
+            ConfigError::InvalidNetwork(network) => write!(f, "the pool identification network '{}' is invalid: valid networks are {}", network, VALID_POOL_IDENTIFICATION_NETWORKS),
             ConfigError::TomlError(e) => write!(f, "the TOML in the configuration file could not be parsed: {}", e),
             ConfigError::ReadError(e) => write!(f, "the configuration file could not be read: {}", e),
         }
@@ -199,6 +207,7 @@ impl error::Error for ConfigError {
         match *self {
             ConfigError::NoRpcAuth => None,
             ConfigError::CookieFileDoesNotExist => None,
+            ConfigError::InvalidNetwork(_) => None,
             ConfigError::TomlError(ref e) => Some(e),
             ConfigError::ReadError(ref e) => Some(e),
             ConfigError::InvalidLogLevel(ref e) => Some(e),
