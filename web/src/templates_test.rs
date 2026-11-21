@@ -445,6 +445,11 @@ fn test_render_faq() {
     assert!(rendered.contains("Taproot Signaling"));
     assert!(rendered.contains("1SanctionedAddressxxxxxxxxxxxxxxxx"));
     assert!(rendered.contains("This site currently tracks 1 OFAC sanctioned addresses."));
+    // the FAQ entry in the navigation, and only that one, is marked as the
+    // current page
+    assert_eq!(rendered.matches("nav-link active").count(), 1);
+    let active_nav_entry = &rendered[rendered.find("nav-link active").unwrap()..];
+    assert!(active_nav_entry[..300].contains("FAQ"));
 }
 
 //##### DEBUG PAGES
