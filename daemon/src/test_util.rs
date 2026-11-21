@@ -4,8 +4,9 @@ use std::convert::TryInto;
 use std::str::FromStr;
 
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{
-    hashes::Hash, locktime::absolute::LockTime, script::PushBytesBuf, transaction::Version,
-    Address, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Txid, Witness,
+    consensus, hashes::Hash, locktime::absolute::LockTime, script, script::PushBytesBuf,
+    transaction::Version, Address, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut,
+    Txid, Witness,
 };
 
 use miningpool_observer_shared::model as shared_model;
@@ -14,6 +15,11 @@ use crate::model::TxInfo;
 
 /// Sequence number that neither signals RBF nor enables the absolute lock time.
 pub const SEQUENCE_FINAL: u32 = 0xffff_ffff;
+/// Highest sequence number that enables the absolute lock time but does not
+/// signal RBF.
+pub const SEQUENCE_LOCKTIME_ONLY: u32 = 0xffff_fffe;
+/// Sequence number that enables the absolute lock time and signals RBF.
+pub const SEQUENCE_RBF: u32 = 0xffff_fffd;
 
 /// Builds a deterministic outpoint. All outpoints built from a different `n`
 /// are different.
@@ -114,4 +120,71 @@ pub fn sanctioned_utxo(
         amount,
         height: 0,
     }
+}
+
+/// Builds a coinbase transaction. The script_sig contains the BIP34 block
+/// height push followed by `tag`.
+pub fn coinbase_tx(height: i64, tag: &[u8], outputs: &[(u64, ScriptBuf)]) -> Transaction {
+    let tag_push: PushBytesBuf = tag
+        .to_vec()
+        .try_into()
+        .expect("coinbase tag should not be too long");
+    let script_sig = script::Builder::new()
+        .push_int(height)
+        .push_slice(tag_push)
+        .into_script();
+
+    Transaction {
+        version: Version::TWO,
+        lock_time: LockTime::ZERO,
+        input: vec![TxIn {
+            previous_output: OutPoint::null(),
+            script_sig,
+            sequence: Sequence(SEQUENCE_FINAL),
+            witness: Witness::new(),
+        }],
+        output: outputs
+            .iter()
+            .map(|(value, script_pubkey)| TxOut {
+                value: Amount::from_sat(*value),
+                script_pubkey: script_pubkey.clone(),
+            })
+            .collect(),
+    }
+}
+
+/// Deserializes a hex encoded transaction.
+pub fn deser_tx(raw_tx_hex: &str) -> Transaction {
+    consensus::deserialize(&hex::decode(raw_tx_hex).expect("test transaction should be valid hex"))
+        .expect("test transaction should be deserializable")
+}
+
+/// Builds a transaction with exactly `vsize` vBytes by padding it with an
+/// OP_RETURN output.
+pub fn tx_with_vsize(vsize: usize) -> Transaction {
+    let padded = |payload_len: usize| {
+        fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+                (0, op_return_script(payload_len)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        )
+    };
+
+    // The OP_RETURN payload length and the transaction size grow by the same
+    // amount, so this converges after one correction.
+    let mut payload_len = vsize / 2;
+    for _ in 0..5 {
+        let tx = padded(payload_len);
+        if tx.vsize() == vsize {
+            return tx;
+        }
+        payload_len = (payload_len + vsize)
+            .checked_sub(tx.vsize())
+            .expect("the requested vsize should be reachable");
+    }
+    panic!("could not build a transaction with a vsize of {}", vsize);
 }
