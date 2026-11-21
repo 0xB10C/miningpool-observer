@@ -20,8 +20,7 @@ use rawtx_rs::{input::InputInscriptionDetection, input::InputType, output::Outpu
 
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin;
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{
-    hash_types::Txid, hashes::Hash, locktime::absolute::LockTime, network::Network, Address,
-    Amount, Transaction,
+    hash_types::Txid, hashes::Hash, network::Network, Address, Amount, Transaction,
 };
 
 pub const LOG_TARGET_PROCESSING: &str = "processing";
@@ -295,15 +294,16 @@ fn get_transaction_tags(
 
     if raw_tx_info.locktime.is_block_height()
         && tx_info.tx.is_lock_time_enabled()
-        && raw_tx_info.locktime > LockTime::from_consensus(0)
+        && raw_tx_info.locktime.to_consensus_u32() > 0
     {
         tags.push(tags::TxTag::LockByHeight as i32);
     }
 
-    if raw_tx_info.locktime.is_block_time()
-        && tx_info.tx.is_lock_time_enabled()
-        && raw_tx_info.locktime > LockTime::from_consensus(0)
-    {
+    // A time based lock time can not be compared to the block height based
+    // LockTime::from_consensus(0), the comparison would always be false. It is
+    // also always larger than zero, as the smallest possible value is
+    // 500_000_000.
+    if raw_tx_info.locktime.is_block_time() && tx_info.tx.is_lock_time_enabled() {
         tags.push(tags::TxTag::LockByTimestamp as i32);
     }
 
@@ -1164,6 +1164,7 @@ mod tests {
         script_for_address, tx_info, tx_with_vsize, ADDRESS_P2PKH, ADDRESS_P2TR, ADDRESS_P2WPKH,
         SEQUENCE_FINAL, SEQUENCE_LOCKTIME_ONLY, SEQUENCE_RBF,
     };
+    use bitcoin::locktime::absolute::LockTime;
     use bitcoin::{
         consensus, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
     };
@@ -1579,6 +1580,27 @@ mod tests {
             SEQUENCE_LOCKTIME_ONLY,
         );
         assert_eq!(tags_of(&no_lock_time, 1_000), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_get_transaction_tags_lock_by_timestamp() {
+        let script = script_for_address(ADDRESS_P2WPKH);
+
+        let locked = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script.clone())],
+            1_600_000_000,
+            SEQUENCE_LOCKTIME_ONLY,
+        );
+        assert_eq!(tags_of(&locked, 1_000), vec![TxTag::LockByTimestamp as i32]);
+
+        let lock_time_disabled = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script)],
+            1_600_000_000,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(tags_of(&lock_time_disabled, 1_000), Vec::<i32>::new());
     }
 
     #[test]
