@@ -2078,6 +2078,225 @@ mod tests {
         assert_eq!(transactions.len(), 2);
     }
 
+    /// Builds the conflicting transaction sets for a list of template and a
+    /// list of block transactions.
+    fn conflict_sets(
+        template_txs: &[&Transaction],
+        block_txs: &[&Transaction],
+        transactions: &mut HashMap<Vec<u8>, shared_model::Transaction>,
+    ) -> Vec<shared_model::ConflictingTransaction> {
+        let template_map = txinfo_map(
+            template_txs
+                .iter()
+                .enumerate()
+                .map(|(i, tx)| tx_info(tx, i as i32, 1_000))
+                .collect(),
+        );
+        let block_map = txinfo_map(
+            block_txs
+                .iter()
+                .enumerate()
+                .map(|(i, tx)| tx_info(tx, i as i32, 1_000))
+                .collect(),
+        );
+        let template_txids: HashSet<&Txid> = template_map.keys().collect();
+        let block_txids: HashSet<&Txid> = block_map.keys().collect();
+
+        build_conflicting_transactions(
+            42,
+            &template_txids,
+            &template_map,
+            &block_txids,
+            &block_map,
+            transactions,
+            &HashMap::new(),
+            &HashSet::new(),
+        )
+    }
+
+    /// Returns the conflicting outpoints of a set as sorted (txid, vout) pairs.
+    fn conflicting_outpoints(set: &shared_model::ConflictingTransaction) -> Vec<(Vec<u8>, i32)> {
+        let mut outpoints: Vec<(Vec<u8>, i32)> = set
+            .conflicting_outpoints_txids
+            .iter()
+            .cloned()
+            .zip(set.conflicting_outpoints_vouts.iter().cloned())
+            .collect();
+        outpoints.sort();
+        outpoints
+    }
+
+    /// Returns the display byte order txid and vout of an outpoint.
+    fn reversed_outpoint(outpoint: OutPoint) -> (Vec<u8>, i32) {
+        (
+            outpoint
+                .txid
+                .to_byte_array()
+                .iter()
+                .rev()
+                .cloned()
+                .collect(),
+            outpoint.vout as i32,
+        )
+    }
+
+    fn sorted(mut txids: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+        txids.sort();
+        txids
+    }
+
+    /// A transaction spending the passed outpoints and paying `value` sat.
+    fn spending(outpoints: &[OutPoint], value: u64) -> Transaction {
+        fake_tx(
+            outpoints,
+            &[(value, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        )
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_without_a_conflict() {
+        let template_tx = spending(&[outpoint(1, 0)], 10_000);
+        let block_tx = spending(&[outpoint(2, 0)], 20_000);
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let sets = conflict_sets(&[&template_tx], &[&block_tx], &mut transactions);
+
+        assert!(sets.is_empty());
+        assert!(transactions.is_empty());
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_with_one_conflict() {
+        let template_tx = spending(&[outpoint(1, 0)], 10_000);
+        let block_tx = spending(&[outpoint(1, 0)], 20_000);
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let sets = conflict_sets(&[&template_tx], &[&block_tx], &mut transactions);
+
+        assert_eq!(sets.len(), 1);
+        assert_eq!(sets[0].block_id, 42);
+        assert_eq!(sets[0].template_txids, vec![reversed_txid(&template_tx)]);
+        assert_eq!(sets[0].block_txids, vec![reversed_txid(&block_tx)]);
+        assert_eq!(
+            conflicting_outpoints(&sets[0]),
+            vec![reversed_outpoint(outpoint(1, 0))]
+        );
+
+        // both transactions are added to the transactions map and tagged as
+        // conflicting
+        assert_eq!(transactions.len(), 2);
+        assert_eq!(
+            transactions[&reversed_txid(&template_tx)].tags,
+            vec![TxTag::Conflicting as i32]
+        );
+        assert_eq!(
+            transactions[&reversed_txid(&block_tx)].tags,
+            vec![TxTag::Conflicting as i32]
+        );
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_with_one_template_and_two_block_transactions() {
+        // The template transaction spends two outpoints, which the block
+        // spends with two separate transactions.
+        let template_tx = spending(&[outpoint(1, 0), outpoint(2, 0)], 10_000);
+        let block_tx1 = spending(&[outpoint(1, 0)], 20_000);
+        let block_tx2 = spending(&[outpoint(2, 0)], 30_000);
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let sets = conflict_sets(
+            &[&template_tx],
+            &[&block_tx1, &block_tx2],
+            &mut transactions,
+        );
+
+        assert_eq!(sets.len(), 1);
+        assert_eq!(sets[0].template_txids, vec![reversed_txid(&template_tx)]);
+        assert_eq!(
+            sorted(sets[0].block_txids.clone()),
+            sorted(vec![reversed_txid(&block_tx1), reversed_txid(&block_tx2)])
+        );
+        assert_eq!(conflicting_outpoints(&sets[0]), {
+            let mut expected = vec![
+                reversed_outpoint(outpoint(1, 0)),
+                reversed_outpoint(outpoint(2, 0)),
+            ];
+            expected.sort();
+            expected
+        });
+        assert_eq!(transactions.len(), 3);
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_merges_overlapping_conflicts() {
+        // T1 spends o1 and o3, T2 spends o2, B1 spends o1 and B2 spends o2
+        // and o3. All of them belong to one conflict.
+        //
+        // The conflicting outpoints are iterated in an arbitrary order, so
+        // repeat this a few times to cover the different orders.
+        for _ in 0..20 {
+            let template_tx1 = spending(&[outpoint(1, 0), outpoint(3, 0)], 10_000);
+            let template_tx2 = spending(&[outpoint(2, 0)], 20_000);
+            let block_tx1 = spending(&[outpoint(1, 0)], 30_000);
+            let block_tx2 = spending(&[outpoint(2, 0), outpoint(3, 0)], 40_000);
+
+            let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+            let sets = conflict_sets(
+                &[&template_tx1, &template_tx2],
+                &[&block_tx1, &block_tx2],
+                &mut transactions,
+            );
+
+            assert_eq!(sets.len(), 1);
+            assert_eq!(
+                sorted(sets[0].template_txids.clone()),
+                sorted(vec![
+                    reversed_txid(&template_tx1),
+                    reversed_txid(&template_tx2)
+                ])
+            );
+            assert_eq!(
+                sorted(sets[0].block_txids.clone()),
+                sorted(vec![reversed_txid(&block_tx1), reversed_txid(&block_tx2)])
+            );
+            assert_eq!(conflicting_outpoints(&sets[0]), {
+                let mut expected = vec![
+                    reversed_outpoint(outpoint(1, 0)),
+                    reversed_outpoint(outpoint(2, 0)),
+                    reversed_outpoint(outpoint(3, 0)),
+                ];
+                expected.sort();
+                expected
+            });
+            assert_eq!(transactions.len(), 4);
+        }
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_with_two_independent_conflicts() {
+        let template_tx1 = spending(&[outpoint(1, 0)], 10_000);
+        let template_tx2 = spending(&[outpoint(2, 0)], 20_000);
+        let block_tx1 = spending(&[outpoint(1, 0)], 30_000);
+        let block_tx2 = spending(&[outpoint(2, 0)], 40_000);
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let sets = conflict_sets(
+            &[&template_tx1, &template_tx2],
+            &[&block_tx1, &block_tx2],
+            &mut transactions,
+        );
+
+        assert_eq!(sets.len(), 2);
+        for set in sets.iter() {
+            assert_eq!(set.template_txids.len(), 1);
+            assert_eq!(set.block_txids.len(), 1);
+            assert_eq!(set.conflicting_outpoints_txids.len(), 1);
+        }
+        assert_eq!(transactions.len(), 4);
+    }
+
     #[test]
     fn test_build_packages_without_transactions() {
         assert!(build_packages(&[]).is_empty());
