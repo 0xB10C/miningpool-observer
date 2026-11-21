@@ -1019,8 +1019,8 @@ pub fn build_conflicting_transactions(
                 c.conflicting_outpoints.replace(new_conflicting_outpoints);
             }
         }
-        conflicts.retain(|c| !c.template_transactions.borrow().is_empty());
-        conflicts.retain(|c| !c.template_transactions.borrow().is_empty());
+        // Merging moves the transactions of the merged conflicts into one of
+        // them and leaves the others empty. Drop the empty ones.
         conflicts.retain(|c| !c.template_transactions.borrow().is_empty());
     }
 
