@@ -486,6 +486,20 @@ mod tests {
         assert!(!ImageError::PixmapCreationError.to_string().is_empty());
     }
 
+    #[test]
+    fn test_image_error_source() {
+        use std::error::Error;
+
+        // only the usvg error wraps another error
+        assert!(ImageError::from(usvg::Error::InvalidSize)
+            .source()
+            .is_some());
+        assert!(ImageError::PngEncodingError("oops".to_string())
+            .source()
+            .is_none());
+        assert!(ImageError::PixmapCreationError.source().is_none());
+    }
+
     fn missing_transaction(tags: Vec<i32>) -> MissingTransaction {
         MissingTransaction {
             transaction: transaction_fixture(tags),
@@ -526,5 +540,65 @@ mod tests {
     fn test_missing_transaction_og_data_without_tags() {
         let data = missing_transaction_og_data(&missing_transaction(vec![]));
         assert!(data.tags.is_empty());
+    }
+
+    /// The OpenGraph images of the main pages are rendered without touching
+    /// the database. Requesting them has to return a PNG.
+    #[actix_web::test]
+    async fn test_mainpage_ogimage_handlers() {
+        use crate::test_util::{site_config, tera, usvg_options};
+        use actix_web::http::{header, StatusCode};
+        use actix_web::web::Data;
+        use actix_web::{test, App};
+
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::new(tera()))
+                .app_data(Data::new(site_config()))
+                .app_data(Data::new(usvg_options()))
+                .route("/index.png", web::get().to(ogimage_mainpage_index))
+                .route("/faq.png", web::get().to(ogimage_mainpage_faq))
+                .route(
+                    "/template-and-block.png",
+                    web::get().to(ogimage_mainpage_templates_and_blocks),
+                )
+                .route(
+                    "/missing.png",
+                    web::get().to(ogimage_mainpage_missing_transactions),
+                )
+                .route(
+                    "/conflicting.png",
+                    web::get().to(ogimage_mainpage_conflicting_transactions),
+                )
+                .route(
+                    "/missing-sanctioned.png",
+                    web::get().to(ogimage_mainpage_sanctioned_transactions),
+                ),
+        )
+        .await;
+
+        for uri in [
+            "/index.png",
+            "/faq.png",
+            "/template-and-block.png",
+            "/missing.png",
+            "/conflicting.png",
+            "/missing-sanctioned.png",
+        ]
+        .iter()
+        {
+            let req = test::TestRequest::get().uri(uri).to_request();
+            let res = test::call_service(&app, req).await;
+
+            assert_eq!(res.status(), StatusCode::OK, "{}", uri);
+            assert_eq!(
+                res.headers().get(header::CONTENT_TYPE).unwrap(),
+                "image/png",
+                "{}",
+                uri
+            );
+            let body = test::read_body(res).await;
+            assert_eq!(&body[..8], &PNG_SIGNATURE, "{}", uri);
+        }
     }
 }
