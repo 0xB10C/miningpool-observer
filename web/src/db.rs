@@ -341,15 +341,17 @@ pub fn missing_sanctioned_txns_for_block(
     let transactions_and_sanction_info: Vec<MissingSanctionedTransaction>;
     {
         use schema::sanctioned_transaction_info::dsl::*;
-        //use schema::transaction_only_in_template::dsl::*;
         use schema::transaction::dsl::*;
 
         transactions_and_sanction_info = transaction
             .inner_join(sanctioned_transaction_info)
             .inner_join(schema::transaction_only_in_template::table)
+            // Both joined tables carry a block_id. Without the second filter, a
+            // transaction missing from several blocks shows up once per block.
             .filter(
                 block_id
                     .eq(this_block_id)
+                    .and(schema::transaction_only_in_template::block_id.eq(this_block_id))
                     .and(in_block.eq(false))
                     .and(in_template.eq(true)),
             )

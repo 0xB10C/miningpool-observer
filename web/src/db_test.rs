@@ -559,6 +559,12 @@ fn test_missing_sanctioned_txns_for_block() {
     insert_only_in_template(&mut conn, block_id, &included_txid, 43);
     insert_sanctioned_info(&mut conn, block_id, &included_txid, true, true);
 
+    // The same sanctioned transaction is also missing from a second block.
+    // The page of the first block must only show the first block's entry.
+    let other_block_id = insert_block(&mut conn, &new_block(2, 700_002, "Pool B"));
+    insert_only_in_template(&mut conn, other_block_id, &missing_txid, 7);
+    insert_sanctioned_info(&mut conn, other_block_id, &missing_txid, false, true);
+
     let missing = db::missing_sanctioned_txns_for_block(&hash_n(1), &mut conn).unwrap();
 
     assert_eq!(missing.len(), 1);
@@ -569,7 +575,11 @@ fn test_missing_sanctioned_txns_for_block() {
         vec!["1SanctionedAddressxxxxxxxxxxxxxxxx".to_string()]
     );
 
-    assert_not_found(db::missing_sanctioned_txns_for_block(&hash_n(2), &mut conn));
+    let other = db::missing_sanctioned_txns_for_block(&hash_n(2), &mut conn).unwrap();
+    assert_eq!(other.len(), 1);
+    assert_eq!(other[0].missing_info.position, 7);
+
+    assert_not_found(db::missing_sanctioned_txns_for_block(&hash_n(3), &mut conn));
 }
 
 #[test]
