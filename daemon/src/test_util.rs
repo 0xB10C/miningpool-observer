@@ -1,11 +1,14 @@
 //! Helpers for building the test fixtures used by the unit tests.
 
+use std::convert::TryInto;
 use std::str::FromStr;
 
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{
-    hashes::Hash, locktime::absolute::LockTime, transaction::Version, Address, Amount, OutPoint,
-    ScriptBuf, Sequence, Transaction, TxIn, TxOut, Txid, Witness,
+    hashes::Hash, locktime::absolute::LockTime, script::PushBytesBuf, transaction::Version,
+    Address, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Txid, Witness,
 };
+
+use miningpool_observer_shared::model as shared_model;
 
 use crate::model::TxInfo;
 
@@ -78,4 +81,37 @@ pub fn script_for_address(address: &str) -> ScriptBuf {
         .expect("test address should be parsable")
         .assume_checked()
         .script_pubkey()
+}
+
+/// Mainnet Pay-to-Public-Key-Hash address used in tests.
+pub const ADDRESS_P2PKH: &str = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
+
+/// Returns an OP_RETURN script with a `payload_len` byte long payload.
+pub fn op_return_script(payload_len: usize) -> ScriptBuf {
+    let payload: PushBytesBuf = vec![0x42u8; payload_len]
+        .try_into()
+        .expect("OP_RETURN payload should not be too long");
+    ScriptBuf::new_op_return(payload)
+}
+
+/// Builds a sanctioned UTXO for the passed outpoint. The database stores the
+/// txid in display (reversed) byte order.
+pub fn sanctioned_utxo(
+    outpoint: OutPoint,
+    script_pubkey: &ScriptBuf,
+    amount: i64,
+) -> shared_model::SanctionedUtxo {
+    shared_model::SanctionedUtxo {
+        txid: outpoint
+            .txid
+            .to_byte_array()
+            .iter()
+            .rev()
+            .cloned()
+            .collect(),
+        vout: outpoint.vout as i32,
+        script_pubkey: script_pubkey.to_bytes(),
+        amount,
+        height: 0,
+    }
 }

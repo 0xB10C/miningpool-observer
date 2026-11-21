@@ -1160,13 +1160,193 @@ mod tests {
     use super::*;
     use crate::model::TxInfo;
     use crate::test_util::{
-        fake_tx, outpoint, script_for_address, ADDRESS_P2TR, ADDRESS_P2WPKH, SEQUENCE_FINAL,
+        fake_tx, op_return_script, outpoint, sanctioned_utxo, script_for_address, ADDRESS_P2PKH,
+        ADDRESS_P2TR, ADDRESS_P2WPKH, SEQUENCE_FINAL,
     };
     use bitcoin::{
         consensus, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
     };
     use hex;
     use rawtx_rs::bitcoin::transaction::Version;
+    use std::str::FromStr;
+
+    fn sanctioned_address_set(addresses: &[&str]) -> HashSet<String> {
+        addresses.iter().map(|a| a.to_string()).collect()
+    }
+
+    #[test]
+    fn test_build_outpoint_to_sanctioned_utxo_map() {
+        // mainnet f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16
+        const TXID: &str = "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16";
+        let txid = Txid::from_str(TXID).unwrap();
+        // The database stores the txid in display (reversed) byte order.
+        let display_order_txid = hex::decode(TXID).unwrap();
+
+        let utxos = vec![shared_model::SanctionedUtxo {
+            txid: display_order_txid.clone(),
+            vout: 1,
+            script_pubkey: script_for_address(ADDRESS_P2WPKH).to_bytes(),
+            amount: 1337,
+            height: 170,
+        }];
+
+        let map = build_outpoint_to_sanctioned_utxo_map(&utxos);
+        assert_eq!(map.len(), 1);
+
+        // The key must be the internal byte order, so that it can be looked up
+        // with the bytes of an OutPoint txid.
+        let utxo = map
+            .get(&(txid.to_byte_array().to_vec(), 1))
+            .expect("the UTXO should be found by its internal byte order txid");
+        assert_eq!(utxo.amount, 1337);
+        assert_eq!(utxo.height, 170);
+
+        assert!(!map.contains_key(&(display_order_txid, 1)));
+        // the vout is part of the key
+        assert!(!map.contains_key(&(txid.to_byte_array().to_vec(), 0)));
+    }
+
+    #[test]
+    fn test_is_tx_to_sanctioned() {
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2WPKH]);
+
+        let to_sanctioned = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2TR)),
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(is_tx_to_sanctioned(&to_sanctioned, &sanctioned));
+        // with an empty list of sanctioned addresses, no transaction is sanctioned
+        assert!(!is_tx_to_sanctioned(&to_sanctioned, &HashSet::new()));
+
+        let not_to_sanctioned = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2TR)),
+                // an output that can't be represented as an address
+                (0, op_return_script(8)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(!is_tx_to_sanctioned(&not_to_sanctioned, &sanctioned));
+    }
+
+    #[test]
+    fn test_is_tx_from_sanctioned() {
+        let script = script_for_address(ADDRESS_P2WPKH);
+        let utxos = vec![sanctioned_utxo(outpoint(5, 1), &script, 1_000)];
+        let map = build_outpoint_to_sanctioned_utxo_map(&utxos);
+
+        let from_sanctioned = fake_tx(
+            &[outpoint(4, 0), outpoint(5, 1)],
+            &[(1_000, script.clone())],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(is_tx_from_sanctioned(&from_sanctioned, &map));
+        assert!(!is_tx_from_sanctioned(&from_sanctioned, &HashMap::new()));
+
+        // the same txid, but a different vout
+        let not_from_sanctioned = fake_tx(&[outpoint(5, 0)], &[(1_000, script)], 0, SEQUENCE_FINAL);
+        assert!(!is_tx_from_sanctioned(&not_from_sanctioned, &map));
+    }
+
+    #[test]
+    fn test_is_tx_sanctioned() {
+        let sanctioned_script = script_for_address(ADDRESS_P2PKH);
+        let utxos = vec![sanctioned_utxo(outpoint(5, 1), &sanctioned_script, 1_000)];
+        let map = build_outpoint_to_sanctioned_utxo_map(&utxos);
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2WPKH]);
+
+        let to_sanctioned = fake_tx(
+            &[outpoint(4, 0)],
+            &[(1_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(is_tx_sanctioned(&to_sanctioned, &map, &sanctioned));
+
+        let from_sanctioned = fake_tx(
+            &[outpoint(5, 1)],
+            &[(1_000, script_for_address(ADDRESS_P2TR))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(is_tx_sanctioned(&from_sanctioned, &map, &sanctioned));
+
+        let unrelated = fake_tx(
+            &[outpoint(4, 0)],
+            &[(1_000, script_for_address(ADDRESS_P2TR))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(!is_tx_sanctioned(&unrelated, &map, &sanctioned));
+    }
+
+    #[test]
+    fn test_tx_sanctioned_addresses() {
+        let from_script = script_for_address(ADDRESS_P2PKH);
+        let utxos = vec![sanctioned_utxo(outpoint(5, 1), &from_script, 1_000)];
+        let map = build_outpoint_to_sanctioned_utxo_map(&utxos);
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2WPKH]);
+
+        let tx = fake_tx(
+            &[outpoint(5, 1), outpoint(4, 0)],
+            &[
+                // the same sanctioned address twice
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+                (2_000, script_for_address(ADDRESS_P2WPKH)),
+                // and an address that is not sanctioned
+                (3_000, script_for_address(ADDRESS_P2TR)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+
+        // sorted, deduplicated and containing both the "to" and the "from" address
+        assert_eq!(
+            tx_sanctioned_addresses(&tx, &map, &sanctioned),
+            vec![ADDRESS_P2PKH.to_string(), ADDRESS_P2WPKH.to_string()]
+        );
+
+        let unrelated = fake_tx(
+            &[outpoint(4, 0)],
+            &[(1_000, script_for_address(ADDRESS_P2TR))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(tx_sanctioned_addresses(&unrelated, &map, &sanctioned).is_empty());
+    }
+
+    #[test]
+    fn test_is_tx_opreturn() {
+        let with_opreturn = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+                (0, op_return_script(20)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(is_tx_opreturn(&with_opreturn));
+
+        let without_opreturn = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(!is_tx_opreturn(&without_opreturn));
+
+        let without_outputs = fake_tx(&[outpoint(1, 0)], &[], 0, SEQUENCE_FINAL);
+        assert!(!is_tx_opreturn(&without_outputs));
+    }
 
     #[test]
     fn test_in_and_outputs_to_strings() {
