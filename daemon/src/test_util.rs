@@ -14,6 +14,9 @@ use miningpool_observer_shared::bitcoincore_rpc::json::{
     GetBlockTemplateResult, GetBlockTemplateResultTransaction, GetBlockTxFeesResult,
     GetBlockTxFeesResultTxidFee,
 };
+use miningpool_observer_shared::chrono;
+use miningpool_observer_shared::diesel::connection::Connection;
+use miningpool_observer_shared::diesel::pg::PgConnection;
 use miningpool_observer_shared::model as shared_model;
 
 use rawtx_rs::tx::TransactionSigops;
@@ -292,5 +295,91 @@ pub fn block(
             nonce: 0,
         },
         txdata,
+    }
+}
+
+static MIGRATE_TEST_DATABASE: std::sync::Once = std::sync::Once::new();
+
+/// Returns a database connection for the database integration tests, or None
+/// when no test database is configured. The connection is inside a test
+/// transaction, so nothing a test writes is committed.
+pub fn test_conn() -> Option<PgConnection> {
+    let url = match std::env::var("TEST_DATABASE_URL") {
+        Ok(url) => url,
+        Err(_) => {
+            println!("skipped: TEST_DATABASE_URL not set");
+            return None;
+        }
+    };
+
+    // Only one of the tests running in parallel may migrate the database.
+    MIGRATE_TEST_DATABASE.call_once(|| {
+        let mut conn =
+            PgConnection::establish(&url).expect("could not connect to the test database");
+        crate::db::run_migrations(&mut conn).expect("could not migrate the test database");
+    });
+
+    let mut conn = PgConnection::establish(&url).expect("could not connect to the test database");
+    conn.begin_test_transaction()
+        .expect("could not start a test transaction");
+    Some(conn)
+}
+
+/// Builds a block for the database tests. Blocks built with a different
+/// `hash_byte` have a different hash.
+pub fn new_block_fixture(hash_byte: u8, height: i32) -> shared_model::NewBlock {
+    let time = chrono::DateTime::from_timestamp(1_600_000_000, 0)
+        .expect("timestamp should be in range")
+        .naive_utc();
+    shared_model::NewBlock {
+        hash: vec![hash_byte; 32],
+        prev_hash: vec![hash_byte.wrapping_sub(1); 32],
+        height,
+        tags: vec![],
+        missing_tx: 1,
+        extra_tx: 2,
+        shared_tx: 3,
+        sanctioned_missing_tx: 0,
+        equality: 0.0,
+        block_time: time,
+        block_seen_time: time,
+        block_tx: 4,
+        block_sanctioned: 0,
+        block_cb_value: 625_000_000,
+        block_cb_fees: 1_000,
+        block_weight: 3_999_000,
+        block_pkg_weights: vec![1, 2],
+        block_pkg_feerates: vec![1.0, 2.0],
+        pool_name: "Unknown".to_string(),
+        pool_link: String::new(),
+        pool_id_method: String::new(),
+        template_tx: 5,
+        template_time: time,
+        template_sanctioned: 0,
+        template_cb_value: 625_000_000,
+        template_cb_fees: 1_000,
+        template_weight: 3_998_000,
+        template_pkg_weights: vec![3],
+        template_pkg_feerates: vec![3.0],
+        template_sigops: 100,
+        block_sigops: 110,
+    }
+}
+
+/// Builds a transaction for the database tests. Transactions built with a
+/// different `txid_byte` have a different txid.
+pub fn db_transaction_fixture(txid_byte: u8, tags: Vec<i32>) -> shared_model::Transaction {
+    shared_model::Transaction {
+        txid: vec![txid_byte; 32],
+        sanctioned: false,
+        vsize: 250,
+        fee: 1_000,
+        output_sum: 100_000,
+        tags,
+        input_count: 1,
+        inputs: vec!["1x P2WPKH".to_string()],
+        output_count: 2,
+        outputs: vec!["2x P2WPKH v0".to_string()],
+        sigops: 4,
     }
 }
