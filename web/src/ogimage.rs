@@ -394,6 +394,95 @@ impl From<usvg::Error> for ImageError {
 mod tests {
     use super::*;
     use crate::test_util::{missing_transaction_block_info_fixture, transaction_fixture};
+    use std::convert::TryInto;
+
+    const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'];
+
+    fn tag(color: &'static str) -> tags::Tag {
+        tags::Tag {
+            name: "Test Tag".to_string(),
+            description: vec!["A tag used in the tests.".to_string()],
+            color,
+            text_color: tags::WHITE,
+        }
+    }
+
+    #[test]
+    fn test_format_tag() {
+        assert_eq!(
+            format_tag(&tag(tags::CYAN)),
+            "<tspan fill=\"#00a6d6\">Test Tag</tspan>"
+        );
+        assert_eq!(
+            format_tag(&tag(tags::YELLOW)),
+            "<tspan fill=\"#FFA500\">Test Tag</tspan>"
+        );
+        assert_eq!(
+            format_tag(&tag(tags::RED)),
+            "<tspan fill=\"#cb2821\">Test Tag</tspan>"
+        );
+    }
+
+    #[test]
+    fn test_format_tag_falls_back_to_black() {
+        // Colors without a mapping are rendered black.
+        assert_eq!(
+            format_tag(&tag(tags::GRAY)),
+            "<tspan fill=\"#000000\">Test Tag</tspan>"
+        );
+        assert_eq!(
+            format_tag(&tag(tags::GREEN)),
+            "<tspan fill=\"#000000\">Test Tag</tspan>"
+        );
+    }
+
+    #[test]
+    fn test_render_and_encode() {
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">
+            <rect width="10" height="10" fill="#00a6d6"/>
+        </svg>"##;
+        let png = render_and_encode(svg, &usvg::Options::default()).unwrap();
+
+        assert_eq!(&png[..8], &PNG_SIGNATURE);
+        // The IHDR chunk starts at byte 8 and has the width and the height as
+        // big-endian u32 at byte 16 and 20.
+        assert_eq!(&png[12..16], b"IHDR");
+        assert_eq!(u32::from_be_bytes(png[16..20].try_into().unwrap()), 10);
+        assert_eq!(u32::from_be_bytes(png[20..24].try_into().unwrap()), 10);
+    }
+
+    #[test]
+    fn test_render_and_encode_malformed_svg() {
+        match render_and_encode("this is not an SVG", &usvg::Options::default()) {
+            Err(ImageError::UsvgError(_)) => (),
+            other => panic!("expected a UsvgError, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_render_and_encode_zero_sized_svg() {
+        // A zero-sized SVG would also make the Pixmap creation fail, but usvg
+        // already rejects it while parsing. Either way, this must not panic.
+        let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"></svg>"#;
+        match render_and_encode(svg, &usvg::Options::default()) {
+            Err(ImageError::UsvgError(usvg::Error::InvalidSize)) => (),
+            other => panic!("expected an InvalidSize error, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_image_error_display() {
+        let usvg_error = ImageError::from(usvg::Error::InvalidSize);
+        assert!(!usvg_error.to_string().is_empty());
+        assert!(!ImageError::PngEncodingError("oops".to_string())
+            .to_string()
+            .is_empty());
+        assert!(ImageError::PngEncodingError("oops".to_string())
+            .to_string()
+            .contains("oops"));
+        assert!(!ImageError::PixmapCreationError.to_string().is_empty());
+    }
+
     fn missing_transaction(tags: Vec<i32>) -> MissingTransaction {
         MissingTransaction {
             transaction: transaction_fixture(tags),
