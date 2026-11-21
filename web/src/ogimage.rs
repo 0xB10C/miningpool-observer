@@ -339,7 +339,10 @@ pub async fn ogimage_mainpage_index(
     }
 }
 
-fn render_and_encode(svg: &str, opts: &usvg::Options<'static>) -> Result<Vec<u8>, ImageError> {
+pub(crate) fn render_and_encode(
+    svg: &str,
+    opts: &usvg::Options<'static>,
+) -> Result<Vec<u8>, ImageError> {
     let rtree = usvg::Tree::from_str(svg, opts)?;
     let size = rtree.size().to_int_size();
     let mut pixmap = match Pixmap::new(size.width(), size.height()) {
