@@ -235,24 +235,504 @@ impl From<log::ParseLevelError> for ConfigError {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use std::fs;
+    use std::io::Write;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    const MINIMAL_DAEMON_CONFIG: &str = r#"
+        rpc_host = "127.0.0.1"
+        rpc_port = 8332
+        rpc_user = "user"
+        rpc_password = "password"
+        database_url = "postgres://user:password@localhost:5432/db"
+        log_level = "info"
+        retag_transactions = false
+
+        [prometheus]
+        enable = false
+        address = "127.0.0.1:23842"
+    "#;
+
+    const MINIMAL_WEB_CONFIG: &str = r#"
+        address = "127.0.0.1:8080"
+        database_url = "postgres://user:password@localhost:5432/db"
+        log_level = "info"
+        www_dir_path = "www"
+
+        [site]
+        title = "title"
+        footer = "footer"
+        base_url = "https://example.com"
+    "#;
+
+    /// A file in the temporary directory that is removed again when it goes
+    /// out of scope. Used as a stand-in for a Bitcoin Core .cookie file.
+    struct TempFile {
+        path: PathBuf,
+    }
+
+    impl TempFile {
+        fn new() -> TempFile {
+            static COUNTER: AtomicUsize = AtomicUsize::new(0);
+            let path = env::temp_dir().join(format!(
+                "miningpool-observer-test-cookie-{}-{}",
+                std::process::id(),
+                COUNTER.fetch_add(1, Ordering::SeqCst)
+            ));
+            let mut file =
+                fs::File::create(&path).expect("we should be able to create a temp file");
+            file.write_all(b"__cookie__:password")
+                .expect("we should be able to write to the temp file");
+            TempFile { path }
+        }
+    }
+
+    impl Drop for TempFile {
+        fn drop(&mut self) {
+            let _ = fs::remove_file(&self.path);
+        }
+    }
+
+    /// Prepends a top-level key to the minimal daemon config.
+    fn daemon_config_with(extra: &str) -> String {
+        format!("{}\n{}", extra, MINIMAL_DAEMON_CONFIG)
+    }
+
+    /// Appends a section to the minimal daemon config.
+    fn daemon_config_with_section(section: &str) -> String {
+        format!("{}\n{}", MINIMAL_DAEMON_CONFIG, section)
+    }
+
+    #[test]
+    fn minimal_daemon_config_parses() {
+        let config = parse_daemon_config(MINIMAL_DAEMON_CONFIG)
+            .expect("the minimal daemon config should parse");
+        assert_eq!(config.rpc_url, "http://127.0.0.1:8332");
+        assert_eq!(
+            config.database_url,
+            "postgres://user:password@localhost:5432/db"
+        );
+        assert_eq!(config.log_level, LevelFilter::Info);
+        assert!(!config.retag_transactions);
+        assert!(!config.prometheus.enable);
+        assert_eq!(config.prometheus.address, "127.0.0.1:23842");
+        match config.rpc_auth {
+            Auth::UserPass(user, password) => {
+                assert_eq!(user, "user");
+                assert_eq!(password, "password");
+            }
+            other => panic!("expected a user and password auth, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn daemon_config_rpc_url_uses_the_configured_host_and_port() {
+        let config = parse_daemon_config(
+            r#"
+            rpc_host = "node.example.com"
+            rpc_port = 18443
+            rpc_user = "user"
+            rpc_password = "password"
+            database_url = "postgres://localhost/db"
+            log_level = "info"
+            retag_transactions = true
+
+            [prometheus]
+            enable = true
+            address = "127.0.0.1:1234"
+        "#,
+        )
+        .expect("the daemon config should parse");
+        assert_eq!(config.rpc_url, "http://node.example.com:18443");
+        assert!(config.retag_transactions);
+        assert!(config.prometheus.enable);
+    }
+
+    #[test]
+    fn daemon_config_applies_the_defaults() {
+        let config = parse_daemon_config(MINIMAL_DAEMON_CONFIG)
+            .expect("the minimal daemon config should parse");
+        assert_eq!(
+            config.sanctioned_addresses_url,
+            DEFAULT_SANCTIONED_ADDRESSES_URL
+        );
+        assert_eq!(
+            config.pool_identification.dataset_url,
+            DEFAULT_POOL_IDENTIFICATOIN_DATASET_URL
+        );
+        assert_eq!(config.pool_identification.network, Network::Bitcoin);
+    }
+
+    #[test]
+    fn daemon_config_sanctioned_addresses_url_can_be_set() {
+        let config = parse_daemon_config(&daemon_config_with(
+            r#"sanctioned_addresses_url = "https://example.com/list.txt""#,
+        ))
+        .expect("the daemon config should parse");
+        assert_eq!(
+            config.sanctioned_addresses_url,
+            "https://example.com/list.txt"
+        );
+    }
+
+    #[test]
+    fn daemon_config_without_any_rpc_auth_is_rejected() {
+        let config = r#"
+            rpc_host = "127.0.0.1"
+            rpc_port = 8332
+            database_url = "postgres://localhost/db"
+            log_level = "info"
+            retag_transactions = false
+
+            [prometheus]
+            enable = false
+            address = "127.0.0.1:23842"
+        "#;
+        assert!(matches!(
+            parse_daemon_config(config),
+            Err(ConfigError::NoRpcAuth)
+        ));
+    }
+
+    #[test]
+    fn daemon_config_with_a_rpc_user_but_no_password_is_rejected() {
+        let config = r#"
+            rpc_host = "127.0.0.1"
+            rpc_port = 8332
+            rpc_user = "user"
+            database_url = "postgres://localhost/db"
+            log_level = "info"
+            retag_transactions = false
+
+            [prometheus]
+            enable = false
+            address = "127.0.0.1:23842"
+        "#;
+        assert!(matches!(
+            parse_daemon_config(config),
+            Err(ConfigError::NoRpcAuth)
+        ));
+    }
+
+    #[test]
+    fn daemon_config_with_a_rpc_password_but_no_user_is_rejected() {
+        let config = r#"
+            rpc_host = "127.0.0.1"
+            rpc_port = 8332
+            rpc_password = "password"
+            database_url = "postgres://localhost/db"
+            log_level = "info"
+            retag_transactions = false
+
+            [prometheus]
+            enable = false
+            address = "127.0.0.1:23842"
+        "#;
+        assert!(matches!(
+            parse_daemon_config(config),
+            Err(ConfigError::NoRpcAuth)
+        ));
+    }
+
+    #[test]
+    fn daemon_config_with_a_missing_cookie_file_is_rejected() {
+        let config = daemon_config_with(r#"rpc_cookie_file = "/this/path/does/not/exist/.cookie""#);
+        assert!(matches!(
+            parse_daemon_config(&config),
+            Err(ConfigError::CookieFileDoesNotExist)
+        ));
+    }
+
+    #[test]
+    fn daemon_config_with_an_existing_cookie_file_uses_it() {
+        let cookie_file = TempFile::new();
+        let config = daemon_config_with(&format!(
+            "rpc_cookie_file = {:?}",
+            cookie_file.path.display().to_string()
+        ));
+        let config = parse_daemon_config(&config).expect("the daemon config should parse");
+        match config.rpc_auth {
+            // The cookie file is used even though the minimal config also sets
+            // a rpc_user and a rpc_password.
+            Auth::CookieFile(path) => assert_eq!(path, cookie_file.path),
+            other => panic!("expected a cookie file auth, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn daemon_config_log_level_is_case_insensitive() {
+        let config = parse_daemon_config(
+            r#"
+            rpc_host = "127.0.0.1"
+            rpc_port = 8332
+            rpc_user = "user"
+            rpc_password = "password"
+            database_url = "postgres://localhost/db"
+            log_level = "INFO"
+            retag_transactions = false
+
+            [prometheus]
+            enable = false
+            address = "127.0.0.1:23842"
+        "#,
+        )
+        .expect("the daemon config should parse");
+        assert_eq!(config.log_level, LevelFilter::Info);
+    }
+
+    #[test]
+    fn daemon_config_with_an_invalid_log_level_is_rejected() {
+        let config = r#"
+            rpc_host = "127.0.0.1"
+            rpc_port = 8332
+            rpc_user = "user"
+            rpc_password = "password"
+            database_url = "postgres://localhost/db"
+            log_level = "shout"
+            retag_transactions = false
+
+            [prometheus]
+            enable = false
+            address = "127.0.0.1:23842"
+        "#;
+        assert!(matches!(
+            parse_daemon_config(config),
+            Err(ConfigError::InvalidLogLevel(_))
+        ));
+    }
+
+    #[test]
+    fn invalid_toml_is_rejected() {
+        assert!(matches!(
+            parse_daemon_config("this is not TOML"),
+            Err(ConfigError::TomlError(_))
+        ));
+        assert!(matches!(
+            parse_web_config("this is not TOML"),
+            Err(ConfigError::TomlError(_))
+        ));
+    }
+
+    #[test]
+    fn a_missing_required_field_is_rejected() {
+        // the rpc_host is missing
+        let config = r#"
+            rpc_port = 8332
+            rpc_user = "user"
+            rpc_password = "password"
+            database_url = "postgres://localhost/db"
+            log_level = "info"
+            retag_transactions = false
+
+            [prometheus]
+            enable = false
+            address = "127.0.0.1:23842"
+        "#;
+        assert!(matches!(
+            parse_daemon_config(config),
+            Err(ConfigError::TomlError(_))
+        ));
+    }
+
+    #[test]
+    fn pool_identification_network_is_case_insensitive() {
+        let config = parse_daemon_config(&daemon_config_with_section(
+            "[pool_identification]\nnetwork = \"Signet\"\n",
+        ))
+        .expect("the daemon config should parse");
+        assert_eq!(config.pool_identification.network, Network::Signet);
+    }
+
+    #[test]
+    fn pool_identification_section_is_read() {
+        let config = parse_daemon_config(&daemon_config_with_section(
+            "[pool_identification]\nnetwork = \"regtest\"\ndataset_url = \"https://example.com/pools.json\"\n",
+        ))
+        .expect("the daemon config should parse");
+        assert_eq!(config.pool_identification.network, Network::Regtest);
+        assert_eq!(
+            config.pool_identification.dataset_url,
+            "https://example.com/pools.json"
+        );
+    }
+
+    #[test]
+    fn the_misspelled_pool_identification_section_still_works() {
+        let config = parse_daemon_config(&daemon_config_with_section(
+            "[pool_identificatoin]\nnetwork = \"testnet\"\n",
+        ))
+        .expect("the daemon config should parse");
+        assert_eq!(config.pool_identification.network, Network::Testnet);
+    }
+
+    #[test]
+    fn pool_identification_section_falls_back_to_the_defaults() {
+        let config = parse_daemon_config(&daemon_config_with_section("[pool_identification]\n"))
+            .expect("the daemon config should parse");
+        assert_eq!(config.pool_identification.network, Network::Bitcoin);
+        assert_eq!(
+            config.pool_identification.dataset_url,
+            DEFAULT_POOL_IDENTIFICATOIN_DATASET_URL
+        );
+    }
+
+    #[test]
+    fn an_unknown_pool_identification_network_is_rejected() {
+        let config = daemon_config_with_section("[pool_identification]\nnetwork = \"mainnet\"\n");
+        match parse_daemon_config(&config) {
+            Err(ConfigError::InvalidNetwork(network)) => assert_eq!(network, "mainnet"),
+            other => panic!("expected an InvalidNetwork error, got {:?}", other.is_ok()),
+        }
+    }
+
+    #[test]
+    fn minimal_web_config_parses() {
+        let config =
+            parse_web_config(MINIMAL_WEB_CONFIG).expect("the minimal web config should parse");
+        assert_eq!(config.address, "127.0.0.1:8080");
+        assert_eq!(
+            config.database_url,
+            "postgres://user:password@localhost:5432/db"
+        );
+        assert_eq!(config.log_level, LevelFilter::Info);
+        assert_eq!(config.www_dir_path, "www");
+        assert_eq!(config.site.title, "title");
+        assert_eq!(config.site.footer, "footer");
+        assert_eq!(config.site.base_url, "https://example.com");
+        // debug_pages is optional and off by default
+        assert!(!config.debug_pages);
+    }
+
+    #[test]
+    fn web_config_debug_pages_can_be_enabled() {
+        let config = parse_web_config(&format!("debug_pages = true\n{}", MINIMAL_WEB_CONFIG))
+            .expect("the web config should parse");
+        assert!(config.debug_pages);
+        let config = parse_web_config(&format!("debug_pages = false\n{}", MINIMAL_WEB_CONFIG))
+            .expect("the web config should parse");
+        assert!(!config.debug_pages);
+    }
+
+    #[test]
+    fn web_config_with_an_invalid_log_level_is_rejected() {
+        let config = r#"
+            address = "127.0.0.1:8080"
+            database_url = "postgres://localhost/db"
+            log_level = "shout"
+            www_dir_path = "www"
+
+            [site]
+            title = "title"
+            footer = "footer"
+            base_url = "https://example.com"
+        "#;
+        assert!(matches!(
+            parse_web_config(config),
+            Err(ConfigError::InvalidLogLevel(_))
+        ));
+    }
+
+    #[test]
+    fn web_config_log_level_is_case_insensitive() {
+        let config = parse_web_config(
+            r#"
+            address = "127.0.0.1:8080"
+            database_url = "postgres://localhost/db"
+            log_level = "DEBUG"
+            www_dir_path = "www"
+
+            [site]
+            title = "title"
+            footer = "footer"
+            base_url = "https://example.com"
+        "#,
+        )
+        .expect("the web config should parse");
+        assert_eq!(config.log_level, LevelFilter::Debug);
+    }
+
+    #[test]
+    fn every_config_error_has_a_useful_message() {
+        let toml_error = match parse_daemon_config("not TOML") {
+            Err(ConfigError::TomlError(e)) => e,
+            _ => panic!("expected a TOML error"),
+        };
+        let log_level_error = LevelFilter::from_str("shout").unwrap_err();
+        let errors = vec![
+            ConfigError::CookieFileDoesNotExist,
+            ConfigError::NoRpcAuth,
+            ConfigError::InvalidLogLevel(log_level_error),
+            ConfigError::InvalidNetwork("mainnet".to_string()),
+            ConfigError::TomlError(toml_error),
+            ConfigError::ReadError(io::Error::new(io::ErrorKind::NotFound, "no such file")),
+        ];
+        for error in errors.iter() {
+            let message = error.to_string();
+            assert!(!message.is_empty(), "{:?} has an empty message", error);
+            // the message should be a sentence and not just the variant name
+            assert!(message.len() > 20, "{:?} has a very short message", error);
+        }
+        assert!(errors[0].to_string().contains("rpc_cookie_file"));
+        assert!(errors[1].to_string().contains("rpc_user"));
+        assert!(errors[2].to_string().contains("log level"));
+        let invalid_network = errors[3].to_string();
+        assert!(invalid_network.contains("mainnet"));
+        for valid in ["bitcoin", "testnet", "signet", "regtest"].iter() {
+            assert!(
+                invalid_network.contains(valid),
+                "the InvalidNetwork message should list '{}'",
+                valid
+            );
+        }
+        assert!(errors[4].to_string().contains("TOML"));
+        assert!(errors[5].to_string().contains("no such file"));
+    }
+
+    #[test]
+    fn config_errors_expose_their_source() {
+        use std::error::Error;
+
+        let log_level_error = LevelFilter::from_str("shout").unwrap_err();
+        assert!(ConfigError::InvalidLogLevel(log_level_error)
+            .source()
+            .is_some());
+        assert!(
+            ConfigError::ReadError(io::Error::new(io::ErrorKind::NotFound, "no such file"))
+                .source()
+                .is_some()
+        );
+        assert!(ConfigError::NoRpcAuth.source().is_none());
+        assert!(ConfigError::CookieFileDoesNotExist.source().is_none());
+        assert!(ConfigError::InvalidNetwork("mainnet".to_string())
+            .source()
+            .is_none());
+    }
 
     #[test]
     fn load_example_config() {
         use crate::config;
         use std::env;
 
+        // Note: env::set_var is process global. This should stay the only test
+        // using the CONFIG_FILE environment variable.
         const EXAMPLE_DAEMON_CONFIG: &str = "../daemon-config.toml.example";
         env::set_var(config::ENVVAR_CONFIG_FILE, EXAMPLE_DAEMON_CONFIG);
-        let _cfg = config::load_daemon_config().expect(&format!(
-            "We should be able to load the deamon config file '{}'",
-            EXAMPLE_DAEMON_CONFIG
-        ));
+        let cfg = config::load_daemon_config().unwrap_or_else(|e| {
+            panic!(
+                "We should be able to load the deamon config file '{}': {}",
+                EXAMPLE_DAEMON_CONFIG, e
+            )
+        });
+        assert_eq!(cfg.pool_identification.network, Network::Bitcoin);
 
         const EXAMPLE_WEB_CONFIG: &str = "../web-config.toml.example";
         env::set_var(config::ENVVAR_CONFIG_FILE, EXAMPLE_WEB_CONFIG);
-        let _cfg = config::load_web_config().expect(&format!(
-            "We should be able to load the web config file '{}'",
-            EXAMPLE_DAEMON_CONFIG
-        ));
+        let _cfg = config::load_web_config().unwrap_or_else(|e| {
+            panic!(
+                "We should be able to load the web config file '{}': {}",
+                EXAMPLE_WEB_CONFIG, e
+            )
+        });
     }
 }
