@@ -87,6 +87,8 @@ pub fn tx_info(tx: &Transaction, pos: i32, fee_sat: u64) -> TxInfo {
 pub const ADDRESS_P2WPKH: &str = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
 /// Mainnet Pay-to-Taproot address used in tests.
 pub const ADDRESS_P2TR: &str = "bc1p5cyxnuxmeuwuvkwfem96lqzszd02n6xdcjrs20cac6yqjjwudpxqkedrcr";
+/// Mainnet Pay-to-Public-Key-Hash address used in tests.
+pub const ADDRESS_P2PKH: &str = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
 
 /// Returns the script_pubkey of a mainnet address.
 pub fn script_for_address(address: &str) -> ScriptBuf {
@@ -95,9 +97,6 @@ pub fn script_for_address(address: &str) -> ScriptBuf {
         .assume_checked()
         .script_pubkey()
 }
-
-/// Mainnet Pay-to-Public-Key-Hash address used in tests.
-pub const ADDRESS_P2PKH: &str = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
 
 /// Returns an OP_RETURN script with a `payload_len` byte long payload.
 pub fn op_return_script(payload_len: usize) -> ScriptBuf {
