@@ -1160,7 +1160,7 @@ mod tests {
     use super::*;
     use crate::model::TxInfo;
     use crate::test_util::{
-        coinbase_tx, deser_tx, fake_tx, op_return_script, outpoint, sanctioned_utxo,
+        coinbase_tx, deser_tx, fake_tx, op_return_script, outpoint, reversed_txid, sanctioned_utxo,
         script_for_address, spend_of, tx_info, tx_with_vsize, ADDRESS_P2PKH, ADDRESS_P2TR,
         ADDRESS_P2WPKH, SEQUENCE_FINAL, SEQUENCE_LOCKTIME_ONLY, SEQUENCE_RBF,
     };
@@ -1862,6 +1862,94 @@ mod tests {
             0,
             SEQUENCE_FINAL,
         )
+    }
+
+    /// Builds a txid to TxInfo map and the set of its txids.
+    fn txinfo_map(infos: Vec<TxInfo>) -> HashMap<Txid, TxInfo> {
+        infos.into_iter().map(|i| (i.txid, i)).collect()
+    }
+
+    #[test]
+    fn test_build_transactions_only_in_block() {
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[], 101);
+        let map = txinfo_map(vec![tx_info(&tx_a, 3, 100), tx_info(&tx_b, 5, 200)]);
+        let txids: HashSet<&Txid> = map.keys().collect();
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let only_in_block = build_transactions_only_in_block(
+            42,
+            &txids,
+            &map,
+            &mut transactions,
+            &HashMap::new(),
+            &HashSet::new(),
+        );
+
+        assert_eq!(only_in_block.len(), 2);
+        // every transaction is also added to the transactions map, keyed by
+        // the reversed txid
+        assert_eq!(transactions.len(), 2);
+        assert!(transactions.contains_key(&reversed_txid(&tx_a)));
+        assert!(transactions.contains_key(&reversed_txid(&tx_b)));
+
+        let a = only_in_block
+            .iter()
+            .find(|t| t.transaction_txid == reversed_txid(&tx_a))
+            .unwrap();
+        assert_eq!(a.block_id, 42);
+        // the position is taken from the TxInfo
+        assert_eq!(a.position, 3);
+
+        let b = only_in_block
+            .iter()
+            .find(|t| t.transaction_txid == reversed_txid(&tx_b))
+            .unwrap();
+        assert_eq!(b.position, 5);
+    }
+
+    #[test]
+    fn test_build_transactions_only_in_template() {
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[], 101);
+        let map = txinfo_map(vec![tx_info(&tx_a, 3, 100), tx_info(&tx_b, 5, 200)]);
+        let txids: HashSet<&Txid> = map.keys().collect();
+
+        // the mempool age is only known for one of the two transactions
+        let mut mempool_ages: HashMap<Txid, i32> = HashMap::new();
+        mempool_ages.insert(tx_a.compute_txid(), 1337);
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let only_in_template = build_transactions_only_in_template(
+            42,
+            &txids,
+            &map,
+            &mempool_ages,
+            &mut transactions,
+            &HashMap::new(),
+            &HashSet::new(),
+        );
+
+        assert_eq!(only_in_template.len(), 2);
+        assert_eq!(transactions.len(), 2);
+        assert!(transactions.contains_key(&reversed_txid(&tx_a)));
+        assert!(transactions.contains_key(&reversed_txid(&tx_b)));
+
+        let a = only_in_template
+            .iter()
+            .find(|t| t.transaction_txid == reversed_txid(&tx_a))
+            .unwrap();
+        assert_eq!(a.block_id, 42);
+        assert_eq!(a.position, 3);
+        assert_eq!(a.mempool_age_seconds, 1337);
+
+        let b = only_in_template
+            .iter()
+            .find(|t| t.transaction_txid == reversed_txid(&tx_b))
+            .unwrap();
+        assert_eq!(b.position, 5);
+        // an unknown mempool age defaults to -1
+        assert_eq!(b.mempool_age_seconds, -1);
     }
 
     #[test]

@@ -196,3 +196,14 @@ pub fn spend_of(tx: &Transaction, vout: u32) -> OutPoint {
         vout,
     }
 }
+
+/// Returns the txid of a transaction in display (reversed) byte order, which
+/// is how the database stores it.
+pub fn reversed_txid(tx: &Transaction) -> Vec<u8> {
+    tx.compute_txid()
+        .to_byte_array()
+        .iter()
+        .rev()
+        .cloned()
+        .collect()
+}
