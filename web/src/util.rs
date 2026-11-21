@@ -377,7 +377,8 @@ mod tests {
             sigops["name"],
             tera::to_value("Close to Sigop Limit").unwrap()
         );
-        assert_eq!(sigops["color"], tera::to_value(tags::CYAN).unwrap());
+        assert_eq!(sigops["color"], tera::to_value(tags::YELLOW).unwrap());
+        assert_eq!(sigops["text_color"], tera::to_value(tags::BLACK).unwrap());
     }
 
     #[test]
