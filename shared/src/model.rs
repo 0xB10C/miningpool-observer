@@ -206,3 +206,54 @@ pub struct DebugTemplateSelectionInfo {
 pub struct SanctionedAddress {
     pub address: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::hash_map::DefaultHasher;
+
+    fn transaction_with(txid: Vec<u8>, vsize: i32) -> Transaction {
+        Transaction {
+            txid,
+            sanctioned: false,
+            vsize,
+            fee: 1000,
+            output_sum: 100_000,
+            tags: vec![],
+            input_count: 1,
+            inputs: vec!["input".to_string()],
+            output_count: 1,
+            outputs: vec!["output".to_string()],
+            sigops: 1,
+        }
+    }
+
+    fn hash_of(transaction: &Transaction) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        transaction.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    #[test]
+    fn transactions_are_hashed_by_their_txid() {
+        let a = transaction_with(vec![0x11; 32], 100);
+        let mut b = transaction_with(vec![0x11; 32], 250);
+        b.sanctioned = true;
+        b.fee = 7;
+        b.output_sum = 7;
+        b.tags = vec![1, 2, 3];
+        b.sigops = 99;
+        assert_eq!(
+            hash_of(&a),
+            hash_of(&b),
+            "two transactions with the same txid should hash the same"
+        );
+
+        let c = transaction_with(vec![0x22; 32], 100);
+        assert_ne!(
+            hash_of(&a),
+            hash_of(&c),
+            "two transactions with a different txid should hash differently"
+        );
+    }
+}
