@@ -157,7 +157,7 @@ impl TxTag {
             },
             TxTag::Multisig => {
                 Tag {
-                    name: "Mulitisig spending".to_string(),
+                    name: "Multisig spending".to_string(),
                     description: vec!["The transaction has at least one input spending a MultiSig script.".to_string()],
                     color: GRAY,
                     text_color: WHITE,
@@ -167,7 +167,7 @@ impl TxTag {
                 Tag {
                     name: "RBF signaling".to_string(),
                     description: vec![
-                        "The transaction signal explicit Replace-By-Fee replaceability.".to_string(),
+                        "The transaction signals explicit Replace-By-Fee replaceability.".to_string(),
                         "This means the sender can replace the transaction as long as it is unconfirmed.".to_string(),
                         r#"
                         <ul>
@@ -285,7 +285,7 @@ impl TxTag {
             TxTag::HighFeerate => {
                 Tag {
                     name: "High-Feerate".to_string(),
-                    description: vec![format!("The transaction has a feerate higher than {} sat/vByte.", THRESHOLD_FEERATE_CONSIDERED_HIGH)],
+                    description: vec![format!("The transaction has a feerate of {} sat/vByte or higher.", THRESHOLD_FEERATE_CONSIDERED_HIGH)],
                     color: YELLOW,
                     text_color: BLACK,
                 }
@@ -362,8 +362,8 @@ impl TxTag {
                             "The transaction conflicts with a transaction from the other set.".to_string(),
                             "If this transaction is in a template, then it conflicts with a transaction in the block.".to_string(),
                             "If this transaction is in a block, then it conflicts with a transaction in the template.".to_string(),
-                            "A conflicting tranasction <i>could</i> indicate an attempted zero-confirmation double-spend attack.".to_string(),
-                            "For example, a mallicius party could have sent two conflicting transactions to a merchant and a mining pool.".to_string(),
+                            "A conflicting transaction <i>could</i> indicate an attempted zero-confirmation double-spend attack.".to_string(),
+                            "For example, a malicious party could have sent two conflicting transactions to a merchant and a mining pool.".to_string(),
                             "<b>Note:</b> This should not be confused with a protocol-level double-spend where conflicting transactions are accepted into the chain".to_string(),
                         ],
                     color: RED,
