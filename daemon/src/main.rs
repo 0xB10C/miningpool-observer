@@ -1634,4 +1634,39 @@ mod tests {
     fn test_get_user_pass_without_auth() {
         assert_eq!(get_user_pass(&Auth::None).unwrap(), (None, None));
     }
+
+    #[test]
+    fn test_update_error_messages_show_the_cause() {
+        let errors: Vec<Box<dyn std::error::Error>> = vec![
+            Box::new(UpdateSanctionedAddressesError::HTTP(
+                "list returned: 404 Not Found".to_string(),
+            )),
+            Box::new(UpdateSanctionedAddressesError::DBPool(
+                "pool timed out".to_string(),
+            )),
+            Box::new(UpdateSanctionedAddressesError::from(
+                diesel::result::Error::NotFound,
+            )),
+            Box::new(UpdatePoolIdentificationDatasetError::HTTP(
+                "dataset returned: 500 Internal Server Error".to_string(),
+            )),
+            Box::new(UpdatePoolIdentificationDatasetError::from(
+                serde_json::from_str::<Vec<Pool>>("not json").unwrap_err(),
+            )),
+        ];
+        for error in errors {
+            assert!(!error.to_string().is_empty(), "{:?}", error);
+        }
+
+        assert_eq!(
+            UpdateSanctionedAddressesError::HTTP("list returned: 404 Not Found".to_string())
+                .to_string(),
+            "list returned: 404 Not Found"
+        );
+        assert_eq!(
+            UpdatePoolIdentificationDatasetError::HTTP("dataset returned: 500".to_string())
+                .to_string(),
+            "dataset returned: 500"
+        );
+    }
 }
