@@ -11,6 +11,8 @@ use std::thread;
 use prometheus::Encoder;
 
 const LOG_TARGET: &str = "prometheus_metric_server";
+// The content type of the Prometheus text exposition format.
+const CONTENT_TYPE: &str = "text/plain; version=0.0.4; charset=utf-8";
 
 // This is a minimal, single-threaded, and incorrect HTTP server
 // which answers on all requests with prometheus metrics.
@@ -59,7 +61,8 @@ fn handle_request(mut stream: TcpStream) -> Result<(), RequestHandlingError> {
     output_buffer.clear();
 
     let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+        "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\n\r\n{}",
+        CONTENT_TYPE,
         contents.len(),
         contents
     );
