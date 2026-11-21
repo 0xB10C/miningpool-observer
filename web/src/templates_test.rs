@@ -138,6 +138,20 @@ fn test_render_templates_and_blocks_without_packages() {
     assert!(rendered.contains("last package feerate"));
 }
 
+#[test]
+fn test_render_templates_and_blocks_pluralizes_the_transaction_counts() {
+    let mut block = block_fixture();
+    block.missing_tx = 1;
+    block.shared_tx = 2;
+    block.extra_tx = 1;
+
+    let ctx = templates_and_blocks_context(vec![block], 1, 0, "");
+    let rendered = render("templates_and_blocks.html", &ctx);
+
+    assert!(rendered.contains("1&nbsp;missing transaction<"), "missing");
+    assert!(rendered.contains("2&nbsp;shared transactions<"), "shared");
+    assert!(rendered.contains("1&nbsp;extra transaction<"), "extra");
+}
 fn block_with_tx_context(block_with_tx: BlockWithTx, sanctioned_missing: usize) -> tera::Context {
     let mut ctx = base_context();
     ctx.insert(
