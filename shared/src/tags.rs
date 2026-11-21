@@ -447,8 +447,8 @@ impl BlockTag {
                     THRESHOLD_SIGOP_LIMIT_CLOSE, SIGOP_LIMIT
                 )
                 .to_string()],
-                color: CYAN,
-                text_color: WHITE,
+                color: YELLOW,
+                text_color: BLACK,
             },
             BlockTag::TaprootSignaling => Tag {
                 name: "Taproot Signaling".to_string(),
@@ -464,6 +464,20 @@ impl BlockTag {
 mod tests {
     use super::*;
     use std::collections::HashSet;
+
+    /// The severity of a tag is encoded in its id. This maps the id range to
+    /// the color the tag is expected to be displayed in.
+    fn expected_color_for_id(id: i32) -> BootstrapColor {
+        match id {
+            1000..=1999 => RED,
+            2000..=2999 => YELLOW,
+            3000..=3999 => CYAN,
+            4000..=4999 => GRAY,
+            _ => panic!("tag id {} is not in a known severity range", id),
+        }
+    }
+
+    #[test]
 
     fn tx_tags_round_trip_through_i32() {
         for tag in TxTag::TX_TAGS.iter() {
@@ -535,6 +549,46 @@ mod tests {
                 "the unknown tag id {} should not convert into a BlockTag",
                 id
             );
+        }
+    }
+
+    #[test]
+    fn tx_tag_colors_match_their_severity_range() {
+        for tag in TxTag::TX_TAGS.iter() {
+            let id = *tag as i32;
+            assert_eq!(
+                tag.value().color,
+                expected_color_for_id(id),
+                "the color of the TxTag {:?} does not match its severity range",
+                tag
+            );
+        }
+    }
+
+    #[test]
+    fn block_tag_colors_match_their_severity_range() {
+        for tag in BlockTag::BLOCK_TAGS.iter() {
+            let id = *tag as i32;
+            assert_eq!(
+                tag.value().color,
+                expected_color_for_id(id),
+                "the color of the BlockTag {:?} does not match its severity range",
+                tag
+            );
+        }
+    }
+
+    #[test]
+    fn warning_tags_use_black_text() {
+        for tag in TxTag::TX_TAGS.iter() {
+            if (*tag as i32) / 1000 == 2 {
+                assert_eq!(tag.value().text_color, BLACK, "TxTag {:?}", tag);
+            }
+        }
+        for tag in BlockTag::BLOCK_TAGS.iter() {
+            if (*tag as i32) / 1000 == 2 {
+                assert_eq!(tag.value().text_color, BLACK, "BlockTag {:?}", tag);
+            }
         }
     }
 
