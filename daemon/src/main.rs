@@ -39,6 +39,8 @@ mod db;
 mod metrics;
 mod model;
 mod processing;
+#[cfg(test)]
+mod test_util;
 
 const WAIT_TIME_BETWEEN_TEMPLATE_QUERIES: time::Duration = time::Duration::from_secs(10);
 const WAIT_TIME_BETWEEN_CONNPOOL_GETCONNECTION: time::Duration = time::Duration::from_secs(1);
