@@ -971,31 +971,10 @@ pub fn build_conflicting_transactions(
                     conflicting_outpoints: RefCell::new(vec![*co]),
                 });
             }
-            1 => {
-                let c = existing_conficts_with_these_transactions.first().unwrap(); // We can unwrap here as we know there is a first (as there is exactly 1)
-
-                if !c
-                    .template_transactions
-                    .borrow()
-                    .contains(template_transaction)
-                {
-                    c.template_transactions
-                        .borrow_mut()
-                        .push((*template_transaction).clone());
-                }
-
-                if !c.block_transactions.borrow().contains(block_transaction) {
-                    c.block_transactions
-                        .borrow_mut()
-                        .push((*block_transaction).clone());
-                }
-
-                if !c.conflicting_outpoints.borrow().contains(co) {
-                    c.conflicting_outpoints.borrow_mut().push(*co);
-                }
-            }
+            // Merge the conflicts the transactions already appear in, the two
+            // transactions and the outpoint into the first of the conflicts.
             _ => {
-                let c = existing_conficts_with_these_transactions.first().unwrap(); // We can unwrap here as we know there are multiple
+                let c = existing_conficts_with_these_transactions.first().unwrap(); // We can unwrap here as we know there is at least one
 
                 let mut new_template_transactions: Vec<TxInfo> =
                     vec![(*template_transaction).clone()];
@@ -2271,6 +2250,37 @@ mod tests {
                 expected
             });
             assert_eq!(transactions.len(), 4);
+        }
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_are_stored_in_a_stable_order() {
+        // The conflicting outpoints are iterated in an arbitrary order, but
+        // what ends up in the database must not depend on that order.
+        let mut previous: Option<(Vec<Vec<u8>>, Vec<Vec<u8>>, Vec<i32>)> = None;
+        for _ in 0..20 {
+            let template_tx = spending(&[outpoint(1, 0), outpoint(2, 0), outpoint(3, 0)], 10_000);
+            let block_tx1 = spending(&[outpoint(1, 0)], 20_000);
+            let block_tx2 = spending(&[outpoint(2, 0)], 30_000);
+            let block_tx3 = spending(&[outpoint(3, 0)], 40_000);
+
+            let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+            let sets = conflict_sets(
+                &[&template_tx],
+                &[&block_tx1, &block_tx2, &block_tx3],
+                &mut transactions,
+            );
+
+            assert_eq!(sets.len(), 1);
+            let current = (
+                sets[0].block_txids.clone(),
+                sets[0].conflicting_outpoints_txids.clone(),
+                sets[0].conflicting_outpoints_vouts.clone(),
+            );
+            if let Some(previous) = &previous {
+                assert_eq!(&current, previous);
+            }
+            previous = Some(current);
         }
     }
 
