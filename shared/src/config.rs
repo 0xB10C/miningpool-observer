@@ -27,7 +27,10 @@ struct DaemonTomlConfig {
     retag_transactions: bool,
     prometheus: PrometheusConfig,
     sanctioned_addresses_url: Option<String>,
-    pool_identificatoin: Option<PoolIdentificationTomlConfig>,
+    // The option used to be spelled "pool_identificatoin". The alias keeps
+    // configuration files using the misspelled name working.
+    #[serde(alias = "pool_identificatoin")]
+    pool_identification: Option<PoolIdentificationTomlConfig>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -119,7 +122,7 @@ pub fn parse_daemon_config(toml_str: &str) -> Result<DaemonConfig, ConfigError> 
         sanctioned_addresses_url: config
             .sanctioned_addresses_url
             .unwrap_or(DEFAULT_SANCTIONED_ADDRESSES_URL.to_string()),
-        pool_identification: config.pool_identificatoin.unwrap_or_default().into(),
+        pool_identification: config.pool_identification.unwrap_or_default().into(),
     })
 }
 
