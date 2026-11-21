@@ -56,4 +56,7 @@ cargo mutants -p miningpool-observer-daemon
 cargo mutants -p miningpool-observer-web
 ```
 
-Results are written to `mutants.out/`.
+Results are written to `mutants.out/`. cargo-mutants builds each mutant in a
+copy of the source tree under `$TMPDIR`. If `/tmp` lives in memory, point
+`TMPDIR` at a directory on disk and limit `--jobs`, otherwise the parallel
+builds can run the machine out of memory.
