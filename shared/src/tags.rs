@@ -663,6 +663,24 @@ mod tests {
     }
 
     #[test]
+    fn thresholds_have_the_expected_values() {
+        // The thresholds end up in the tag descriptions and decide which
+        // transactions and blocks are tagged, so changing one is a visible
+        // change.
+        assert_eq!(COIN, 100_000_000);
+        assert_eq!(SIGOP_LIMIT, 80_000);
+        assert_eq!(THRESHOLD_TRANSACTION_CONSIDERED_LARGE, 2_500);
+        assert_eq!(THRESHOLD_FEERATE_CONSIDERED_HIGH, 1_000.0);
+        assert_eq!(THRESHOLD_OUTPUT_CONSIDERED_DUST, 1_000);
+        assert_eq!(THRESHOLD_VALUE_CONSIDERED_HIGH, 10_000_000_000);
+        assert_eq!(THRESHOLD_TRANSACTION_CONSIDERED_YOUNG, 90);
+        assert_eq!(THRESHOLD_SIGOPS_CONSIDERED_MANY, 1_000);
+        assert_eq!(THRESHOLD_SIGOP_LIMIT_CLOSE, 70_000);
+        // 100 BTC
+        assert!(TxTag::HighValue.value().description[0].contains(" 100 BTC"));
+    }
+
+    #[test]
     fn tag_descriptions_mention_their_thresholds() {
         assert!(TxTag::Large.value().description[0]
             .contains(&THRESHOLD_TRANSACTION_CONSIDERED_LARGE.to_string()));
