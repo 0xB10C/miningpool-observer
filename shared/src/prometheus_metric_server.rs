@@ -2,6 +2,7 @@ use std::error;
 use std::fmt;
 use std::io;
 use std::io::{Read, Write};
+use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::net::TcpStream;
 use std::string::FromUtf8Error;
@@ -14,12 +15,13 @@ const LOG_TARGET: &str = "prometheus_metric_server";
 // This is a minimal, single-threaded, and incorrect HTTP server
 // which answers on all requests with prometheus metrics.
 
-pub fn start_http_server(prometheus_address: &str) -> Result<(), io::Error> {
+pub fn start_http_server(prometheus_address: &str) -> Result<SocketAddr, io::Error> {
     let listener = TcpListener::bind(prometheus_address)?;
+    let local_address = listener.local_addr()?;
     log::info!(
         target: LOG_TARGET,
         "Started Prometheus Metric Server. Listening on {}.",
-        prometheus_address
+        local_address
     );
     thread::spawn(move || {
         for incoming_request in listener.incoming() {
@@ -40,7 +42,7 @@ pub fn start_http_server(prometheus_address: &str) -> Result<(), io::Error> {
             };
         }
     });
-    Ok(())
+    Ok(local_address)
 }
 
 fn handle_request(mut stream: TcpStream) -> Result<(), RequestHandlingError> {
