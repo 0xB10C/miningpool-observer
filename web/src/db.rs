@@ -179,6 +179,44 @@ fn conflicting_transactions_data(
     })
 }
 
+/// Looks the transactions up by their txid. The txids of a conflicting
+/// transaction are stored as an array without a foreign key, so they can point
+/// to a transaction that isn't in the transaction table.
+fn transactions_by_txid(
+    txids: &[Vec<u8>],
+    txid_to_tx_map: &HashMap<Vec<u8>, &Transaction>,
+) -> Result<Vec<Transaction>, diesel::result::Error> {
+    txids
+        .iter()
+        .map(|txid| match txid_to_tx_map.get(txid) {
+            Some(tx) => Ok((*tx).clone()),
+            None => {
+                log::warn!(target: "db", "No transaction found for the txid {} of a conflicting transaction.", hex::encode(txid));
+                Err(diesel::result::Error::NotFound)
+            }
+        })
+        .collect()
+}
+
+fn conflicting_transaction_set(
+    ct: &ConflictingTransaction,
+    txid_to_tx_map: &HashMap<Vec<u8>, &Transaction>,
+) -> Result<ConflictingTransactionSet, diesel::result::Error> {
+    Ok(ConflictingTransactionSet {
+        template_transactions: transactions_by_txid(&ct.template_txids, txid_to_tx_map)?,
+        block_transactions: transactions_by_txid(&ct.block_txids, txid_to_tx_map)?,
+        conflicting_outpoints: ct
+            .conflicting_outpoints_txids
+            .iter()
+            .zip(&ct.conflicting_outpoints_vouts)
+            .map(|(txid, vout)| ConflictingOutpoint {
+                txid: txid.clone(),
+                vout: *vout,
+            })
+            .collect(),
+    })
+}
+
 pub fn blocks_with_conflicting_transactions(
     conn: &mut PgConnection,
     page: u32,
@@ -192,34 +230,14 @@ pub fn blocks_with_conflicting_transactions(
         .collect();
 
     for block in data.blocks {
-        let ct = data
+        let conflicting_transaction_sets = data
             .conflicting_transactions_info
             .iter()
-            .filter(|ct| ct.block_id == block.id);
+            .filter(|ct| ct.block_id == block.id)
+            .map(|ct| conflicting_transaction_set(ct, &txid_to_tx_map))
+            .collect::<Result<Vec<ConflictingTransactionSet>, diesel::result::Error>>()?;
         blocks_with_conflicting_transctions.push(ConflictingTranscationInfo {
-            conflicting_transaction_sets: ct
-                .map(|ct| ConflictingTransactionSet {
-                    template_transactions: ct
-                        .template_txids
-                        .iter()
-                        .map(|txid| (*txid_to_tx_map.get(txid).unwrap()).clone())
-                        .collect(),
-                    block_transactions: ct
-                        .block_txids
-                        .iter()
-                        .map(|txid| (*txid_to_tx_map.get(txid).unwrap()).clone())
-                        .collect(),
-                    conflicting_outpoints: ct
-                        .conflicting_outpoints_txids
-                        .iter()
-                        .zip(&ct.conflicting_outpoints_vouts)
-                        .map(|(txid, vout)| ConflictingOutpoint {
-                            txid: txid.clone(),
-                            vout: *vout,
-                        })
-                        .collect(),
-                })
-                .collect(),
+            conflicting_transaction_sets,
             block,
         })
     }
@@ -282,28 +300,8 @@ pub fn single_block_with_conflicting_transactions(
     let block_with_conflicting_transctions = ConflictingTranscationInfo {
         conflicting_transaction_sets: conflicting_transactions_info
             .iter()
-            .map(|ct| ConflictingTransactionSet {
-                template_transactions: ct
-                    .template_txids
-                    .iter()
-                    .map(|txid| (*txid_to_tx_map.get(txid).unwrap()).clone())
-                    .collect(),
-                block_transactions: ct
-                    .block_txids
-                    .iter()
-                    .map(|txid| (*txid_to_tx_map.get(txid).unwrap()).clone())
-                    .collect(),
-                conflicting_outpoints: ct
-                    .conflicting_outpoints_txids
-                    .iter()
-                    .zip(&ct.conflicting_outpoints_vouts)
-                    .map(|(txid, vout)| ConflictingOutpoint {
-                        txid: txid.clone(),
-                        vout: *vout,
-                    })
-                    .collect(),
-            })
-            .collect(),
+            .map(|ct| conflicting_transaction_set(ct, &txid_to_tx_map))
+            .collect::<Result<Vec<ConflictingTransactionSet>, diesel::result::Error>>()?,
         block,
     };
 

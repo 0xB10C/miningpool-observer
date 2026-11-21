@@ -358,6 +358,30 @@ fn test_single_block_with_conflicting_transactions() {
     ));
 }
 
+#[test]
+fn test_blocks_with_conflicting_transactions_with_an_unknown_transaction() {
+    let mut conn = conn_or_skip!();
+
+    // The txids in a conflicting_transactions row are a BYTEA[] without a
+    // foreign key, so they can point to a transaction that isn't (or isn't
+    // anymore) in the transaction table.
+    let block_id = insert_block(&mut conn, &new_block(1, 700_001, "Pool A"));
+    let template_txid = insert_transaction_n(&mut conn, 10);
+    insert_conflict(
+        &mut conn,
+        block_id,
+        vec![template_txid],
+        vec![hash_n(99)],
+        vec![(hash_n(200), 3)],
+    );
+
+    assert_not_found(db::blocks_with_conflicting_transactions(&mut conn, 0));
+    assert_not_found(db::single_block_with_conflicting_transactions(
+        &mut conn,
+        &hash_n(1),
+    ));
+}
+
 //##### MISSING TRANSACTIONS
 
 /// Inserts a block a transaction can be missing from. The transaction counts
