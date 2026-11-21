@@ -24,7 +24,7 @@ pub const BLACK: BootstrapColor = "dark";
 pub const WHITE: BootstrapColor = "white";
 // const LIGHT: BootstrapColor = "light";
 
-#[derive(Serialize, Eq, PartialEq, Hash)]
+#[derive(Serialize, Eq, PartialEq, Hash, Debug, Clone)]
 pub struct Tag {
     pub name: String,
     pub description: Vec<String>,
@@ -32,6 +32,7 @@ pub struct Tag {
     pub text_color: BootstrapColor,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TxTag {
     // the value is important for database backwards compatibilty
     // make sure to add new tag to the try_from fn below!
@@ -394,6 +395,7 @@ impl TxTag {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlockTag {
     // the value is important for database backwards compatibilty
     // make sure to add new tag to the try_from fn below!
@@ -455,5 +457,175 @@ impl BlockTag {
                 text_color: WHITE,
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    fn tx_tags_round_trip_through_i32() {
+        for tag in TxTag::TX_TAGS.iter() {
+            let id = *tag as i32;
+            assert_eq!(
+                TxTag::try_from(id),
+                Ok(*tag),
+                "the TxTag {:?} with id {} is missing from the TryFrom<i32> impl",
+                tag,
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn block_tags_round_trip_through_i32() {
+        for tag in BlockTag::BLOCK_TAGS.iter() {
+            let id = *tag as i32;
+            assert_eq!(
+                BlockTag::try_from(id),
+                Ok(*tag),
+                "the BlockTag {:?} with id {} is missing from the TryFrom<i32> impl",
+                tag,
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn tx_tag_ids_are_distinct() {
+        let mut seen: HashSet<i32> = HashSet::new();
+        for tag in TxTag::TX_TAGS.iter() {
+            let id = *tag as i32;
+            assert!(seen.insert(id), "the tag id {} is used twice", id);
+        }
+        assert_eq!(seen.len(), TxTag::TX_TAGS.len());
+    }
+
+    #[test]
+    fn block_tag_ids_are_distinct() {
+        let mut seen: HashSet<i32> = HashSet::new();
+        for tag in BlockTag::BLOCK_TAGS.iter() {
+            let id = *tag as i32;
+            assert!(seen.insert(id), "the tag id {} is used twice", id);
+        }
+        assert_eq!(seen.len(), BlockTag::BLOCK_TAGS.len());
+    }
+
+    #[test]
+    fn unknown_tx_tag_ids_are_rejected() {
+        // 3100 is a deprecated tag id that can be reused. Until it is reused,
+        // it must not be converted into a tag.
+        for id in [0, -1, 1, 3100, 2101, 4999, 9999, i32::MIN, i32::MAX] {
+            assert_eq!(
+                TxTag::try_from(id),
+                Err(()),
+                "the unknown tag id {} should not convert into a TxTag",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_block_tag_ids_are_rejected() {
+        for id in [0, -1, 1, 2101, 4100, 9999, i32::MIN, i32::MAX] {
+            assert_eq!(
+                BlockTag::try_from(id),
+                Err(()),
+                "the unknown tag id {} should not convert into a BlockTag",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn tx_tag_values_have_a_name_and_a_description() {
+        for tag in TxTag::TX_TAGS.iter() {
+            let value = tag.value();
+            assert!(!value.name.is_empty(), "TxTag {:?} has an empty name", tag);
+            assert!(
+                !value.description.is_empty(),
+                "TxTag {:?} has no description",
+                tag
+            );
+            for line in value.description.iter() {
+                assert!(
+                    !line.trim().is_empty(),
+                    "TxTag {:?} has an empty description line",
+                    tag
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn block_tag_values_have_a_name_and_a_description() {
+        for tag in BlockTag::BLOCK_TAGS.iter() {
+            let value = tag.value();
+            assert!(
+                !value.name.is_empty(),
+                "BlockTag {:?} has an empty name",
+                tag
+            );
+            assert!(
+                !value.description.is_empty(),
+                "BlockTag {:?} has no description",
+                tag
+            );
+            for line in value.description.iter() {
+                assert!(
+                    !line.trim().is_empty(),
+                    "BlockTag {:?} has an empty description line",
+                    tag
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn tx_tag_names_are_unique() {
+        let mut seen: HashSet<String> = HashSet::new();
+        for tag in TxTag::TX_TAGS.iter() {
+            let name = tag.value().name;
+            assert!(
+                seen.insert(name.clone()),
+                "the tag name '{}' is used twice",
+                name
+            );
+        }
+    }
+
+    #[test]
+    fn block_tag_names_are_unique() {
+        let mut seen: HashSet<String> = HashSet::new();
+        for tag in BlockTag::BLOCK_TAGS.iter() {
+            let name = tag.value().name;
+            assert!(
+                seen.insert(name.clone()),
+                "the tag name '{}' is used twice",
+                name
+            );
+        }
+    }
+
+    #[test]
+    fn tag_descriptions_mention_their_thresholds() {
+        assert!(TxTag::Large.value().description[0]
+            .contains(&THRESHOLD_TRANSACTION_CONSIDERED_LARGE.to_string()));
+        assert!(TxTag::HighFeerate.value().description[0]
+            .contains(&THRESHOLD_FEERATE_CONSIDERED_HIGH.to_string()));
+        assert!(TxTag::HighValue.value().description[0]
+            .contains(&(THRESHOLD_VALUE_CONSIDERED_HIGH / COIN).to_string()));
+        assert!(TxTag::ManySigops.value().description[0]
+            .contains(&THRESHOLD_SIGOPS_CONSIDERED_MANY.to_string()));
+        assert!(TxTag::DustOutput.value().description[0]
+            .contains(&THRESHOLD_OUTPUT_CONSIDERED_DUST.to_string()));
+        assert!(TxTag::Young.value().description[0]
+            .contains(&THRESHOLD_TRANSACTION_CONSIDERED_YOUNG.to_string()));
+        let sigops_limit_close = BlockTag::SigopsLimitClose.value();
+        assert!(
+            sigops_limit_close.description[0].contains(&THRESHOLD_SIGOP_LIMIT_CLOSE.to_string())
+        );
+        assert!(sigops_limit_close.description[0].contains(&SIGOP_LIMIT.to_string()));
     }
 }
