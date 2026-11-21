@@ -10,32 +10,36 @@ exclude_globs = [
     "daemon/src/db.rs",
     "daemon/src/metrics.rs",
     "web/src/db.rs",
+    "web/src/handler.rs",
     "shared/src/db_pool.rs",
     "shared/src/schema.rs",
 ]
 
+# Patterns are matched against the mutant description, which looks like
+# "daemon/src/main.rs:311:5: replace main_loop with ()" or
+# "daemon/src/main.rs:320:12: replace == with != in main_loop".
 exclude_re = [
-    # daemon: startup, RPC loops, and background threads
-    "daemon/src/main.rs.*fn main\\b",
-    "daemon/src/main.rs.*fn main_loop",
-    "daemon/src/main.rs.*fn process\\b",
-    "daemon/src/main.rs.*fn startup_db_mirgation",
-    "daemon/src/main.rs.*fn log_template_infos",
-    "daemon/src/main.rs.*fn scantxoutset_sanctioned_tx",
-    "daemon/src/main.rs.*fn start_.*_thread",
-    "daemon/src/main.rs.*fn retag_transactions",
-    "daemon/src/main.rs.*fn update_sanctioned_addresses",
-    "daemon/src/main.rs.*fn load_pool_identification_dataset",
-    "daemon/src/main.rs.*fn mempool_age_seconds",
-    "daemon/src/processing.rs.*fn log_processing_error",
+    # daemon: startup, RPC loops, background threads, and sleep durations
+    "daemon/src/main.rs.*\\bmain\\b",
+    "daemon/src/main.rs.*\\bmain_loop\\b",
+    "daemon/src/main.rs.*\\bprocess\\b",
+    "daemon/src/main.rs.*\\bstartup_db_mirgation\\b",
+    "daemon/src/main.rs.*\\blog_template_infos\\b",
+    "daemon/src/main.rs.*\\bscantxoutset_sanctioned_tx\\b",
+    "daemon/src/main.rs.*\\bstart_[a-z_]*_thread\\b",
+    "daemon/src/main.rs.*\\bretag_transactions\\b",
+    "daemon/src/main.rs.*\\bupdate_sanctioned_addresses\\b",
+    "daemon/src/main.rs.*\\bload_pool_identification_dataset\\b",
+    "daemon/src/main.rs.*\\bmempool_age_seconds\\b",
+    "daemon/src/main.rs.*\\b(WAIT_TIME|TIMEOUT)_[A-Z_]*\\b",
+    "daemon/src/processing.rs.*\\blog_processing_error\\b",
     # web: startup and request handlers that need a database
-    "web/src/main.rs.*fn main\\b",
-    "web/src/handler.rs",
-    "web/src/ogimage.rs.*fn ogimage_",
-    # shared: file loading wrappers around the parsers
-    "shared/src/config.rs.*fn load_daemon_config",
-    "shared/src/config.rs.*fn load_web_config",
-    "shared/src/prometheus_metric_server.rs.*fn start_http_server",
+    "web/src/main.rs.*\\bmain\\b",
+    "web/src/ogimage.rs.*\\bogimage_[a-z_]*\\b",
+    # shared: file loading wrappers around the parsers, and the server thread
+    "shared/src/config.rs.*\\bload_daemon_config\\b",
+    "shared/src/config.rs.*\\bload_web_config\\b",
+    "shared/src/prometheus_metric_server.rs.*\\bstart_http_server\\b",
 ]
 
 # Each mutant is built and tested from scratch, so give it some headroom.
