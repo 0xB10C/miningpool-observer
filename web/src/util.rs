@@ -154,6 +154,15 @@ mod tests {
         assert!(parse_uint(" 0 ").is_err());
         assert!(parse_uint(" 32").is_err());
         assert!(parse_uint("-1").is_err());
+        assert!(parse_uint("-32").is_err());
+
+        // leading zeros are fine
+        assert_eq!(parse_uint("007").unwrap(), 7);
+        assert_eq!(parse_uint("0000000000").unwrap(), 0);
+
+        // the whole u32 range is supported, but nothing beyond it
+        assert_eq!(parse_uint(&u32::MAX.to_string()).unwrap(), u32::MAX);
+        assert!(parse_uint(&(u32::MAX as u64 + 1).to_string()).is_err());
         assert!(parse_uint("99999999999999999999999").is_err());
     }
 
@@ -233,5 +242,163 @@ mod tests {
             parse_txid_str("00000000000000000000000000000iiiiiiiiii0000000000000000000000001")
                 .is_err()
         );
+    }
+
+    use tera::Function;
+
+    fn call_with(f: &dyn Function, key: &str, value: tera::Value) -> tera::Result<tera::Value> {
+        let mut args: HashMap<String, tera::Value> = HashMap::new();
+        args.insert(key.to_string(), value);
+        f.call(&args)
+    }
+
+    fn duration(seconds: i64) -> String {
+        let f = seconds_to_duration();
+        call_with(&f, "seconds", tera::to_value(seconds).unwrap())
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn test_seconds_to_duration() {
+        assert_eq!(duration(0), "0s");
+        assert_eq!(duration(1), "1s");
+        assert_eq!(duration(59), "59s");
+        assert_eq!(duration(60), "1m 0s");
+        assert_eq!(duration(61), "1m 1s");
+        assert_eq!(duration(3599), "59m 59s");
+        assert_eq!(duration(3600), "1h 0m 0s");
+        assert_eq!(duration(86399), "23h 59m 59s");
+        assert_eq!(duration(86400), "1d 0h 0m 0s");
+        assert_eq!(duration(90061), "1d 1h 1m 1s");
+        assert_eq!(duration(i32::MAX as i64), "24855d 3h 14m 7s");
+    }
+
+    #[test]
+    fn test_seconds_to_duration_negative_is_unknown() {
+        assert_eq!(duration(-1), "Unknown");
+        assert_eq!(duration(i32::MIN as i64), "Unknown");
+    }
+
+    #[test]
+    fn test_seconds_to_duration_invalid_args() {
+        let f = seconds_to_duration();
+
+        // not an i32
+        assert!(call_with(&f, "seconds", tera::to_value("60").unwrap()).is_err());
+        assert!(call_with(&f, "seconds", tera::to_value(1.5).unwrap()).is_err());
+        assert!(call_with(&f, "seconds", tera::to_value(i64::MAX).unwrap()).is_err());
+
+        // no 'seconds' argument at all
+        assert!(f.call(&HashMap::new()).is_err());
+        assert!(call_with(&f, "second", tera::to_value(60).unwrap()).is_err());
+    }
+
+    #[test]
+    fn test_tx_tag_id_to_tag() {
+        let f = tx_tag_id_to_tag();
+
+        let coinbase = call_with(
+            &f,
+            "id",
+            tera::to_value(tags::TxTag::Coinbase as i32).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(coinbase["name"], tera::to_value("Coinbase").unwrap());
+        assert_eq!(coinbase["color"], tera::to_value(tags::GRAY).unwrap());
+        assert_eq!(coinbase["text_color"], tera::to_value(tags::WHITE).unwrap());
+        assert!(!coinbase["description"].as_array().unwrap().is_empty());
+
+        let young =
+            call_with(&f, "id", tera::to_value(tags::TxTag::Young as i32).unwrap()).unwrap();
+        assert_eq!(young["name"], tera::to_value("Young").unwrap());
+        assert_eq!(young["color"], tera::to_value(tags::CYAN).unwrap());
+
+        let sanctioned = call_with(
+            &f,
+            "id",
+            tera::to_value(tags::TxTag::ToSanctioned as i32).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(sanctioned["name"], tera::to_value("To Sanctioned").unwrap());
+        assert_eq!(sanctioned["color"], tera::to_value(tags::RED).unwrap());
+        assert_eq!(
+            sanctioned["description"].as_array().unwrap().len(),
+            tags::TxTag::ToSanctioned.value().description.len()
+        );
+    }
+
+    #[test]
+    fn test_tx_tag_id_to_tag_invalid_args() {
+        let f = tx_tag_id_to_tag();
+
+        // 3100 is a deprecated tag id that can still be in the database
+        let err = call_with(&f, "id", tera::to_value(3100).unwrap()).unwrap_err();
+        assert!(err.to_string().contains("3100"), "{}", err);
+
+        let err = call_with(&f, "id", tera::to_value(-1).unwrap()).unwrap_err();
+        assert!(err.to_string().contains("-1"), "{}", err);
+
+        // not an i32
+        assert!(call_with(&f, "id", tera::to_value("4099").unwrap()).is_err());
+
+        // no 'id' argument at all
+        assert!(f.call(&HashMap::new()).is_err());
+        assert!(call_with(&f, "ID", tera::to_value(4099).unwrap()).is_err());
+    }
+
+    #[test]
+    fn test_block_tag_id_to_tag() {
+        let f = block_tag_id_to_tag();
+
+        let taproot = call_with(
+            &f,
+            "id",
+            tera::to_value(tags::BlockTag::TaprootSignaling as i32).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            taproot["name"],
+            tera::to_value("Taproot Signaling").unwrap()
+        );
+        assert_eq!(taproot["color"], tera::to_value(tags::CYAN).unwrap());
+        assert_eq!(taproot["text_color"], tera::to_value(tags::WHITE).unwrap());
+        assert!(!taproot["description"].as_array().unwrap().is_empty());
+
+        let sigops = call_with(
+            &f,
+            "id",
+            tera::to_value(tags::BlockTag::SigopsLimitClose as i32).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            sigops["name"],
+            tera::to_value("Close to Sigop Limit").unwrap()
+        );
+        assert_eq!(sigops["color"], tera::to_value(tags::CYAN).unwrap());
+    }
+
+    #[test]
+    fn test_block_tag_id_to_tag_invalid_args() {
+        let f = block_tag_id_to_tag();
+
+        let err = call_with(&f, "id", tera::to_value(1234).unwrap()).unwrap_err();
+        assert!(err.to_string().contains("1234"), "{}", err);
+
+        // a tx tag id is not a block tag id
+        assert!(call_with(
+            &f,
+            "id",
+            tera::to_value(tags::TxTag::Coinbase as i32).unwrap()
+        )
+        .is_err());
+
+        // not an i32
+        assert!(call_with(&f, "id", tera::to_value("3100").unwrap()).is_err());
+
+        // no 'id' argument at all
+        assert!(f.call(&HashMap::new()).is_err());
     }
 }
