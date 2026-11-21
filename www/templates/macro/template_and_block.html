@@ -84,7 +84,11 @@
         </div>
         {{ block::info_col(label="height", value=block.height, value_extra="") }}
         {{ block::info_col(label="coinbase reward", value=block.block_cb_value / 100000000, value_extra=" BTC") }}
-        {{ block::info_col(label="last package feerate", value=block.block_pkg_feerates | last | round(precision=2), value_extra=" sat/vByte") }}
+        {% if block.block_pkg_feerates | length > 0 %}
+            {{ block::info_col(label="last package feerate", value=block.block_pkg_feerates | last | round(precision=2), value_extra=" sat/vByte") }}
+        {% else %}
+            {{ block::info_col(label="last package feerate", value="unknown", value_extra="") }}
+        {% endif %}
         {{ block::info_col(label="weight", value= block.block_weight / 1000, value_extra="kWU") }}
         {% set var_fullness = (block.block_weight / 4000000) * 100 | round(precision=2) %}
         <div class="col">

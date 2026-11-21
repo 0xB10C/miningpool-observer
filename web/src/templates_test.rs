@@ -121,6 +121,23 @@ fn test_render_templates_and_blocks_without_blocks() {
     assert!(rendered.contains("No blocks in the database yet!"));
 }
 
+#[test]
+fn test_render_templates_and_blocks_without_packages() {
+    // A block without package weights and feerates. A template or block
+    // without transaction packages has empty arrays here.
+    let mut block = block_fixture();
+    block.block_pkg_weights = vec![];
+    block.block_pkg_feerates = vec![];
+    block.template_pkg_weights = vec![];
+    block.template_pkg_feerates = vec![];
+
+    let ctx = templates_and_blocks_context(vec![block], 1, 0, "");
+    let rendered = render("templates_and_blocks.html", &ctx);
+
+    assert!(rendered.contains(&block_hash_hex()));
+    assert!(rendered.contains("last package feerate"));
+}
+
 fn block_with_tx_context(block_with_tx: BlockWithTx, sanctioned_missing: usize) -> tera::Context {
     let mut ctx = base_context();
     ctx.insert(
