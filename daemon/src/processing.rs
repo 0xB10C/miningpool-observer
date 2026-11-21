@@ -1161,8 +1161,8 @@ mod tests {
     use crate::model::TxInfo;
     use crate::test_util::{
         coinbase_tx, deser_tx, fake_tx, op_return_script, outpoint, sanctioned_utxo,
-        script_for_address, tx_info, tx_with_vsize, ADDRESS_P2PKH, ADDRESS_P2TR, ADDRESS_P2WPKH,
-        SEQUENCE_FINAL, SEQUENCE_LOCKTIME_ONLY, SEQUENCE_RBF,
+        script_for_address, spend_of, tx_info, tx_with_vsize, ADDRESS_P2PKH, ADDRESS_P2TR,
+        ADDRESS_P2WPKH, SEQUENCE_FINAL, SEQUENCE_LOCKTIME_ONLY, SEQUENCE_RBF,
     };
     use bitcoin::locktime::absolute::LockTime;
     use bitcoin::{
@@ -1848,6 +1848,131 @@ mod tests {
         }
     }
 
+    /// Builds a transaction spending `parents` (vout 0 of each) plus, when
+    /// there is no parent, an outpoint unknown to the test.
+    fn child_of(parents: &[&Transaction], unrelated: u8) -> Transaction {
+        let inputs: Vec<OutPoint> = if parents.is_empty() {
+            vec![outpoint(unrelated, 0)]
+        } else {
+            parents.iter().map(|p| spend_of(p, 0)).collect()
+        };
+        fake_tx(
+            &inputs,
+            &[(10_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        )
+    }
+
+    #[test]
+    fn test_build_packages_without_transactions() {
+        assert!(build_packages(&[]).is_empty());
+    }
+
+    #[test]
+    fn test_build_packages_with_a_single_transaction() {
+        let tx = child_of(&[], 100);
+        let packages = build_packages(&[tx_info(&tx, 0, 1_000)]);
+
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].txns.len(), 1);
+        assert_eq!(packages[0].weight(), tx.weight().to_wu() as usize);
+    }
+
+    #[test]
+    fn test_build_packages_with_unrelated_transactions() {
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[], 101);
+
+        let packages = build_packages(&[tx_info(&tx_a, 0, 1_000), tx_info(&tx_b, 1, 2_000)]);
+
+        assert_eq!(packages.len(), 2);
+        // the packages are in the order the transactions were passed in
+        assert_eq!(packages[0].txns[0].txid, tx_a.compute_txid());
+        assert_eq!(packages[1].txns[0].txid, tx_b.compute_txid());
+        assert_eq!(packages[0].weight(), tx_a.weight().to_wu() as usize);
+        assert_eq!(packages[1].weight(), tx_b.weight().to_wu() as usize);
+    }
+
+    #[test]
+    fn test_build_packages_with_a_chain_of_transactions() {
+        // A <- B <- C
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[&tx_a], 0);
+        let tx_c = child_of(&[&tx_b], 0);
+
+        let packages = build_packages(&[
+            tx_info(&tx_a, 0, 1_000),
+            tx_info(&tx_b, 1, 1_000),
+            tx_info(&tx_c, 2, 1_000),
+        ]);
+
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].txns.len(), 3);
+        assert_eq!(
+            packages[0].weight(),
+            (tx_a.weight() + tx_b.weight() + tx_c.weight()).to_wu() as usize
+        );
+    }
+
+    #[test]
+    fn test_build_packages_with_sibling_transactions() {
+        // B and C both spend an output of A
+        let tx_a = child_of(&[], 100);
+        let tx_b = fake_tx(
+            &[spend_of(&tx_a, 0)],
+            &[(10_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        let tx_c = fake_tx(
+            &[spend_of(&tx_a, 0)],
+            &[(20_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+
+        let packages = build_packages(&[
+            tx_info(&tx_a, 0, 1_000),
+            tx_info(&tx_b, 1, 1_000),
+            tx_info(&tx_c, 2, 1_000),
+        ]);
+
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].txns.len(), 3);
+    }
+
+    #[test]
+    fn test_build_packages_with_a_parent_that_is_not_adjacent() {
+        // Bitcoin Core places the transactions of a package next to each
+        // other and build_packages assumes that. A child that is not next to
+        // its parent ends up in its own package.
+        let tx_a = child_of(&[], 100);
+        let tx_d = child_of(&[], 101);
+        let tx_b = child_of(&[&tx_a], 0);
+
+        let packages = build_packages(&[
+            tx_info(&tx_a, 0, 1_000),
+            tx_info(&tx_d, 1, 1_000),
+            tx_info(&tx_b, 2, 1_000),
+        ]);
+
+        assert_eq!(packages.len(), 3);
+    }
+
+    #[test]
+    fn test_build_packages_package_feerate() {
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[&tx_a], 0);
+
+        let packages = build_packages(&[tx_info(&tx_a, 0, 1_000), tx_info(&tx_b, 1, 3_000)]);
+
+        assert_eq!(packages.len(), 1);
+        assert_eq!(
+            packages[0].feerate(),
+            4_000f32 / (tx_a.vsize() + tx_b.vsize()) as f32
+        );
+    }
     #[test]
     fn test_build_packages() {
         #[derive(Debug)]

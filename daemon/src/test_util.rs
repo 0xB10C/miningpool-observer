@@ -188,3 +188,11 @@ pub fn tx_with_vsize(vsize: usize) -> Transaction {
     }
     panic!("could not build a transaction with a vsize of {}", vsize);
 }
+
+/// Returns the outpoint of an output of a transaction.
+pub fn spend_of(tx: &Transaction, vout: u32) -> OutPoint {
+    OutPoint {
+        txid: tx.compute_txid(),
+        vout,
+    }
+}
