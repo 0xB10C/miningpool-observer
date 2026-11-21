@@ -2325,6 +2325,255 @@ mod tests {
         assert_eq!(transactions.len(), 4);
     }
 
+    #[test]
+    fn test_build_newly_created_sanctioned_utxos() {
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2PKH]);
+        let sanctioned_script = script_for_address(ADDRESS_P2PKH);
+        let coinbase = coinbase_tx(
+            763_000,
+            b"/test/",
+            &[(625_000_000, script_for_address(ADDRESS_P2WPKH))],
+        );
+        let to_sanctioned = fake_tx(
+            &[outpoint(100, 0)],
+            &[
+                // an output that is not sanctioned and must be skipped
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+                (2_000, sanctioned_script.clone()),
+                (3_000, sanctioned_script.clone()),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        let unrelated = child_of(&[], 101);
+
+        let b = block(
+            vec![coinbase.clone(), to_sanctioned.clone(), unrelated],
+            0x2000_0000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+        );
+
+        let utxos = build_newly_created_sanctioned_utxos(&b, &sanctioned);
+
+        assert_eq!(utxos.len(), 2);
+        assert_eq!(utxos[0].txid, reversed_txid(&to_sanctioned));
+        assert_eq!(utxos[0].vout, 1);
+        assert_eq!(utxos[0].amount, 2_000);
+        assert_eq!(utxos[0].script_pubkey, sanctioned_script.to_bytes());
+        // the height is read from the BIP34 height push in the coinbase
+        assert_eq!(utxos[0].height, 763_000);
+        assert_eq!(utxos[1].vout, 2);
+        assert_eq!(utxos[1].amount, 3_000);
+
+        // without sanctioned addresses, there are no new sanctioned UTXOs
+        assert!(build_newly_created_sanctioned_utxos(&b, &HashSet::new()).is_empty());
+
+        // a block version below two has no BIP34 height
+        let b = block(
+            vec![coinbase, to_sanctioned],
+            1,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+        );
+        let utxos = build_newly_created_sanctioned_utxos(&b, &sanctioned);
+        assert_eq!(utxos.len(), 2);
+        assert_eq!(utxos[0].height, 0);
+    }
+
+    #[test]
+    fn test_build_sanctioned_transaction_infos() {
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2PKH]);
+        let sanctioned_script = script_for_address(ADDRESS_P2PKH);
+        let sanctioned_tx = |n: u8, value: u64| -> Transaction {
+            fake_tx(
+                &[outpoint(n, 0)],
+                &[(value, sanctioned_script.clone())],
+                0,
+                SEQUENCE_FINAL,
+            )
+        };
+
+        let in_both = sanctioned_tx(100, 10_000);
+        let only_template = sanctioned_tx(101, 20_000);
+        let only_block = sanctioned_tx(102, 30_000);
+        let not_sanctioned = child_of(&[], 103);
+
+        let block_tx_data = BlockTxData {
+            txids: vec![in_both.compute_txid(), only_block.compute_txid()]
+                .into_iter()
+                .collect(),
+            txid_to_txinfo_map: txinfo_map(vec![
+                tx_info(&in_both, 1, 100),
+                tx_info(&only_block, 2, 200),
+            ]),
+            txinfos: vec![],
+        };
+        let template_map = txinfo_map(vec![
+            tx_info(&in_both, 1, 100),
+            tx_info(&only_template, 2, 200),
+            tx_info(&not_sanctioned, 3, 300),
+        ]);
+        let template_txids: HashSet<Txid> = template_map.keys().cloned().collect();
+        let only_block_txid = only_block.compute_txid();
+        let txids_only_in_block: HashSet<&Txid> = vec![&only_block_txid].into_iter().collect();
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let infos = build_sanctioned_transaction_infos(
+            42,
+            &block_tx_data,
+            &template_txids,
+            &template_map,
+            &txids_only_in_block,
+            &HashMap::new(),
+            &sanctioned,
+            &mut transactions,
+        );
+
+        // the transaction that is not sanctioned is ignored
+        assert_eq!(infos.len(), 3);
+        assert_eq!(transactions.len(), 3);
+
+        let info_of = |tx: &Transaction| -> &shared_model::SanctionedTransactionInfo {
+            infos
+                .iter()
+                .find(|i| i.transaction_txid == reversed_txid(tx))
+                .unwrap()
+        };
+
+        assert_eq!(info_of(&in_both).block_id, 42);
+        assert!(info_of(&in_both).in_block);
+        assert!(info_of(&in_both).in_template);
+        assert_eq!(info_of(&in_both).addresses, vec![ADDRESS_P2PKH.to_string()]);
+
+        assert!(!info_of(&only_template).in_block);
+        assert!(info_of(&only_template).in_template);
+
+        assert!(info_of(&only_block).in_block);
+        assert!(!info_of(&only_block).in_template);
+    }
+
+    #[test]
+    fn test_get_sanctioned_missing_tx_count() {
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2PKH]);
+        let sanctioned_tx = fake_tx(
+            &[outpoint(100, 0)],
+            &[(10_000, script_for_address(ADDRESS_P2PKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        let other_tx = child_of(&[], 101);
+
+        let map = txinfo_map(vec![
+            tx_info(&sanctioned_tx, 1, 100),
+            tx_info(&other_tx, 2, 200),
+        ]);
+        let data = TemplateTxData {
+            txids: map.keys().cloned().collect(),
+            txid_to_txinfo_map: map,
+            txinfos: vec![],
+        };
+        let txids_only_in_template: HashSet<&Txid> = data.txid_to_txinfo_map.keys().collect();
+
+        assert_eq!(
+            get_sanctioned_missing_tx_count(
+                &txids_only_in_template,
+                &data,
+                &HashMap::new(),
+                &sanctioned
+            ),
+            1
+        );
+        assert_eq!(
+            get_sanctioned_missing_tx_count(
+                &txids_only_in_template,
+                &data,
+                &HashMap::new(),
+                &HashSet::new()
+            ),
+            0
+        );
+        assert_eq!(
+            get_sanctioned_missing_tx_count(&HashSet::new(), &data, &HashMap::new(), &sanctioned),
+            0
+        );
+    }
+
+    #[test]
+    fn test_build_debug_template_selection_infos() {
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[], 101);
+        let tx_c = child_of(&[], 102);
+
+        let mut templates: VecDeque<GetBlockTemplateResult> = VecDeque::new();
+        // the first template shares one transaction with the block
+        templates.push_back(template(
+            vec![template_tx(&tx_a, 1), template_tx(&tx_c, 3)],
+            800_000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+            0,
+        ));
+        // the second template shares both transactions with the block
+        templates.push_back(template(
+            vec![template_tx(&tx_a, 1), template_tx(&tx_b, 2)],
+            800_000,
+            1_600_000_060,
+            BlockHash::all_zeros(),
+            0,
+        ));
+
+        let block_txids: HashSet<Txid> = vec![tx_a.compute_txid(), tx_b.compute_txid()]
+            .into_iter()
+            .collect();
+
+        let infos =
+            build_debug_template_selection_infos(42, &templates, block_txids, 1_600_000_060);
+
+        assert_eq!(infos.len(), 2);
+
+        assert_eq!(infos[0].block_id, 42);
+        assert_eq!(infos[0].template_time.and_utc().timestamp(), 1_600_000_000);
+        assert_eq!(infos[0].count_shared, 1);
+        assert_eq!(infos[0].count_missing, 1);
+        assert_eq!(infos[0].count_extra, 1);
+        assert!(!infos[0].selected);
+
+        assert_eq!(infos[1].count_shared, 2);
+        assert_eq!(infos[1].count_missing, 0);
+        assert_eq!(infos[1].count_extra, 0);
+        assert!(infos[1].selected);
+    }
+
+    #[test]
+    fn test_retag_transaction() {
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2PKH]);
+        let tx = fake_tx(
+            &[outpoint(100, 0)],
+            &[(10_000, script_for_address(ADDRESS_P2PKH))],
+            500_000,
+            SEQUENCE_RBF,
+        );
+        assert_eq!(
+            retag_transaction(&tx, &tx_info(&tx, 0, 1_000), &sanctioned),
+            vec![
+                TxTag::ToSanctioned as i32,
+                TxTag::RbfSignaling as i32,
+                TxTag::LockByHeight as i32,
+            ]
+        );
+
+        // A transaction with a script_sig that can't be parsed has no tags.
+        let mut broken = tx;
+        // OP_PUSHBYTES_5 without the five bytes
+        broken.input[0].script_sig = ScriptBuf::from_bytes(vec![0x05, 0x01]);
+        assert!(RawTxInfo::new(&broken).is_err());
+        assert_eq!(
+            retag_transaction(&broken, &tx_info(&broken, 0, 1_000), &sanctioned),
+            Vec::<i32>::new()
+        );
+    }
+
     /// Calls build_block with fixed values for the counters and package data.
     fn build_test_block(
         b: &bitcoin::Block,
