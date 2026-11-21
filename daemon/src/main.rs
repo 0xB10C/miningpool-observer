@@ -42,13 +42,12 @@ mod processing;
 
 const WAIT_TIME_BETWEEN_TEMPLATE_QUERIES: time::Duration = time::Duration::from_secs(10);
 const WAIT_TIME_BETWEEN_CONNPOOL_GETCONNECTION: time::Duration = time::Duration::from_secs(1);
-const WAIT_TIME_BETWEEN_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 60 * 3); // 3 hours
-const WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 5); // 5 minutes
-const WAIT_TIME_BETWEEN_SANCTIONED_ADDRESS_UPDATES: time::Duration =
-    time::Duration::from_secs(60 * 60 * 24); // 1 day
+const WAIT_TIME_BETWEEN_UTXO_SET_SCANS: time::Duration = time::Duration::from_hours(3);
+const WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS: time::Duration = time::Duration::from_mins(5);
+const WAIT_TIME_BETWEEN_SANCTIONED_ADDRESS_UPDATES: time::Duration = time::Duration::from_hours(24);
 const WAIT_TIME_BETWEEN_POOL_IDENTIFICATOIN_DATASET_UPDATES: time::Duration =
-    time::Duration::from_secs(60 * 60 * 24); // 1 day
-const TIMEOUT_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 8); // 8 minutes
+    time::Duration::from_hours(24);
+const TIMEOUT_UTXO_SET_SCANS: time::Duration = time::Duration::from_mins(8);
 const MAX_OLD_TEMPLATES: usize = 15;
 const TIMEOUT_HTTP_GET_REQUEST: u64 = 10; // seconds
 
