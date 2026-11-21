@@ -1,15 +1,20 @@
 //! Helpers for building the test fixtures used by the unit tests.
 
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::str::FromStr;
 
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{
     consensus, hashes::Hash, locktime::absolute::LockTime, script, script::PushBytesBuf,
-    transaction::Version, Address, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut,
-    Txid, Witness,
+    transaction::Version, Address, Amount, BlockHash, OutPoint, ScriptBuf, Sequence, Transaction,
+    TxIn, TxOut, Txid, Witness,
 };
-
+use miningpool_observer_shared::bitcoincore_rpc::json::{
+    GetBlockTemplateResult, GetBlockTemplateResultTransaction,
+};
 use miningpool_observer_shared::model as shared_model;
+
+use rawtx_rs::tx::TransactionSigops;
 
 use crate::model::TxInfo;
 
@@ -206,4 +211,52 @@ pub fn reversed_txid(tx: &Transaction) -> Vec<u8> {
         .rev()
         .cloned()
         .collect()
+}
+
+/// Builds a block template transaction entry for a transaction.
+pub fn template_tx(tx: &Transaction, fee_sat: u64) -> GetBlockTemplateResultTransaction {
+    GetBlockTemplateResultTransaction {
+        txid: tx.compute_txid(),
+        wtxid: tx.compute_wtxid(),
+        raw_tx: consensus::serialize(tx),
+        fee: Amount::from_sat(fee_sat),
+        sigops: tx.sigops().unwrap_or_default() as u32,
+        weight: tx.weight().to_wu() as usize,
+        depends: vec![],
+    }
+}
+
+/// Builds a block template with sane defaults for the fields the daemon does
+/// not look at.
+pub fn template(
+    transactions: Vec<GetBlockTemplateResultTransaction>,
+    height: u64,
+    current_time: u64,
+    previous_block_hash: BlockHash,
+    coinbase_value_sat: u64,
+) -> GetBlockTemplateResult {
+    GetBlockTemplateResult {
+        bits: vec![0x17, 0x0f, 0x48, 0xe4],
+        previous_block_hash,
+        current_time,
+        height,
+        sigop_limit: 80_000,
+        size_limit: 4_000_000,
+        weight_limit: 4_000_000,
+        version: 0x2000_0000,
+        rules: vec![],
+        capabilities: vec![],
+        version_bits_available: HashMap::new(),
+        version_bits_required: 0,
+        longpollid: String::new(),
+        transactions,
+        signet_challenge: ScriptBuf::new(),
+        default_witness_commitment: ScriptBuf::new(),
+        coinbaseaux: HashMap::new(),
+        coinbase_value: Amount::from_sat(coinbase_value_sat),
+        target: vec![0u8; 32],
+        min_time: current_time,
+        mutable: vec![],
+        nonce_range: vec![0, 0, 0, 0],
+    }
 }

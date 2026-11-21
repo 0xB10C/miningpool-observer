@@ -662,14 +662,18 @@ pub fn build_template_tx_data(template: &GetBlockTemplateResult) -> TemplateTxDa
                 continue;
             }
         };
-        txids.insert(deser_tx.compute_txid());
+        // The txid is computed from the deserialized transaction. Using the
+        // txid from the RPC result here could make the map and the set of
+        // txids disagree.
+        let txid = deser_tx.compute_txid();
+        txids.insert(txid);
         let tx_info = TxInfo {
-            txid: deser_tx.compute_txid(),
+            txid,
             tx: deser_tx,
             pos: i as i32,
             fee: tx.fee,
         };
-        txid_to_txinfo_map.insert(tx.txid, tx_info.clone());
+        txid_to_txinfo_map.insert(txid, tx_info.clone());
         txinfos.push(tx_info);
     }
     TemplateTxData {
@@ -1140,10 +1144,11 @@ mod tests {
     use crate::model::TxInfo;
     use crate::test_util::{
         coinbase_tx, deser_tx, fake_tx, op_return_script, outpoint, reversed_txid, sanctioned_utxo,
-        script_for_address, spend_of, tx_info, tx_with_vsize, ADDRESS_P2PKH, ADDRESS_P2TR,
-        ADDRESS_P2WPKH, SEQUENCE_FINAL, SEQUENCE_LOCKTIME_ONLY, SEQUENCE_RBF,
+        script_for_address, spend_of, template, template_tx, tx_info, tx_with_vsize, ADDRESS_P2PKH,
+        ADDRESS_P2TR, ADDRESS_P2WPKH, SEQUENCE_FINAL, SEQUENCE_LOCKTIME_ONLY, SEQUENCE_RBF,
     };
     use bitcoin::locktime::absolute::LockTime;
+    use bitcoin::BlockHash;
     use bitcoin::{
         consensus, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
     };
@@ -2305,6 +2310,79 @@ mod tests {
             assert_eq!(set.conflicting_outpoints_txids.len(), 1);
         }
         assert_eq!(transactions.len(), 4);
+    }
+
+    #[test]
+    fn test_build_template_tx_data() {
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[], 101);
+        let t = template(
+            vec![template_tx(&tx_a, 111), template_tx(&tx_b, 222)],
+            800_000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+            300_000,
+        );
+
+        let data = build_template_tx_data(&t);
+
+        assert_eq!(data.txinfos.len(), 2);
+        assert_eq!(data.txids.len(), 2);
+        assert_eq!(data.txid_to_txinfo_map.len(), 2);
+
+        assert_eq!(data.txinfos[0].txid, tx_a.compute_txid());
+        assert_eq!(data.txinfos[0].pos, 0);
+        assert_eq!(data.txinfos[0].fee, Amount::from_sat(111));
+        assert_eq!(data.txinfos[1].pos, 1);
+        assert_eq!(data.txinfos[1].fee, Amount::from_sat(222));
+
+        assert!(data.txids.contains(&tx_b.compute_txid()));
+        assert!(data.txid_to_txinfo_map.contains_key(&tx_b.compute_txid()));
+    }
+
+    #[test]
+    fn test_build_template_tx_data_uses_the_computed_txid() {
+        let tx = child_of(&[], 100);
+        let mut entry = template_tx(&tx, 111);
+        // The txid from the RPC result is not used. The set of txids and the
+        // map must be keyed by the same, computed, txid.
+        entry.txid = Txid::from_byte_array([0xff; 32]);
+
+        let t = template(
+            vec![entry],
+            800_000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+            300_000,
+        );
+        let data = build_template_tx_data(&t);
+
+        assert!(data.txid_to_txinfo_map.contains_key(&tx.compute_txid()));
+        assert!(data.txids.contains(&tx.compute_txid()));
+        assert!(!data
+            .txid_to_txinfo_map
+            .contains_key(&Txid::from_byte_array([0xff; 32])));
+    }
+
+    #[test]
+    fn test_build_template_tx_data_skips_undeserializable_transactions() {
+        let tx = child_of(&[], 100);
+        let mut broken = template_tx(&tx, 111);
+        broken.raw_tx = vec![0x00, 0x01, 0x02];
+
+        let t = template(
+            vec![broken, template_tx(&tx, 222)],
+            800_000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+            300_000,
+        );
+        let data = build_template_tx_data(&t);
+
+        assert_eq!(data.txinfos.len(), 1);
+        // the position is still the index in the template
+        assert_eq!(data.txinfos[0].pos, 1);
+        assert_eq!(data.txinfos[0].fee, Amount::from_sat(222));
     }
 
     #[test]
