@@ -1163,10 +1163,12 @@ mod tests {
     use bitcoin::{
         consensus, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
     };
+    use bitcoin_pool_identification::Pool;
     use hex;
     use miningpool_observer_shared::tags::TxTag;
     use rawtx_rs::bitcoin::transaction::Version;
     use std::str::FromStr;
+    use std::sync::{Arc, Mutex};
 
     /// mainnet 4aba5c7fe256a9997aa93cab91f1c0405074b30b34b6a5c0bbde425322d40ee7
     /// spending a P2WPKH output
@@ -2321,6 +2323,332 @@ mod tests {
             assert_eq!(set.conflicting_outpoints_txids.len(), 1);
         }
         assert_eq!(transactions.len(), 4);
+    }
+
+    /// Calls build_block with fixed values for the counters and package data.
+    fn build_test_block(
+        b: &bitcoin::Block,
+        t: &GetBlockTemplateResult,
+        pools: Vec<Pool>,
+    ) -> shared_model::NewBlock {
+        let template_data = build_template_tx_data(t);
+        build_block(
+            b,
+            t,
+            &template_data.txid_to_txinfo_map,
+            &[11, 22],
+            &[1.5, 2.5],
+            &[33],
+            &[3.5],
+            4, // missing_tx
+            5, // sanctioned_missing_tx
+            6, // extra_tx
+            7, // shared_tx
+            &Amount::from_sat(1_111),
+            &Amount::from_sat(2_222),
+            &HashMap::new(),
+            &HashSet::new(),
+            Arc::new(Mutex::new(pools)),
+            Network::Bitcoin,
+        )
+    }
+
+    #[test]
+    fn test_build_block() {
+        let coinbase = coinbase_tx(
+            800_000,
+            b"/test/",
+            &[
+                (600_000_000, script_for_address(ADDRESS_P2WPKH)),
+                (25_000_000, script_for_address(ADDRESS_P2TR)),
+            ],
+        );
+        let shared = child_of(&[], 100);
+        let only_in_template = child_of(&[], 101);
+
+        let b = block(
+            vec![coinbase.clone(), shared.clone()],
+            0x2000_0000,
+            1_600_000_000,
+            BlockHash::from_byte_array([0x11; 32]),
+        );
+        let t = template(
+            vec![
+                template_tx(&shared, 111),
+                template_tx(&only_in_template, 222),
+            ],
+            800_000,
+            1_600_000_123,
+            b.header.prev_blockhash,
+            625_000_000,
+        );
+
+        let new_block = build_test_block(&b, &t, vec![]);
+
+        // the hashes are stored in display (reversed) byte order
+        assert_eq!(hex::encode(&new_block.hash), b.block_hash().to_string());
+        assert_eq!(
+            hex::encode(&new_block.prev_hash),
+            b.header.prev_blockhash.to_string()
+        );
+
+        assert_eq!(new_block.height, 800_000);
+        assert_eq!(new_block.missing_tx, 4);
+        assert_eq!(new_block.sanctioned_missing_tx, 5);
+        assert_eq!(new_block.extra_tx, 6);
+        assert_eq!(new_block.shared_tx, 7);
+
+        assert_eq!(new_block.block_tx, 2);
+        assert_eq!(new_block.block_weight, b.weight().to_wu() as i32);
+        assert_eq!(new_block.block_time.and_utc().timestamp(), 1_600_000_000);
+        assert_eq!(new_block.block_cb_value, 625_000_000);
+        assert_eq!(new_block.block_cb_fees, 1_111);
+        assert_eq!(new_block.block_pkg_weights, vec![33]);
+        assert_eq!(new_block.block_pkg_feerates, vec![3.5]);
+        assert_eq!(
+            new_block.block_sigops,
+            (coinbase.sigops().unwrap() + shared.sigops().unwrap()) as i64
+        );
+        assert_eq!(new_block.block_sanctioned, 0);
+
+        assert_eq!(new_block.template_tx, 2);
+        assert_eq!(new_block.template_time.and_utc().timestamp(), 1_600_000_123);
+        assert_eq!(new_block.template_cb_value, 625_000_000);
+        assert_eq!(new_block.template_cb_fees, 2_222);
+        assert_eq!(new_block.template_pkg_weights, vec![11, 22]);
+        assert_eq!(new_block.template_pkg_feerates, vec![1.5, 2.5]);
+        assert_eq!(
+            new_block.template_weight,
+            (shared.weight() + only_in_template.weight()).to_wu() as i32
+        );
+        assert_eq!(
+            new_block.template_sigops,
+            (shared.sigops().unwrap() + only_in_template.sigops().unwrap()) as i64
+        );
+        assert_eq!(new_block.template_sanctioned, 0);
+
+        assert_eq!(new_block.tags, Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_build_block_counts_sanctioned_transactions() {
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2PKH]);
+        let coinbase = coinbase_tx(
+            800_000,
+            b"/test/",
+            &[(625_000_000, script_for_address(ADDRESS_P2WPKH))],
+        );
+        let to_sanctioned = fake_tx(
+            &[outpoint(100, 0)],
+            &[(10_000, script_for_address(ADDRESS_P2PKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+
+        let b = block(
+            vec![coinbase, to_sanctioned.clone()],
+            0x2000_0000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+        );
+        let t = template(
+            vec![template_tx(&to_sanctioned, 111)],
+            800_000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+            625_000_000,
+        );
+        let template_data = build_template_tx_data(&t);
+
+        let new_block = build_block(
+            &b,
+            &t,
+            &template_data.txid_to_txinfo_map,
+            &[],
+            &[],
+            &[],
+            &[],
+            0,
+            0,
+            0,
+            0,
+            &Amount::ZERO,
+            &Amount::ZERO,
+            &HashMap::new(),
+            &sanctioned,
+            Arc::new(Mutex::new(vec![])),
+            Network::Bitcoin,
+        );
+
+        assert_eq!(new_block.block_sanctioned, 1);
+        assert_eq!(new_block.template_sanctioned, 1);
+    }
+
+    #[test]
+    fn test_build_block_taproot_signaling_tag() {
+        let coinbase = coinbase_tx(
+            800_000,
+            b"/test/",
+            &[(625_000_000, script_for_address(ADDRESS_P2WPKH))],
+        );
+        let t = template(
+            vec![],
+            800_000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+            625_000_000,
+        );
+
+        // bit 2 of the block version signals taproot
+        let signaling = block(
+            vec![coinbase.clone()],
+            0x2000_0004,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+        );
+        assert_eq!(
+            build_test_block(&signaling, &t, vec![]).tags,
+            vec![tags::BlockTag::TaprootSignaling as i32]
+        );
+
+        let not_signaling = block(
+            vec![coinbase],
+            0x2000_0000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+        );
+        assert_eq!(
+            build_test_block(&not_signaling, &t, vec![]).tags,
+            Vec::<i32>::new()
+        );
+    }
+
+    #[test]
+    fn test_build_block_sigops_limit_close_tag() {
+        // A bare OP_CHECKMULTISIG output script counts as 20 sigops, which are
+        // scaled by four.
+        let many_sigops_tx = |output_count: usize| -> Transaction {
+            let outputs: Vec<(u64, ScriptBuf)> = (0..output_count)
+                .map(|_| (1_000u64, ScriptBuf::from_bytes(vec![0xae])))
+                .collect();
+            fake_tx(&[outpoint(100, 0)], &outputs, 0, SEQUENCE_FINAL)
+        };
+        let coinbase = coinbase_tx(
+            800_000,
+            b"/test/",
+            &[(625_000_000, script_for_address(ADDRESS_P2WPKH))],
+        );
+        let t = template(
+            vec![],
+            800_000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+            625_000_000,
+        );
+
+        // exactly at the threshold, which is not yet close to the limit
+        let at_threshold = many_sigops_tx(tags::THRESHOLD_SIGOP_LIMIT_CLOSE as usize / 80);
+        assert_eq!(
+            at_threshold.sigops().unwrap() as u64,
+            tags::THRESHOLD_SIGOP_LIMIT_CLOSE
+        );
+        let b = block(
+            vec![coinbase.clone(), at_threshold],
+            0x2000_0000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+        );
+        assert_eq!(build_test_block(&b, &t, vec![]).tags, Vec::<i32>::new());
+
+        let above_threshold = many_sigops_tx(tags::THRESHOLD_SIGOP_LIMIT_CLOSE as usize / 80 + 1);
+        let b = block(
+            vec![coinbase, above_threshold],
+            0x2000_0000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+        );
+        assert_eq!(
+            build_test_block(&b, &t, vec![]).tags,
+            vec![tags::BlockTag::SigopsLimitClose as i32]
+        );
+    }
+
+    #[test]
+    fn test_build_block_pool_identification() {
+        let coinbase = coinbase_tx(
+            800_000,
+            b"/testpool/",
+            &[(625_000_000, script_for_address(ADDRESS_P2WPKH))],
+        );
+        let b = block(
+            vec![coinbase],
+            0x2000_0000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+        );
+        let t = template(
+            vec![],
+            800_000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+            625_000_000,
+        );
+
+        // without a pool list the pool stays unknown
+        let new_block = build_test_block(&b, &t, vec![]);
+        assert_eq!(new_block.pool_name, "Unknown");
+        assert_eq!(new_block.pool_link, "");
+        assert_eq!(new_block.pool_id_method, "");
+
+        let pools = vec![Pool {
+            id: 1,
+            name: "Test Pool".to_string(),
+            addresses: vec![],
+            tags: vec!["/testpool/".to_string()],
+            link: "https://example.com".to_string(),
+        }];
+        let new_block = build_test_block(&b, &t, pools);
+        assert_eq!(new_block.pool_name, "Test Pool");
+        assert_eq!(new_block.pool_link, "https://example.com");
+        assert_eq!(new_block.pool_id_method, "coinbase tag");
+    }
+
+    #[test]
+    fn test_get_pool_info_or_default() {
+        let pool = Pool {
+            id: 1,
+            name: "Test Pool".to_string(),
+            addresses: vec![],
+            tags: vec![],
+            link: "https://example.com".to_string(),
+        };
+
+        assert_eq!(
+            get_pool_info_or_default(None),
+            ("Unknown".to_string(), String::default(), String::default())
+        );
+        assert_eq!(
+            get_pool_info_or_default(Some(bitcoin_pool_identification::IdentificationResult {
+                pool: pool.clone(),
+                identification_method: IdentificationMethod::Tag,
+            })),
+            (
+                "Test Pool".to_string(),
+                "https://example.com".to_string(),
+                "coinbase tag".to_string()
+            )
+        );
+        assert_eq!(
+            get_pool_info_or_default(Some(bitcoin_pool_identification::IdentificationResult {
+                pool,
+                identification_method: IdentificationMethod::Address,
+            })),
+            (
+                "Test Pool".to_string(),
+                "https://example.com".to_string(),
+                "coinbase output address".to_string()
+            )
+        );
     }
 
     #[test]
