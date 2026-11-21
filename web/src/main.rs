@@ -1,6 +1,8 @@
 #![cfg_attr(feature = "strict", deny(warnings))]
 
 mod db;
+#[cfg(test)]
+mod db_test;
 mod error;
 mod handler;
 mod model;

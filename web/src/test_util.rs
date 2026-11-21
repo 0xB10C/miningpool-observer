@@ -1,10 +1,13 @@
 //! Fixtures and helpers shared between the tests of this crate.
 
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use miningpool_observer_shared::chrono::NaiveDateTime;
 use miningpool_observer_shared::config::WebSiteConfig;
+use miningpool_observer_shared::diesel::pg::PgConnection;
+use miningpool_observer_shared::diesel::prelude::*;
 use miningpool_observer_shared::model::{
-    Block, DebugTemplateSelectionInfo, SanctionedUtxoScanInfo, Transaction, TransactionOnlyInBlock,
-    TransactionOnlyInTemplate,
+    Block, DebugTemplateSelectionInfo, NewBlock, SanctionedUtxoScanInfo, Transaction,
+    TransactionOnlyInBlock, TransactionOnlyInTemplate,
 };
 use miningpool_observer_shared::tags;
 use resvg::usvg;
@@ -194,5 +197,82 @@ pub fn debug_template_selection_info_fixture(selected: bool) -> DebugTemplateSel
         count_shared: 1997,
         count_extra: 2,
         selected,
+    }
+}
+
+//##### DATABASE
+
+/// The migrations that set up the schema of the test database.
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("../migrations/");
+
+/// A connection to the database given in the TEST_DATABASE_URL environment
+/// variable, with the migrations applied. Returns None and prints a note when
+/// the variable isn't set, so the tests using it can skip themselves.
+///
+/// The connection is in a test transaction: nothing a test writes is committed
+/// and tests don't see each others writes.
+pub fn test_conn() -> Option<PgConnection> {
+    let url = match std::env::var("TEST_DATABASE_URL") {
+        Ok(url) => url,
+        Err(_) => {
+            println!("skipped: TEST_DATABASE_URL not set");
+            return None;
+        }
+    };
+
+    // The migrations only need to run once per test binary. Running them from
+    // multiple threads at the same time can fail.
+    MIGRATIONS_RUN.call_once(|| {
+        let mut conn =
+            PgConnection::establish(&url).expect("should be able to connect to TEST_DATABASE_URL");
+        conn.run_pending_migrations(MIGRATIONS)
+            .expect("should be able to run the migrations");
+    });
+
+    let mut conn =
+        PgConnection::establish(&url).expect("should be able to connect to TEST_DATABASE_URL");
+    conn.begin_test_transaction()
+        .expect("should be able to start a test transaction");
+    Some(conn)
+}
+
+static MIGRATIONS_RUN: std::sync::Once = std::sync::Once::new();
+
+/// A block to insert into the database. Has the same values as
+/// [`block_fixture`], but no id: the database assigns that.
+pub fn new_block_fixture() -> NewBlock {
+    let b = block_fixture();
+    NewBlock {
+        hash: b.hash,
+        prev_hash: b.prev_hash,
+        height: b.height,
+        tags: b.tags,
+        missing_tx: b.missing_tx,
+        extra_tx: b.extra_tx,
+        shared_tx: b.shared_tx,
+        sanctioned_missing_tx: b.sanctioned_missing_tx,
+        equality: b.equality,
+        block_time: b.block_time,
+        block_seen_time: b.block_seen_time,
+        block_tx: b.block_tx,
+        block_sanctioned: b.block_sanctioned,
+        block_cb_value: b.block_cb_value,
+        block_cb_fees: b.block_cb_fees,
+        block_weight: b.block_weight,
+        block_pkg_weights: b.block_pkg_weights,
+        block_pkg_feerates: b.block_pkg_feerates,
+        pool_name: b.pool_name,
+        pool_link: b.pool_link,
+        pool_id_method: b.pool_id_method,
+        template_tx: b.template_tx,
+        template_time: b.template_time,
+        template_sanctioned: b.template_sanctioned,
+        template_cb_value: b.template_cb_value,
+        template_cb_fees: b.template_cb_fees,
+        template_weight: b.template_weight,
+        template_pkg_weights: b.template_pkg_weights,
+        template_pkg_feerates: b.template_pkg_feerates,
+        template_sigops: b.template_sigops,
+        block_sigops: b.block_sigops,
     }
 }
