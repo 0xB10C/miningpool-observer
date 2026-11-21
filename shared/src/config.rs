@@ -90,26 +90,26 @@ pub fn load_daemon_config() -> Result<DaemonConfig, ConfigError> {
         env::var(ENVVAR_CONFIG_FILE).unwrap_or_else(|_| DEFAULT_DAEMON_CONFIG.to_string());
     println!("Reading configuration file from {}.", config_file_path);
     let config_string = fs::read_to_string(config_file_path)?;
-    let config: DaemonTomlConfig = toml::from_str(&config_string)?;
+    parse_daemon_config(&config_string)
+}
 
-    let rpc_auth: Auth;
-    if config.rpc_cookie_file.is_some() {
-        let rpc_cookie_file = config.rpc_cookie_file.unwrap();
+pub fn parse_daemon_config(toml_str: &str) -> Result<DaemonConfig, ConfigError> {
+    let config: DaemonTomlConfig = toml::from_str(toml_str)?;
 
+    let rpc_auth: Auth = if let Some(rpc_cookie_file) = config.rpc_cookie_file {
         if !rpc_cookie_file.exists() {
             return Err(ConfigError::CookieFileDoesNotExist);
         }
-
-        rpc_auth = Auth::CookieFile(rpc_cookie_file);
+        Auth::CookieFile(rpc_cookie_file)
     } else if config.rpc_user.is_some() && config.rpc_password.is_some() {
-        rpc_auth = Auth::UserPass(config.rpc_user.unwrap(), config.rpc_password.unwrap());
+        Auth::UserPass(config.rpc_user.unwrap(), config.rpc_password.unwrap())
     } else {
         return Err(ConfigError::NoRpcAuth);
-    }
+    };
 
     let log_level = LevelFilter::from_str(&config.log_level)?;
 
-    return Ok(DaemonConfig {
+    Ok(DaemonConfig {
         rpc_url: format!("http://{}:{}", config.rpc_host, config.rpc_port),
         rpc_auth,
         database_url: config.database_url,
@@ -120,7 +120,7 @@ pub fn load_daemon_config() -> Result<DaemonConfig, ConfigError> {
             .sanctioned_addresses_url
             .unwrap_or(DEFAULT_SANCTIONED_ADDRESSES_URL.to_string()),
         pool_identification: config.pool_identificatoin.unwrap_or_default().into(),
-    });
+    })
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -154,7 +154,11 @@ pub fn load_web_config() -> Result<WebConfig, ConfigError> {
     let config_string = fs::read_to_string(
         env::var(ENVVAR_CONFIG_FILE).unwrap_or_else(|_| DEFAULT_WEB_CONFIG.to_string()),
     )?;
-    let config: WebTomlConfig = toml::from_str(&config_string)?;
+    parse_web_config(&config_string)
+}
+
+pub fn parse_web_config(toml_str: &str) -> Result<WebConfig, ConfigError> {
+    let config: WebTomlConfig = toml::from_str(toml_str)?;
     let log_level = LevelFilter::from_str(&config.log_level)?;
     Ok(WebConfig {
         address: config.address,
