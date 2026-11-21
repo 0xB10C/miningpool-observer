@@ -5,12 +5,14 @@ use std::convert::TryInto;
 use std::str::FromStr;
 
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{
-    consensus, hashes::Hash, locktime::absolute::LockTime, script, script::PushBytesBuf,
-    transaction::Version, Address, Amount, BlockHash, OutPoint, ScriptBuf, Sequence, Transaction,
-    TxIn, TxOut, Txid, Witness,
+    block::Header, block::Version as BlockVersion, consensus, hashes::Hash,
+    locktime::absolute::LockTime, script, script::PushBytesBuf, transaction::Version, Address,
+    Amount, Block, BlockHash, CompactTarget, OutPoint, ScriptBuf, Sequence, Transaction, TxIn,
+    TxMerkleNode, TxOut, Txid, Witness,
 };
 use miningpool_observer_shared::bitcoincore_rpc::json::{
-    GetBlockTemplateResult, GetBlockTemplateResultTransaction,
+    GetBlockTemplateResult, GetBlockTemplateResultTransaction, GetBlockTxFeesResult,
+    GetBlockTxFeesResultTxidFee,
 };
 use miningpool_observer_shared::model as shared_model;
 
@@ -258,5 +260,38 @@ pub fn template(
         min_time: current_time,
         mutable: vec![],
         nonce_range: vec![0, 0, 0, 0],
+    }
+}
+
+/// Builds the result of the getblocktxfees RPC for a list of (txid, fee) pairs.
+pub fn block_tx_fees(fees: &[(Txid, u64)]) -> GetBlockTxFeesResult {
+    GetBlockTxFeesResult {
+        tx: fees
+            .iter()
+            .map(|(txid, fee)| GetBlockTxFeesResultTxidFee {
+                txid: *txid,
+                fee: Amount::from_sat(*fee),
+            })
+            .collect(),
+    }
+}
+
+/// Builds a block with the passed transactions.
+pub fn block(
+    txdata: Vec<Transaction>,
+    version: i32,
+    time: u32,
+    prev_blockhash: BlockHash,
+) -> Block {
+    Block {
+        header: Header {
+            version: BlockVersion::from_consensus(version),
+            prev_blockhash,
+            merkle_root: TxMerkleNode::all_zeros(),
+            time,
+            bits: CompactTarget::from_consensus(0x170f_48e4),
+            nonce: 0,
+        },
+        txdata,
     }
 }

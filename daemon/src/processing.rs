@@ -629,11 +629,21 @@ pub fn build_block_tx_data(
     for (i, tx) in block.txdata.iter().enumerate() {
         let txid = tx.compute_txid();
         txids.insert(txid);
+        let fee = match txid_to_fee_map.get(&txid) {
+            Some(fee) => *fee,
+            None => {
+                log_processing_error(&format!(
+                    "Could not find the fee of the block transaction {}. Using a fee of zero.",
+                    txid
+                ));
+                Amount::ZERO
+            }
+        };
         let tx_info = TxInfo {
             txid,
             tx: tx.clone(),
             pos: i as i32,
-            fee: txid_to_fee_map[&txid],
+            fee,
         };
         txid_to_txinfo_map.insert(txid, tx_info.clone());
         txinfos.push(tx_info);
@@ -1143,9 +1153,10 @@ mod tests {
     use super::*;
     use crate::model::TxInfo;
     use crate::test_util::{
-        coinbase_tx, deser_tx, fake_tx, op_return_script, outpoint, reversed_txid, sanctioned_utxo,
-        script_for_address, spend_of, template, template_tx, tx_info, tx_with_vsize, ADDRESS_P2PKH,
-        ADDRESS_P2TR, ADDRESS_P2WPKH, SEQUENCE_FINAL, SEQUENCE_LOCKTIME_ONLY, SEQUENCE_RBF,
+        block, block_tx_fees, coinbase_tx, deser_tx, fake_tx, op_return_script, outpoint,
+        reversed_txid, sanctioned_utxo, script_for_address, spend_of, template, template_tx,
+        tx_info, tx_with_vsize, ADDRESS_P2PKH, ADDRESS_P2TR, ADDRESS_P2WPKH, SEQUENCE_FINAL,
+        SEQUENCE_LOCKTIME_ONLY, SEQUENCE_RBF,
     };
     use bitcoin::locktime::absolute::LockTime;
     use bitcoin::BlockHash;
@@ -2310,6 +2321,68 @@ mod tests {
             assert_eq!(set.conflicting_outpoints_txids.len(), 1);
         }
         assert_eq!(transactions.len(), 4);
+    }
+
+    #[test]
+    fn test_build_block_tx_data() {
+        let coinbase = coinbase_tx(
+            800_000,
+            b"/test/",
+            &[(625_000_000, script_for_address(ADDRESS_P2WPKH))],
+        );
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[], 101);
+        let b = block(
+            vec![coinbase.clone(), tx_a.clone(), tx_b.clone()],
+            0x2000_0000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+        );
+        let fees = block_tx_fees(&[
+            (coinbase.compute_txid(), 0),
+            (tx_a.compute_txid(), 111),
+            (tx_b.compute_txid(), 222),
+        ]);
+
+        let data = build_block_tx_data(&b, &fees);
+
+        assert_eq!(data.txinfos.len(), 3);
+        assert_eq!(data.txids.len(), 3);
+        assert_eq!(data.txid_to_txinfo_map.len(), 3);
+
+        assert_eq!(data.txinfos[0].txid, coinbase.compute_txid());
+        assert_eq!(data.txinfos[0].pos, 0);
+        assert_eq!(data.txinfos[0].fee, Amount::ZERO);
+        assert_eq!(data.txinfos[1].pos, 1);
+        assert_eq!(data.txinfos[1].fee, Amount::from_sat(111));
+        assert_eq!(data.txinfos[2].pos, 2);
+        assert_eq!(data.txinfos[2].fee, Amount::from_sat(222));
+
+        assert_eq!(
+            data.txid_to_txinfo_map[&tx_b.compute_txid()].fee,
+            Amount::from_sat(222)
+        );
+    }
+
+    #[test]
+    fn test_build_block_tx_data_with_a_missing_fee() {
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[], 101);
+        let b = block(
+            vec![tx_a.clone(), tx_b.clone()],
+            0x2000_0000,
+            1_600_000_000,
+            BlockHash::all_zeros(),
+        );
+        // the fee of tx_b is missing
+        let fees = block_tx_fees(&[(tx_a.compute_txid(), 111)]);
+
+        let data = build_block_tx_data(&b, &fees);
+
+        assert_eq!(data.txinfos.len(), 2);
+        assert_eq!(data.txinfos[0].fee, Amount::from_sat(111));
+        // a missing fee is assumed to be zero instead of crashing the daemon
+        assert_eq!(data.txinfos[1].fee, Amount::ZERO);
     }
 
     #[test]
