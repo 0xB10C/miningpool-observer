@@ -20,14 +20,18 @@ pub fn parse_uint(uint_str: &str) -> Result<u32, Error> {
 }
 
 pub fn parse_block_hash_str(hash_str: &str) -> Result<Vec<u8>, Error> {
-    if hash_str.len() != 64 || !hash_str.starts_with("000000") {
-        log::warn!(target: "web_handler", "parse_block_hash_str: invalid block height {}", hash_str);
+    // Note: We deliberately don't require a number of leading zeros here. How
+    // many zeros a block hash has depends on the difficulty. On regtest (and
+    // sometimes on signet and testnet) there are fewer than six. Looking up an
+    // unknown hash fails in the database query anyway.
+    if hash_str.len() != 64 {
+        log::warn!(target: "web_handler", "parse_block_hash_str: invalid block hash {}", hash_str);
         return Err(error::ErrorNotFound(ERROR_INVALID_BLOCK_HASH));
     }
 
-    match hex::decode(&hash_str) {
+    match hex::decode(hash_str) {
         Err(e) => {
-            log::warn!(target: "web_handler", "parse_block_hash_str: invalid block height {}: {}", hash_str, e);
+            log::warn!(target: "web_handler", "parse_block_hash_str: invalid block hash {}: {}", hash_str, e);
             Err(error::ErrorNotFound(ERROR_INVALID_BLOCK_HASH))
         }
         Ok(hash) => Ok(hash),
@@ -150,7 +154,7 @@ mod tests {
         assert!(parse_uint(" 0 ").is_err());
         assert!(parse_uint(" 32").is_err());
         assert!(parse_uint("-1").is_err());
-        assert!(parse_uint("-32").is_err());
+        assert!(parse_uint("99999999999999999999999").is_err());
     }
 
     #[test]
@@ -166,6 +170,25 @@ mod tests {
             "0000001111111111111111111111111111111111111111111111111111111111"
         )
         .is_ok());
+        assert_eq!(
+            parse_block_hash_str(
+                "1111111111111111111111111111111111111111111111111111111111111111"
+            )
+            .unwrap(),
+            &[17; 32]
+        );
+        // Blocks on regtest (and sometimes on signet and testnet) don't have
+        // six leading zeros. Their hashes have to be accepted as well.
+        let regtest_genesis = "0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206";
+        assert_eq!(
+            parse_block_hash_str(regtest_genesis).unwrap(),
+            hex::decode(regtest_genesis).unwrap()
+        );
+        // upper-case hex is accepted as well
+        assert!(parse_block_hash_str(
+            "0F9188F13CB7B2C71F2A335E3A4FC328BF5BEB436012AFCA590B1A11466E2206"
+        )
+        .is_ok());
 
         assert!(parse_block_hash_str("").is_err());
         assert!(parse_block_hash_str("0000").is_err());
@@ -174,17 +197,14 @@ mod tests {
             "000000000000000000000000000000000000000000000000000000000000000"
         )
         .is_err());
+        // 65 0's
         assert!(parse_block_hash_str(
-            "1111111111111111111111111111111111111111111111111111111111111111"
+            "00000000000000000000000000000000000000000000000000000000000000000"
         )
         .is_err());
+        // 64 characters, but not hex
         assert!(parse_block_hash_str(
             "00000000000000000000000000000iiiiiiiiii0000000000000000000000001"
-        )
-        .is_err());
-        // one too few 0's at start
-        assert!(parse_block_hash_str(
-            "0000011111111111111111111111111111111111111111111111111111111111"
         )
         .is_err());
     }
