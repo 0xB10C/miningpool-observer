@@ -31,30 +31,26 @@ const VERSION_BIT_TAPROOT: u8 = 2;
 fn in_and_outputs_to_strings(raw_tx_info: &RawTxInfo) -> (Vec<String>, Vec<String>) {
     let mut output_type_counts: HashMap<OutputType, u32> = HashMap::new();
     for ot in raw_tx_info.output_infos.iter().map(|i| i.out_type) {
-        if let Some(count) = output_type_counts.clone().get(&ot) {
-            output_type_counts.insert(ot, *count + 1);
-        } else {
-            output_type_counts.insert(ot, 1);
-        }
+        *output_type_counts.entry(ot).or_insert(0) += 1;
     }
 
     let mut input_type_counts: HashMap<InputType, u32> = HashMap::new();
     for it in raw_tx_info.input_infos.iter().map(|i| i.in_type) {
-        if let Some(count) = input_type_counts.clone().get(&it) {
-            input_type_counts.insert(it, *count + 1);
-        } else {
-            input_type_counts.insert(it, 1);
-        }
+        *input_type_counts.entry(it).or_insert(0) += 1;
     }
 
-    let inputs_strs: Vec<String> = input_type_counts
+    // The hash maps are iterated in an arbitrary order. The strings are sorted
+    // to make the values we store and display deterministic.
+    let mut inputs_strs: Vec<String> = input_type_counts
         .iter()
         .map(|(k, v)| format!("{}x {}", v, k))
         .collect();
-    let outputs_strs: Vec<String> = output_type_counts
+    inputs_strs.sort();
+    let mut outputs_strs: Vec<String> = output_type_counts
         .iter()
         .map(|(k, v)| format!("{}x {}", v, k))
         .collect();
+    outputs_strs.sort();
 
     (inputs_strs, outputs_strs)
 }
@@ -1163,11 +1159,41 @@ pub fn log_processing_error(msg: &str) {
 mod tests {
     use super::*;
     use crate::model::TxInfo;
+    use crate::test_util::{
+        fake_tx, outpoint, script_for_address, ADDRESS_P2TR, ADDRESS_P2WPKH, SEQUENCE_FINAL,
+    };
     use bitcoin::{
         consensus, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
     };
     use hex;
     use rawtx_rs::bitcoin::transaction::Version;
+
+    #[test]
+    fn test_in_and_outputs_to_strings() {
+        let tx = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+                (1_000, script_for_address(ADDRESS_P2TR)),
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+
+        // The counts are collected in hash maps, which are iterated in an
+        // arbitrary order. Repeat the check a few times to notice when the
+        // result is not sorted.
+        for _ in 0..20 {
+            let raw_tx_info = RawTxInfo::new(&tx).unwrap();
+            let (inputs, outputs) = in_and_outputs_to_strings(&raw_tx_info);
+            assert_eq!(inputs, vec!["1x P2SH".to_string()]);
+            assert_eq!(
+                outputs,
+                vec!["1x P2TR".to_string(), "2x P2WPKH v0".to_string()]
+            );
+        }
+    }
 
     #[test]
     fn test_build_packages() {
