@@ -50,19 +50,29 @@ fn get_error_response<B>(res: &ServiceResponse<B>, error: &str) -> HttpResponse<
     let config = request
         .app_data::<web::Data<config::WebSiteConfig>>()
         .map(|t| t.get_ref());
+    // The error page extends the base template, which shows the node version
+    // in the footer. Without it, rendering the error page fails.
+    let node_version = request
+        .app_data::<web::Data<String>>()
+        .map(|v| v.get_ref().clone())
+        .unwrap_or_default();
     match tmpl {
         Some(tmpl) => {
             let mut context = tera::Context::new();
             context.insert("error", error);
             context.insert("status_code", res.status().as_str());
             context.insert("CONFIG", &config);
+            context.insert("NODE_VERSION", &node_version);
 
             let body = tmpl.render("error.html", &context);
             match body {
                 Ok(body) => HttpResponse::build(res.status())
                     .content_type(ContentType::html())
                     .body(body),
-                Err(_) => fallback(error),
+                Err(e) => {
+                    log::error!("Could not render the error page: {}", e);
+                    fallback(error)
+                }
             }
         }
         None => fallback(error),

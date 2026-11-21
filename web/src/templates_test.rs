@@ -576,6 +576,23 @@ fn test_render_debug_sanctioned_rss_without_blocks() {
     assert!(rendered.contains("No Blocks with Sanctioned Transactions"));
 }
 
+//##### ERROR PAGE
+
+#[test]
+fn test_render_error() {
+    // mirrors the context error::get_error_response builds
+    let mut ctx = tera::Context::new();
+    ctx.insert("error", "Page not found");
+    ctx.insert("status_code", "404");
+    ctx.insert("CONFIG", &site_config());
+    ctx.insert("NODE_VERSION", &node_version());
+    let rendered = render("error.html", &ctx);
+
+    assert_is_a_page(&rendered);
+    assert!(rendered.contains("Page not found"));
+    assert!(rendered.contains("404"));
+}
+
 //##### OPENGRAPH IMAGES
 
 fn assert_renders_as_png(svg: &str) {
