@@ -16,6 +16,7 @@ rpc_port = 8332
 # Use either the RPC .cookie file or the rpc_user and rpc_password!
 #
 # Path to the Bitcoin Core RPC .cookie file
+# A leading "~" is replaced with the home directory.
 # rpc_cookie_file = "~/.bitcoin/.cookie"
 #
 # OR
