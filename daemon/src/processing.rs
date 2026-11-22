@@ -20,8 +20,7 @@ use rawtx_rs::{input::InputInscriptionDetection, input::InputType, output::Outpu
 
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin;
 use miningpool_observer_shared::bitcoincore_rpc::bitcoin::{
-    hash_types::Txid, hashes::Hash, locktime::absolute::LockTime, network::Network, Address,
-    Amount, Transaction,
+    hash_types::Txid, hashes::Hash, network::Network, Address, Amount, Transaction,
 };
 
 pub const LOG_TARGET_PROCESSING: &str = "processing";
@@ -31,30 +30,26 @@ const VERSION_BIT_TAPROOT: u8 = 2;
 fn in_and_outputs_to_strings(raw_tx_info: &RawTxInfo) -> (Vec<String>, Vec<String>) {
     let mut output_type_counts: HashMap<OutputType, u32> = HashMap::new();
     for ot in raw_tx_info.output_infos.iter().map(|i| i.out_type) {
-        if let Some(count) = output_type_counts.clone().get(&ot) {
-            output_type_counts.insert(ot, *count + 1);
-        } else {
-            output_type_counts.insert(ot, 1);
-        }
+        *output_type_counts.entry(ot).or_insert(0) += 1;
     }
 
     let mut input_type_counts: HashMap<InputType, u32> = HashMap::new();
     for it in raw_tx_info.input_infos.iter().map(|i| i.in_type) {
-        if let Some(count) = input_type_counts.clone().get(&it) {
-            input_type_counts.insert(it, *count + 1);
-        } else {
-            input_type_counts.insert(it, 1);
-        }
+        *input_type_counts.entry(it).or_insert(0) += 1;
     }
 
-    let inputs_strs: Vec<String> = input_type_counts
+    // The hash maps are iterated in an arbitrary order. The strings are sorted
+    // to make the values we store and display deterministic.
+    let mut inputs_strs: Vec<String> = input_type_counts
         .iter()
         .map(|(k, v)| format!("{}x {}", v, k))
         .collect();
-    let outputs_strs: Vec<String> = output_type_counts
+    inputs_strs.sort();
+    let mut outputs_strs: Vec<String> = output_type_counts
         .iter()
         .map(|(k, v)| format!("{}x {}", v, k))
         .collect();
+    outputs_strs.sort();
 
     (inputs_strs, outputs_strs)
 }
@@ -299,15 +294,16 @@ fn get_transaction_tags(
 
     if raw_tx_info.locktime.is_block_height()
         && tx_info.tx.is_lock_time_enabled()
-        && raw_tx_info.locktime > LockTime::from_consensus(0)
+        && raw_tx_info.locktime.to_consensus_u32() > 0
     {
         tags.push(tags::TxTag::LockByHeight as i32);
     }
 
-    if raw_tx_info.locktime.is_block_time()
-        && tx_info.tx.is_lock_time_enabled()
-        && raw_tx_info.locktime > LockTime::from_consensus(0)
-    {
+    // A time based lock time can not be compared to the block height based
+    // LockTime::from_consensus(0), the comparison would always be false. It is
+    // also always larger than zero, as the smallest possible value is
+    // 500_000_000.
+    if raw_tx_info.locktime.is_block_time() && tx_info.tx.is_lock_time_enabled() {
         tags.push(tags::TxTag::LockByTimestamp as i32);
     }
 
@@ -975,31 +971,10 @@ pub fn build_conflicting_transactions(
                     conflicting_outpoints: RefCell::new(vec![*co]),
                 });
             }
-            1 => {
-                let c = existing_conficts_with_these_transactions.first().unwrap(); // We can unwrap here as we know there is a first (as there is exactly 1)
-
-                if !c
-                    .template_transactions
-                    .borrow()
-                    .contains(template_transaction)
-                {
-                    c.template_transactions
-                        .borrow_mut()
-                        .push((*template_transaction).clone());
-                }
-
-                if !c.block_transactions.borrow().contains(block_transaction) {
-                    c.block_transactions
-                        .borrow_mut()
-                        .push((*block_transaction).clone());
-                }
-
-                if !c.conflicting_outpoints.borrow().contains(co) {
-                    c.conflicting_outpoints.borrow_mut().push(*co);
-                }
-            }
+            // Merge the conflicts the transactions already appear in, the two
+            // transactions and the outpoint into the first of the conflicts.
             _ => {
-                let c = existing_conficts_with_these_transactions.first().unwrap(); // We can unwrap here as we know there are multiple
+                let c = existing_conficts_with_these_transactions.first().unwrap(); // We can unwrap here as we know there is at least one
 
                 let mut new_template_transactions: Vec<TxInfo> =
                     vec![(*template_transaction).clone()];
@@ -1023,8 +998,8 @@ pub fn build_conflicting_transactions(
                 c.conflicting_outpoints.replace(new_conflicting_outpoints);
             }
         }
-        conflicts.retain(|c| !c.template_transactions.borrow().is_empty());
-        conflicts.retain(|c| !c.template_transactions.borrow().is_empty());
+        // Merging moves the transactions of the merged conflicts into one of
+        // them and leaves the others empty. Drop the empty ones.
         conflicts.retain(|c| !c.template_transactions.borrow().is_empty());
     }
 
@@ -1163,12 +1138,1284 @@ pub fn log_processing_error(msg: &str) {
 mod tests {
     use super::*;
     use crate::model::TxInfo;
+    use crate::test_util::{
+        coinbase_tx, deser_tx, fake_tx, op_return_script, outpoint, reversed_txid, sanctioned_utxo,
+        script_for_address, spend_of, tx_info, tx_with_vsize, ADDRESS_P2PKH, ADDRESS_P2TR,
+        ADDRESS_P2WPKH, SEQUENCE_FINAL, SEQUENCE_LOCKTIME_ONLY, SEQUENCE_RBF,
+    };
+    use bitcoin::locktime::absolute::LockTime;
     use bitcoin::{
         consensus, Amount, OutPoint, ScriptBuf, Sequence, Transaction, TxIn, TxOut, Witness,
     };
     use hex;
+    use miningpool_observer_shared::tags::TxTag;
     use rawtx_rs::bitcoin::transaction::Version;
+    use std::str::FromStr;
 
+    /// mainnet 4aba5c7fe256a9997aa93cab91f1c0405074b30b34b6a5c0bbde425322d40ee7
+    /// spending a P2WPKH output
+    const TX_P2WPKH: &str = "01000000000101ce73651d1ef6e687a66a76adbaf16741a205e7230bff0ae7259d36c478ec1a339a00000000ffffffff018a399c0000000000160014a14296a183d6e4c2f1696713a9db833e66fcb2d50247304402204da5741dab6897b961d996c0bdd0fed51f33afa54459769a81019d04a35fb1a802206f47143811a512a73b9d1112f5f0202740c554bf853fe18e2c72e58381c5452b012103e37b04cf32aa417e3ef25c0fe19faefcdbb6e6b2eaca38837dabc4c146cdc95000000000";
+
+    /// signet 75a1a2488770ba0506b9899b1d03dc232f5b22f00dffc3ca3ea6640a53de8403
+    /// spending P2TR outputs with key-path spends
+    const TX_P2TR_KEYPATH: &str = "0200000000010232b1c6063448c8089d4e7a500399555daec6bc1f3fef281016518c1de3d154cb0000000000feffffff32b1c6063448c8089d4e7a500399555daec6bc1f3fef281016518c1de3d154cb0100000000feffffff02301b0f00000000002251204b03959143386c56a1646c9d1002314c6acecd79ee0f0976fb9fa0f1f0837b1be31f0000000000001600140af8bb24c9504e8740076bb07b755237d4af6e67014159f6076cc04503a9bc72f137aa4af523ab05f5805b5fcb9e0b0b0f258a86afd30c7298e11203f6f27a1408385ec5b9fc1d16be738d628a4aac62eef1cfdac10b0102473044022044d39c6b67334c5e1aa0be056b2200221f8ec84e7319ba1b1cbe6df4dc2f6b1d02207289dd7e3d362355f22ff1df76965391ccd9c4d529a216947d2434f16dfd9b7901210338008b55bf51d06440c64129665a56c2eb828fdad50cca74191d29f92475e962b5680000";
+
+    /// mainnet 949591ad468cef5c41656c0a502d9500671ee421fadb590fbc6373000039b693
+    /// spending a 2-of-3 P2MS output
+    const TX_P2MS_INPUT: &str = "010000000110a5fee9786a9d2d72c25525e52dd70cbd9035d5152fac83b62d3aa7e2301d58000000009300483045022100af204ef91b8dba5884df50f87219ccef22014c21dd05aa44470d4ed800b7f6e40220428fe058684db1bb2bfb6061bff67048592c574effc217f0d150daedcf36787601483045022100e8547aa2c2a2761a5a28806d3ae0d1bbf0aeff782f9081dfea67b86cacb321340220771a166929469c34959daf726a2ac0c253f9aff391e58a3c7cb46d8b7e0fdc4801ffffffff0180a21900000000001976a914971802edf585cdbc4e57017d6e5142515c1e502888ac00000000";
+
+    /// mainnet ac1d9ed701af32ea52fabd0834acfb1ba4e3584cf0553551f1b61b3d7fb05ee7
+    /// paying to a P2MS output
+    const TX_P2MS_OUTPUT: &str = "0100000001ffc0d6d6b592cd2b4160300a278ea5e250b5055b5536dcfb2da5dcc46022765a00000000694630430220575ddd235a989befbf98f43b008666e56af07be89e47e09d18690c75846fb587021f00830605aa09febc51132001e0dbcad860e54d4657b55aaf961b527a935b8a01210281feb90c058c3436f8bc361930ae99fcfb530a699cdad141d7244bfcad521a1fffffffff03204e0000000000002551210281feb90c058c3436f8bc361930ae99fcfb530a699cdad141d7244bfcad521a1f51ae204e0000000000001976a914a988f8039a203cf86136e0d32b9d77eafa5a6bef88ac46f4d501000000001976a914161d7a3d0ee15c793ab300433192f949d8f3566588ac00000000";
+
+    /// mainnet f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16
+    /// spending and paying to P2PK outputs
+    const TX_P2PK: &str = "0100000001c997a5e56e104102fa209c6a852dd90660a20b2d9c352423edce25857fcd3704000000004847304402204e45e16932b8af514961a1d3a1a25fdf3f4f7732e9d624c6c61548ab5fb8cd410220181522ec8eca07de4860a4acdd12909d831cc56cbbac4622082221a8768d1d0901ffffffff0200ca9a3b00000000434104ae1a62fe09c5f51b13905f07f06b99a2f7159b2225f374cd378d71302fa28414e7aab37397f554a7df5f142c21c1b7303b8a0626f1baded5c72a704f7e6cd84cac00286bee0000000043410411db93e1dcdb8a016b49840f8c53bc1eb68a382e97b1482ecad7b148a6909a5cb2e0eaddfb84ccf9744464f82e160bfa9b8b64f9d4c03f999b8643f656b412a3ac00000000";
+
+    /// mainnet e08c3d808317731ef6040799646de2f567590ff890c8fe920a12e36502d8ceb0
+    /// a CounterParty transaction with an OP_RETURN output
+    const TX_COUNTERPARTY: &str = "0100000001c05b048e0964c3db4a87c33e00503ccdc3d7bff75892639029ba311ce7829745010000006b483045022100df78463aa570274bb2be52ee7410265f5165c0f9f00fb67285582a3e365711ed022074eb1c368569164bb1ad4bca9833b8398e1bb90409e58ac92a98d5ecd117e7e4012103a6e6e5baa76d34499b6b895bccf5a7b5f0d6b264637dd1cddad72cea2c4a1499ffffffff0200000000000000004b6a49f7032ee8d7f20e860d177068a124158cebaa066a209a916e2e6fa26637468bfa7742f6c58724fb1d36aa209aa394245b94afbe385df237e9c4821c6e9d8b9c234f8de5c68760561d03ebd0eb01000000001976a9142e9943921a473dee1e04a579c1762ff6e9ac34e488ac00000000";
+
+    /// mainnet ba4f42037f92c2782ee3dd8c75ce0ce80d8a04b8d36e6ed6a36452f512e66dfd
+    /// an ordinals inscription reveal transaction
+    const TX_INSCRIPTION: &str = "02000000000101da5159649742d35e069f74724bb72cbb116415d72e11771a17420e2201d4ecf30000000000fdffffff0122020000000000002251201e6960b35d5da5c6c9ce0a18d989518bf546b4968a4ad046d9d664f5585f50440340ad42d4bec479e22866603b11048a64a3e5d366046d494278336798a51fd5fe5166221949e3025b25b505433ed871e20399fd82ffc867b70de8acef8e86f91f857e20318de3d918b6ca5ce115f5b00b3ed0b9c85ca7ebe8f0ccbe9de0e05e45de9293ac0063036f7264010118746578742f706c61696e3b636861727365743d7574662d3800387b2270223a226272632d3230222c226f70223a227472616e73666572222c227469636b223a224d4d5353222c22616d74223a22323030227d6821c1318de3d918b6ca5ce115f5b00b3ed0b9c85ca7ebe8f0ccbe9de0e05e45de929300000000";
+
+    fn sanctioned_address_set(addresses: &[&str]) -> HashSet<String> {
+        addresses.iter().map(|a| a.to_string()).collect()
+    }
+
+    /// Returns the tags of a transaction that is not conflicting and neither
+    /// pays to nor spends from a sanctioned address.
+    fn tags_of(tx: &Transaction, fee_sat: u64) -> Vec<i32> {
+        let raw_tx_info = RawTxInfo::new(tx).unwrap();
+        get_transaction_tags(
+            &tx_info(tx, 0, fee_sat),
+            &raw_tx_info,
+            false,
+            &HashMap::new(),
+            &HashSet::new(),
+        )
+    }
+
+    /// A transaction without any tags.
+    fn untagged_tx() -> Transaction {
+        fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        )
+    }
+
+    #[test]
+    fn test_get_transaction_tags_without_any_tag() {
+        assert_eq!(tags_of(&untagged_tx(), 1_000), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_get_transaction_tags_conflicting() {
+        let tx = untagged_tx();
+        let raw_tx_info = RawTxInfo::new(&tx).unwrap();
+        let tags = get_transaction_tags(
+            &tx_info(&tx, 0, 1_000),
+            &raw_tx_info,
+            true,
+            &HashMap::new(),
+            &HashSet::new(),
+        );
+        assert_eq!(tags, vec![TxTag::Conflicting as i32]);
+    }
+
+    #[test]
+    fn test_get_transaction_tags_to_and_from_sanctioned() {
+        let script = script_for_address(ADDRESS_P2WPKH);
+        let utxos = vec![sanctioned_utxo(outpoint(5, 1), &script, 1_000)];
+        let map = build_outpoint_to_sanctioned_utxo_map(&utxos);
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2WPKH]);
+
+        let to_sanctioned = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script.clone())],
+            0,
+            SEQUENCE_FINAL,
+        );
+        let raw_tx_info = RawTxInfo::new(&to_sanctioned).unwrap();
+        assert_eq!(
+            get_transaction_tags(
+                &tx_info(&to_sanctioned, 0, 1_000),
+                &raw_tx_info,
+                false,
+                &HashMap::new(),
+                &sanctioned,
+            ),
+            vec![TxTag::ToSanctioned as i32]
+        );
+
+        let from_sanctioned = fake_tx(
+            &[outpoint(5, 1)],
+            &[(1_000, script_for_address(ADDRESS_P2TR))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        let raw_tx_info = RawTxInfo::new(&from_sanctioned).unwrap();
+        assert_eq!(
+            get_transaction_tags(
+                &tx_info(&from_sanctioned, 0, 1_000),
+                &raw_tx_info,
+                false,
+                &map,
+                &sanctioned,
+            ),
+            vec![TxTag::FromSanctioned as i32]
+        );
+    }
+
+    #[test]
+    fn test_get_transaction_tags_coinbase_is_not_zero_fee() {
+        let coinbase = coinbase_tx(
+            800_000,
+            b"/test/",
+            &[(50_000, script_for_address(ADDRESS_P2WPKH))],
+        );
+        // A coinbase transaction has no fee, but must not be tagged as a
+        // zero fee transaction.
+        assert_eq!(tags_of(&coinbase, 0), vec![TxTag::Coinbase as i32]);
+    }
+
+    #[test]
+    fn test_get_transaction_tags_zero_fee() {
+        assert_eq!(tags_of(&untagged_tx(), 0), vec![TxTag::ZeroFee as i32]);
+        assert_eq!(tags_of(&untagged_tx(), 1), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_get_transaction_tags_high_feerate() {
+        let tx = untagged_tx();
+        let vsize = tx.vsize() as u64;
+        let at_threshold = (tags::THRESHOLD_FEERATE_CONSIDERED_HIGH as u64) * vsize;
+
+        // the threshold feerate itself is already considered high
+        assert_eq!(tags_of(&tx, at_threshold), vec![TxTag::HighFeerate as i32]);
+        assert_eq!(tags_of(&tx, at_threshold - 1), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_get_transaction_tags_large() {
+        let large = tx_with_vsize(tags::THRESHOLD_TRANSACTION_CONSIDERED_LARGE as usize);
+        assert_eq!(
+            tags_of(&large, 1_000),
+            vec![TxTag::Large as i32, TxTag::OpReturn as i32]
+        );
+
+        let not_large = tx_with_vsize(tags::THRESHOLD_TRANSACTION_CONSIDERED_LARGE as usize - 1);
+        assert_eq!(tags_of(&not_large, 1_000), vec![TxTag::OpReturn as i32]);
+    }
+
+    #[test]
+    fn test_get_transaction_tags_dust_output() {
+        let script = script_for_address(ADDRESS_P2WPKH);
+
+        let dust = fake_tx(
+            &[outpoint(1, 0)],
+            &[(tags::THRESHOLD_OUTPUT_CONSIDERED_DUST - 1, script.clone())],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(tags_of(&dust, 1_000), vec![TxTag::DustOutput as i32]);
+
+        let no_dust = fake_tx(
+            &[outpoint(1, 0)],
+            &[(tags::THRESHOLD_OUTPUT_CONSIDERED_DUST, script.clone())],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(tags_of(&no_dust, 1_000), Vec::<i32>::new());
+
+        // an OP_RETURN output with a value of 0 is not a dust output
+        let opreturn = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (tags::THRESHOLD_OUTPUT_CONSIDERED_DUST, script),
+                (0, op_return_script(20)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(tags_of(&opreturn, 1_000), vec![TxTag::OpReturn as i32]);
+    }
+
+    #[test]
+    fn test_get_transaction_tags_high_value() {
+        let script = script_for_address(ADDRESS_P2WPKH);
+
+        // the threshold value itself is not yet considered high
+        let at_threshold = fake_tx(
+            &[outpoint(1, 0)],
+            &[(tags::THRESHOLD_VALUE_CONSIDERED_HIGH, script.clone())],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(tags_of(&at_threshold, 1_000), Vec::<i32>::new());
+
+        let above_threshold = fake_tx(
+            &[outpoint(1, 0)],
+            &[(tags::THRESHOLD_VALUE_CONSIDERED_HIGH + 1, script)],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(
+            tags_of(&above_threshold, 1_000),
+            vec![TxTag::HighValue as i32]
+        );
+    }
+
+    #[test]
+    fn test_get_transaction_tags_many_sigops() {
+        // Each P2PKH output counts as four sigops.
+        let p2pkh_outputs = |count: usize| -> Vec<(u64, ScriptBuf)> {
+            (0..count)
+                .map(|_| (1_000u64, script_for_address(ADDRESS_P2PKH)))
+                .collect()
+        };
+
+        let at_threshold = fake_tx(
+            &[outpoint(1, 0)],
+            &p2pkh_outputs(tags::THRESHOLD_SIGOPS_CONSIDERED_MANY as usize / 4),
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(
+            RawTxInfo::new(&at_threshold).unwrap().sigops() as u64,
+            tags::THRESHOLD_SIGOPS_CONSIDERED_MANY
+        );
+        // the threshold itself is not yet considered many sigops
+        assert!(!tags_of(&at_threshold, 1_000).contains(&(TxTag::ManySigops as i32)));
+
+        let above_threshold = fake_tx(
+            &[outpoint(1, 0)],
+            &p2pkh_outputs(tags::THRESHOLD_SIGOPS_CONSIDERED_MANY as usize / 4 + 1),
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(tags_of(&above_threshold, 1_000).contains(&(TxTag::ManySigops as i32)));
+    }
+
+    #[test]
+    fn test_get_transaction_tags_segwit() {
+        let tx = deser_tx(TX_P2WPKH);
+        assert_eq!(tags_of(&tx, 1_000), vec![TxTag::SegWit as i32]);
+    }
+
+    #[test]
+    fn test_get_transaction_tags_taproot() {
+        let tx = deser_tx(TX_P2TR_KEYPATH);
+        assert_eq!(
+            tags_of(&tx, 1_000),
+            vec![
+                TxTag::SegWit as i32,
+                TxTag::Taproot as i32,
+                TxTag::LockByHeight as i32,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_get_transaction_tags_multisig() {
+        let tx = deser_tx(TX_P2MS_INPUT);
+        assert_eq!(
+            tags_of(&tx, 1_000),
+            vec![TxTag::Multisig as i32, TxTag::RareScriptType as i32]
+        );
+    }
+
+    #[test]
+    fn test_get_transaction_tags_opreturn() {
+        let tx = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+                (0, op_return_script(20)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(tags_of(&tx, 1_000), vec![TxTag::OpReturn as i32]);
+    }
+
+    #[test]
+    fn test_get_transaction_tags_counterparty() {
+        let tx = deser_tx(TX_COUNTERPARTY);
+        let tags = tags_of(&tx, 1_000);
+        assert!(tags.contains(&(TxTag::CounterParty as i32)));
+        assert!(tags.contains(&(TxTag::OpReturn as i32)));
+    }
+
+    #[test]
+    fn test_get_transaction_tags_inscription() {
+        let tx = deser_tx(TX_INSCRIPTION);
+        let tags = tags_of(&tx, 1_000);
+        assert!(tags.contains(&(TxTag::Inscription as i32)));
+        assert!(tags.contains(&(TxTag::Taproot as i32)));
+    }
+
+    #[test]
+    fn test_get_transaction_tags_rare_script_type() {
+        // a transaction spending and paying to P2PK outputs
+        let p2pk = deser_tx(TX_P2PK);
+        assert!(tags_of(&p2pk, 1_000).contains(&(TxTag::RareScriptType as i32)));
+
+        // a transaction paying to a P2MS output
+        let p2ms = deser_tx(TX_P2MS_OUTPUT);
+        assert!(tags_of(&p2ms, 1_000).contains(&(TxTag::RareScriptType as i32)));
+    }
+
+    #[test]
+    fn test_get_transaction_tags_rbf_signaling() {
+        let script = script_for_address(ADDRESS_P2WPKH);
+
+        let signaling = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script.clone())],
+            0,
+            SEQUENCE_RBF,
+        );
+        assert_eq!(tags_of(&signaling, 1_000), vec![TxTag::RbfSignaling as i32]);
+
+        // the highest sequence number that does not signal RBF
+        let not_signaling = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script)],
+            0,
+            SEQUENCE_LOCKTIME_ONLY,
+        );
+        assert_eq!(tags_of(&not_signaling, 1_000), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_get_transaction_tags_coinjoin() {
+        let script = script_for_address(ADDRESS_P2WPKH);
+        // two inputs and three equal-value outputs
+        let tx = fake_tx(
+            &[outpoint(1, 0), outpoint(2, 0)],
+            &[
+                (100_000, script.clone()),
+                (100_000, script.clone()),
+                (100_000, script.clone()),
+                (123_456, script),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(tags_of(&tx, 1_000), vec![TxTag::Coinjoin as i32]);
+    }
+
+    #[test]
+    fn test_get_transaction_tags_consolidation() {
+        let inputs: Vec<OutPoint> = (0..10).map(|i| outpoint(i, 0)).collect();
+        let tx = fake_tx(
+            &inputs,
+            &[(100_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(tags_of(&tx, 1_000), vec![TxTag::Consolidation as i32]);
+
+        // nine inputs are not yet a consolidation
+        let tx = fake_tx(
+            &inputs[..9],
+            &[(100_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(tags_of(&tx, 1_000), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_get_transaction_tags_lock_by_height() {
+        let script = script_for_address(ADDRESS_P2WPKH);
+
+        let locked = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script.clone())],
+            500_000,
+            SEQUENCE_LOCKTIME_ONLY,
+        );
+        assert_eq!(tags_of(&locked, 1_000), vec![TxTag::LockByHeight as i32]);
+
+        // the lock time is disabled when all inputs have a final sequence
+        let lock_time_disabled = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script.clone())],
+            500_000,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(tags_of(&lock_time_disabled, 1_000), Vec::<i32>::new());
+
+        // a lock time of 0 does not lock the transaction
+        let no_lock_time = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script)],
+            0,
+            SEQUENCE_LOCKTIME_ONLY,
+        );
+        assert_eq!(tags_of(&no_lock_time, 1_000), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_get_transaction_tags_lock_by_timestamp() {
+        let script = script_for_address(ADDRESS_P2WPKH);
+
+        let locked = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script.clone())],
+            1_600_000_000,
+            SEQUENCE_LOCKTIME_ONLY,
+        );
+        assert_eq!(tags_of(&locked, 1_000), vec![TxTag::LockByTimestamp as i32]);
+
+        let lock_time_disabled = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script)],
+            1_600_000_000,
+            SEQUENCE_FINAL,
+        );
+        assert_eq!(tags_of(&lock_time_disabled, 1_000), Vec::<i32>::new());
+    }
+
+    #[test]
+    fn test_get_transaction_tags_are_ordered_by_severity() {
+        let sanctioned_script = script_for_address(ADDRESS_P2WPKH);
+        let utxos = vec![sanctioned_utxo(outpoint(5, 1), &sanctioned_script, 1_000)];
+        let map = build_outpoint_to_sanctioned_utxo_map(&utxos);
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2WPKH]);
+
+        // a transaction that triggers many of the tags at once
+        let mut tx = fake_tx(
+            &[outpoint(5, 1), outpoint(6, 0)],
+            &[
+                (
+                    tags::THRESHOLD_OUTPUT_CONSIDERED_DUST - 1,
+                    sanctioned_script,
+                ),
+                (0, op_return_script(2_400)),
+            ],
+            500_000,
+            SEQUENCE_RBF,
+        );
+        // pad the transaction until it is considered large
+        while (tx.vsize() as u64) < tags::THRESHOLD_TRANSACTION_CONSIDERED_LARGE {
+            tx.output[1].script_pubkey = op_return_script(tx.output[1].script_pubkey.len() + 100);
+        }
+
+        let raw_tx_info = RawTxInfo::new(&tx).unwrap();
+        let tags = get_transaction_tags(&tx_info(&tx, 0, 0), &raw_tx_info, true, &map, &sanctioned);
+
+        assert_eq!(
+            tags,
+            vec![
+                TxTag::Conflicting as i32,
+                TxTag::ToSanctioned as i32,
+                TxTag::FromSanctioned as i32,
+                TxTag::ZeroFee as i32,
+                TxTag::Large as i32,
+                TxTag::DustOutput as i32,
+                TxTag::OpReturn as i32,
+                TxTag::RbfSignaling as i32,
+                TxTag::LockByHeight as i32,
+            ]
+        );
+    }
+
+    #[test]
+    fn test_build_outpoint_to_sanctioned_utxo_map() {
+        // mainnet f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16
+        const TXID: &str = "f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16";
+        let txid = Txid::from_str(TXID).unwrap();
+        // The database stores the txid in display (reversed) byte order.
+        let display_order_txid = hex::decode(TXID).unwrap();
+
+        let utxos = vec![shared_model::SanctionedUtxo {
+            txid: display_order_txid.clone(),
+            vout: 1,
+            script_pubkey: script_for_address(ADDRESS_P2WPKH).to_bytes(),
+            amount: 1337,
+            height: 170,
+        }];
+
+        let map = build_outpoint_to_sanctioned_utxo_map(&utxos);
+        assert_eq!(map.len(), 1);
+
+        // The key must be the internal byte order, so that it can be looked up
+        // with the bytes of an OutPoint txid.
+        let utxo = map
+            .get(&(txid.to_byte_array().to_vec(), 1))
+            .expect("the UTXO should be found by its internal byte order txid");
+        assert_eq!(utxo.amount, 1337);
+        assert_eq!(utxo.height, 170);
+
+        assert!(!map.contains_key(&(display_order_txid, 1)));
+        // the vout is part of the key
+        assert!(!map.contains_key(&(txid.to_byte_array().to_vec(), 0)));
+    }
+
+    #[test]
+    fn test_is_tx_to_sanctioned() {
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2WPKH]);
+
+        let to_sanctioned = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2TR)),
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(is_tx_to_sanctioned(&to_sanctioned, &sanctioned));
+        // with an empty list of sanctioned addresses, no transaction is sanctioned
+        assert!(!is_tx_to_sanctioned(&to_sanctioned, &HashSet::new()));
+
+        let not_to_sanctioned = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2TR)),
+                // an output that can't be represented as an address
+                (0, op_return_script(8)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(!is_tx_to_sanctioned(&not_to_sanctioned, &sanctioned));
+    }
+
+    #[test]
+    fn test_is_tx_from_sanctioned() {
+        let script = script_for_address(ADDRESS_P2WPKH);
+        let utxos = vec![sanctioned_utxo(outpoint(5, 1), &script, 1_000)];
+        let map = build_outpoint_to_sanctioned_utxo_map(&utxos);
+
+        let from_sanctioned = fake_tx(
+            &[outpoint(4, 0), outpoint(5, 1)],
+            &[(1_000, script.clone())],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(is_tx_from_sanctioned(&from_sanctioned, &map));
+        assert!(!is_tx_from_sanctioned(&from_sanctioned, &HashMap::new()));
+
+        // the same txid, but a different vout
+        let not_from_sanctioned = fake_tx(&[outpoint(5, 0)], &[(1_000, script)], 0, SEQUENCE_FINAL);
+        assert!(!is_tx_from_sanctioned(&not_from_sanctioned, &map));
+    }
+
+    #[test]
+    fn test_is_tx_sanctioned() {
+        let sanctioned_script = script_for_address(ADDRESS_P2PKH);
+        let utxos = vec![sanctioned_utxo(outpoint(5, 1), &sanctioned_script, 1_000)];
+        let map = build_outpoint_to_sanctioned_utxo_map(&utxos);
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2WPKH]);
+
+        let to_sanctioned = fake_tx(
+            &[outpoint(4, 0)],
+            &[(1_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(is_tx_sanctioned(&to_sanctioned, &map, &sanctioned));
+
+        let from_sanctioned = fake_tx(
+            &[outpoint(5, 1)],
+            &[(1_000, script_for_address(ADDRESS_P2TR))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(is_tx_sanctioned(&from_sanctioned, &map, &sanctioned));
+
+        let unrelated = fake_tx(
+            &[outpoint(4, 0)],
+            &[(1_000, script_for_address(ADDRESS_P2TR))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(!is_tx_sanctioned(&unrelated, &map, &sanctioned));
+    }
+
+    #[test]
+    fn test_tx_sanctioned_addresses() {
+        let from_script = script_for_address(ADDRESS_P2PKH);
+        let utxos = vec![sanctioned_utxo(outpoint(5, 1), &from_script, 1_000)];
+        let map = build_outpoint_to_sanctioned_utxo_map(&utxos);
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2WPKH]);
+
+        let tx = fake_tx(
+            &[outpoint(5, 1), outpoint(4, 0)],
+            &[
+                // the same sanctioned address twice
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+                (2_000, script_for_address(ADDRESS_P2WPKH)),
+                // and an address that is not sanctioned
+                (3_000, script_for_address(ADDRESS_P2TR)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+
+        // sorted, deduplicated and containing both the "to" and the "from" address
+        assert_eq!(
+            tx_sanctioned_addresses(&tx, &map, &sanctioned),
+            vec![ADDRESS_P2PKH.to_string(), ADDRESS_P2WPKH.to_string()]
+        );
+
+        let unrelated = fake_tx(
+            &[outpoint(4, 0)],
+            &[(1_000, script_for_address(ADDRESS_P2TR))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(tx_sanctioned_addresses(&unrelated, &map, &sanctioned).is_empty());
+    }
+
+    #[test]
+    fn test_is_tx_opreturn() {
+        let with_opreturn = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+                (0, op_return_script(20)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(is_tx_opreturn(&with_opreturn));
+
+        let without_opreturn = fake_tx(
+            &[outpoint(1, 0)],
+            &[(1_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        assert!(!is_tx_opreturn(&without_opreturn));
+
+        let without_outputs = fake_tx(&[outpoint(1, 0)], &[], 0, SEQUENCE_FINAL);
+        assert!(!is_tx_opreturn(&without_outputs));
+    }
+
+    #[test]
+    fn test_in_and_outputs_to_strings() {
+        let tx = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+                (1_000, script_for_address(ADDRESS_P2TR)),
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+
+        // The counts are collected in hash maps, which are iterated in an
+        // arbitrary order. Repeat the check a few times to notice when the
+        // result is not sorted.
+        for _ in 0..20 {
+            let raw_tx_info = RawTxInfo::new(&tx).unwrap();
+            let (inputs, outputs) = in_and_outputs_to_strings(&raw_tx_info);
+            assert_eq!(inputs, vec!["1x P2SH".to_string()]);
+            assert_eq!(
+                outputs,
+                vec!["1x P2TR".to_string(), "2x P2WPKH v0".to_string()]
+            );
+        }
+    }
+
+    /// Builds a transaction spending `parents` (vout 0 of each) plus, when
+    /// there is no parent, an outpoint unknown to the test.
+    fn child_of(parents: &[&Transaction], unrelated: u8) -> Transaction {
+        let inputs: Vec<OutPoint> = if parents.is_empty() {
+            vec![outpoint(unrelated, 0)]
+        } else {
+            parents.iter().map(|p| spend_of(p, 0)).collect()
+        };
+        fake_tx(
+            &inputs,
+            &[(10_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        )
+    }
+
+    /// Builds a txid to TxInfo map and the set of its txids.
+    fn txinfo_map(infos: Vec<TxInfo>) -> HashMap<Txid, TxInfo> {
+        infos.into_iter().map(|i| (i.txid, i)).collect()
+    }
+
+    #[test]
+    fn test_build_transactions_only_in_block() {
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[], 101);
+        let map = txinfo_map(vec![tx_info(&tx_a, 3, 100), tx_info(&tx_b, 5, 200)]);
+        let txids: HashSet<&Txid> = map.keys().collect();
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let only_in_block = build_transactions_only_in_block(
+            42,
+            &txids,
+            &map,
+            &mut transactions,
+            &HashMap::new(),
+            &HashSet::new(),
+        );
+
+        assert_eq!(only_in_block.len(), 2);
+        // every transaction is also added to the transactions map, keyed by
+        // the reversed txid
+        assert_eq!(transactions.len(), 2);
+        assert!(transactions.contains_key(&reversed_txid(&tx_a)));
+        assert!(transactions.contains_key(&reversed_txid(&tx_b)));
+
+        let a = only_in_block
+            .iter()
+            .find(|t| t.transaction_txid == reversed_txid(&tx_a))
+            .unwrap();
+        assert_eq!(a.block_id, 42);
+        // the position is taken from the TxInfo
+        assert_eq!(a.position, 3);
+
+        let b = only_in_block
+            .iter()
+            .find(|t| t.transaction_txid == reversed_txid(&tx_b))
+            .unwrap();
+        assert_eq!(b.position, 5);
+    }
+
+    #[test]
+    fn test_build_transactions_only_in_template() {
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[], 101);
+        let map = txinfo_map(vec![tx_info(&tx_a, 3, 100), tx_info(&tx_b, 5, 200)]);
+        let txids: HashSet<&Txid> = map.keys().collect();
+
+        // the mempool age is only known for one of the two transactions
+        let mut mempool_ages: HashMap<Txid, i32> = HashMap::new();
+        mempool_ages.insert(tx_a.compute_txid(), 1337);
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let only_in_template = build_transactions_only_in_template(
+            42,
+            &txids,
+            &map,
+            &mempool_ages,
+            &mut transactions,
+            &HashMap::new(),
+            &HashSet::new(),
+        );
+
+        assert_eq!(only_in_template.len(), 2);
+        assert_eq!(transactions.len(), 2);
+        assert!(transactions.contains_key(&reversed_txid(&tx_a)));
+        assert!(transactions.contains_key(&reversed_txid(&tx_b)));
+
+        let a = only_in_template
+            .iter()
+            .find(|t| t.transaction_txid == reversed_txid(&tx_a))
+            .unwrap();
+        assert_eq!(a.block_id, 42);
+        assert_eq!(a.position, 3);
+        assert_eq!(a.mempool_age_seconds, 1337);
+
+        let b = only_in_template
+            .iter()
+            .find(|t| t.transaction_txid == reversed_txid(&tx_b))
+            .unwrap();
+        assert_eq!(b.position, 5);
+        // an unknown mempool age defaults to -1
+        assert_eq!(b.mempool_age_seconds, -1);
+    }
+
+    #[test]
+    fn test_build_transaction() {
+        let sanctioned = sanctioned_address_set(&[ADDRESS_P2WPKH]);
+        let tx = fake_tx(
+            &[outpoint(1, 0)],
+            &[
+                (1_000, script_for_address(ADDRESS_P2WPKH)),
+                (2_000, script_for_address(ADDRESS_P2TR)),
+                (3_000, script_for_address(ADDRESS_P2PKH)),
+            ],
+            0,
+            SEQUENCE_FINAL,
+        );
+        let info = tx_info(&tx, 7, 123);
+        let mut reversed_txid = tx.compute_txid().to_byte_array().to_vec();
+        reversed_txid.reverse();
+
+        let built = build_transaction(
+            &reversed_txid,
+            &info,
+            false,
+            &HashMap::new(),
+            &HashSet::new(),
+        )
+        .unwrap();
+
+        assert_eq!(built.txid, reversed_txid);
+        assert!(!built.sanctioned);
+        assert_eq!(built.fee, 123);
+        assert_eq!(built.vsize, tx.vsize() as i32);
+        assert_eq!(built.output_sum, 6_000);
+        assert_eq!(built.input_count, 1);
+        assert_eq!(built.output_count, 3);
+        // the single P2PKH output is the only output with sigops
+        assert_eq!(built.sigops, 4);
+        assert_eq!(built.inputs, vec!["1x P2SH".to_string()]);
+        assert_eq!(
+            built.outputs,
+            vec![
+                "1x P2PKH".to_string(),
+                "1x P2TR".to_string(),
+                "1x P2WPKH v0".to_string()
+            ]
+        );
+        assert_eq!(built.tags, Vec::<i32>::new());
+
+        // the same transaction, but now paying to a sanctioned address
+        let built =
+            build_transaction(&reversed_txid, &info, true, &HashMap::new(), &sanctioned).unwrap();
+        assert!(built.sanctioned);
+        assert_eq!(
+            built.tags,
+            vec![TxTag::Conflicting as i32, TxTag::ToSanctioned as i32]
+        );
+    }
+
+    fn db_transaction(txid: Vec<u8>, tags: Vec<i32>, fee: i64) -> shared_model::Transaction {
+        shared_model::Transaction {
+            txid,
+            sanctioned: false,
+            vsize: 100,
+            fee,
+            output_sum: 1_000,
+            tags,
+            input_count: 1,
+            inputs: vec!["1x P2SH".to_string()],
+            output_count: 1,
+            outputs: vec!["1x P2WPKH v0".to_string()],
+            sigops: 0,
+        }
+    }
+
+    #[test]
+    fn test_add_to_transactions() {
+        let txid = vec![0xb1, 0x0c];
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+
+        let first = db_transaction(
+            txid.clone(),
+            vec![TxTag::SegWit as i32, TxTag::Coinjoin as i32],
+            111,
+        );
+        add_to_transactions(&first, &mut transactions);
+        assert_eq!(transactions.len(), 1);
+        assert_eq!(
+            transactions[&txid].tags,
+            vec![TxTag::SegWit as i32, TxTag::Coinjoin as i32]
+        );
+
+        // The same transaction with different tags merges the tags. The other
+        // fields of the transaction stay untouched.
+        let second = db_transaction(
+            txid.clone(),
+            vec![TxTag::OpReturn as i32, TxTag::Coinjoin as i32],
+            222,
+        );
+        add_to_transactions(&second, &mut transactions);
+        assert_eq!(transactions.len(), 1);
+        assert_eq!(
+            transactions[&txid].tags,
+            vec![
+                TxTag::Coinjoin as i32,
+                TxTag::SegWit as i32,
+                TxTag::OpReturn as i32,
+            ]
+        );
+        assert_eq!(transactions[&txid].fee, 111);
+
+        // Adding a transaction with the tags it already has changes nothing.
+        let third = db_transaction(txid.clone(), transactions[&txid].tags.clone(), 333);
+        add_to_transactions(&third, &mut transactions);
+        assert_eq!(transactions.len(), 1);
+        assert_eq!(
+            transactions[&txid].tags,
+            vec![
+                TxTag::Coinjoin as i32,
+                TxTag::SegWit as i32,
+                TxTag::OpReturn as i32,
+            ]
+        );
+
+        // a different transaction is added as a new entry
+        add_to_transactions(&db_transaction(vec![0x42], vec![], 1), &mut transactions);
+        assert_eq!(transactions.len(), 2);
+    }
+
+    /// Builds the conflicting transaction sets for a list of template and a
+    /// list of block transactions.
+    fn conflict_sets(
+        template_txs: &[&Transaction],
+        block_txs: &[&Transaction],
+        transactions: &mut HashMap<Vec<u8>, shared_model::Transaction>,
+    ) -> Vec<shared_model::ConflictingTransaction> {
+        let template_map = txinfo_map(
+            template_txs
+                .iter()
+                .enumerate()
+                .map(|(i, tx)| tx_info(tx, i as i32, 1_000))
+                .collect(),
+        );
+        let block_map = txinfo_map(
+            block_txs
+                .iter()
+                .enumerate()
+                .map(|(i, tx)| tx_info(tx, i as i32, 1_000))
+                .collect(),
+        );
+        let template_txids: HashSet<&Txid> = template_map.keys().collect();
+        let block_txids: HashSet<&Txid> = block_map.keys().collect();
+
+        build_conflicting_transactions(
+            42,
+            &template_txids,
+            &template_map,
+            &block_txids,
+            &block_map,
+            transactions,
+            &HashMap::new(),
+            &HashSet::new(),
+        )
+    }
+
+    /// Returns the conflicting outpoints of a set as sorted (txid, vout) pairs.
+    fn conflicting_outpoints(set: &shared_model::ConflictingTransaction) -> Vec<(Vec<u8>, i32)> {
+        let mut outpoints: Vec<(Vec<u8>, i32)> = set
+            .conflicting_outpoints_txids
+            .iter()
+            .cloned()
+            .zip(set.conflicting_outpoints_vouts.iter().cloned())
+            .collect();
+        outpoints.sort();
+        outpoints
+    }
+
+    /// Returns the display byte order txid and vout of an outpoint.
+    fn reversed_outpoint(outpoint: OutPoint) -> (Vec<u8>, i32) {
+        (
+            outpoint
+                .txid
+                .to_byte_array()
+                .iter()
+                .rev()
+                .cloned()
+                .collect(),
+            outpoint.vout as i32,
+        )
+    }
+
+    fn sorted(mut txids: Vec<Vec<u8>>) -> Vec<Vec<u8>> {
+        txids.sort();
+        txids
+    }
+
+    /// A transaction spending the passed outpoints and paying `value` sat.
+    fn spending(outpoints: &[OutPoint], value: u64) -> Transaction {
+        fake_tx(
+            outpoints,
+            &[(value, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        )
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_without_a_conflict() {
+        let template_tx = spending(&[outpoint(1, 0)], 10_000);
+        let block_tx = spending(&[outpoint(2, 0)], 20_000);
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let sets = conflict_sets(&[&template_tx], &[&block_tx], &mut transactions);
+
+        assert!(sets.is_empty());
+        assert!(transactions.is_empty());
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_with_one_conflict() {
+        let template_tx = spending(&[outpoint(1, 0)], 10_000);
+        let block_tx = spending(&[outpoint(1, 0)], 20_000);
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let sets = conflict_sets(&[&template_tx], &[&block_tx], &mut transactions);
+
+        assert_eq!(sets.len(), 1);
+        assert_eq!(sets[0].block_id, 42);
+        assert_eq!(sets[0].template_txids, vec![reversed_txid(&template_tx)]);
+        assert_eq!(sets[0].block_txids, vec![reversed_txid(&block_tx)]);
+        assert_eq!(
+            conflicting_outpoints(&sets[0]),
+            vec![reversed_outpoint(outpoint(1, 0))]
+        );
+
+        // both transactions are added to the transactions map and tagged as
+        // conflicting
+        assert_eq!(transactions.len(), 2);
+        assert_eq!(
+            transactions[&reversed_txid(&template_tx)].tags,
+            vec![TxTag::Conflicting as i32]
+        );
+        assert_eq!(
+            transactions[&reversed_txid(&block_tx)].tags,
+            vec![TxTag::Conflicting as i32]
+        );
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_with_one_template_and_two_block_transactions() {
+        // The template transaction spends two outpoints, which the block
+        // spends with two separate transactions.
+        let template_tx = spending(&[outpoint(1, 0), outpoint(2, 0)], 10_000);
+        let block_tx1 = spending(&[outpoint(1, 0)], 20_000);
+        let block_tx2 = spending(&[outpoint(2, 0)], 30_000);
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let sets = conflict_sets(
+            &[&template_tx],
+            &[&block_tx1, &block_tx2],
+            &mut transactions,
+        );
+
+        assert_eq!(sets.len(), 1);
+        assert_eq!(sets[0].template_txids, vec![reversed_txid(&template_tx)]);
+        assert_eq!(
+            sorted(sets[0].block_txids.clone()),
+            sorted(vec![reversed_txid(&block_tx1), reversed_txid(&block_tx2)])
+        );
+        assert_eq!(conflicting_outpoints(&sets[0]), {
+            let mut expected = vec![
+                reversed_outpoint(outpoint(1, 0)),
+                reversed_outpoint(outpoint(2, 0)),
+            ];
+            expected.sort();
+            expected
+        });
+        assert_eq!(transactions.len(), 3);
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_merges_overlapping_conflicts() {
+        // T1 spends o1 and o3, T2 spends o2, B1 spends o1 and B2 spends o2
+        // and o3. All of them belong to one conflict.
+        //
+        // The conflicting outpoints are iterated in an arbitrary order, so
+        // repeat this a few times to cover the different orders.
+        for _ in 0..20 {
+            let template_tx1 = spending(&[outpoint(1, 0), outpoint(3, 0)], 10_000);
+            let template_tx2 = spending(&[outpoint(2, 0)], 20_000);
+            let block_tx1 = spending(&[outpoint(1, 0)], 30_000);
+            let block_tx2 = spending(&[outpoint(2, 0), outpoint(3, 0)], 40_000);
+
+            let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+            let sets = conflict_sets(
+                &[&template_tx1, &template_tx2],
+                &[&block_tx1, &block_tx2],
+                &mut transactions,
+            );
+
+            assert_eq!(sets.len(), 1);
+            assert_eq!(
+                sorted(sets[0].template_txids.clone()),
+                sorted(vec![
+                    reversed_txid(&template_tx1),
+                    reversed_txid(&template_tx2)
+                ])
+            );
+            assert_eq!(
+                sorted(sets[0].block_txids.clone()),
+                sorted(vec![reversed_txid(&block_tx1), reversed_txid(&block_tx2)])
+            );
+            assert_eq!(conflicting_outpoints(&sets[0]), {
+                let mut expected = vec![
+                    reversed_outpoint(outpoint(1, 0)),
+                    reversed_outpoint(outpoint(2, 0)),
+                    reversed_outpoint(outpoint(3, 0)),
+                ];
+                expected.sort();
+                expected
+            });
+            assert_eq!(transactions.len(), 4);
+        }
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_are_stored_in_a_stable_order() {
+        // The conflicting outpoints are iterated in an arbitrary order, but
+        // what ends up in the database must not depend on that order.
+        let mut previous: Option<(Vec<Vec<u8>>, Vec<Vec<u8>>, Vec<i32>)> = None;
+        for _ in 0..20 {
+            let template_tx = spending(&[outpoint(1, 0), outpoint(2, 0), outpoint(3, 0)], 10_000);
+            let block_tx1 = spending(&[outpoint(1, 0)], 20_000);
+            let block_tx2 = spending(&[outpoint(2, 0)], 30_000);
+            let block_tx3 = spending(&[outpoint(3, 0)], 40_000);
+
+            let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+            let sets = conflict_sets(
+                &[&template_tx],
+                &[&block_tx1, &block_tx2, &block_tx3],
+                &mut transactions,
+            );
+
+            assert_eq!(sets.len(), 1);
+            let current = (
+                sets[0].block_txids.clone(),
+                sets[0].conflicting_outpoints_txids.clone(),
+                sets[0].conflicting_outpoints_vouts.clone(),
+            );
+            if let Some(previous) = &previous {
+                assert_eq!(&current, previous);
+            }
+            previous = Some(current);
+        }
+    }
+
+    #[test]
+    fn test_build_conflicting_transactions_with_two_independent_conflicts() {
+        let template_tx1 = spending(&[outpoint(1, 0)], 10_000);
+        let template_tx2 = spending(&[outpoint(2, 0)], 20_000);
+        let block_tx1 = spending(&[outpoint(1, 0)], 30_000);
+        let block_tx2 = spending(&[outpoint(2, 0)], 40_000);
+
+        let mut transactions: HashMap<Vec<u8>, shared_model::Transaction> = HashMap::new();
+        let sets = conflict_sets(
+            &[&template_tx1, &template_tx2],
+            &[&block_tx1, &block_tx2],
+            &mut transactions,
+        );
+
+        assert_eq!(sets.len(), 2);
+        for set in sets.iter() {
+            assert_eq!(set.template_txids.len(), 1);
+            assert_eq!(set.block_txids.len(), 1);
+            assert_eq!(set.conflicting_outpoints_txids.len(), 1);
+        }
+        assert_eq!(transactions.len(), 4);
+    }
+
+    #[test]
+    fn test_build_packages_without_transactions() {
+        assert!(build_packages(&[]).is_empty());
+    }
+
+    #[test]
+    fn test_build_packages_with_a_single_transaction() {
+        let tx = child_of(&[], 100);
+        let packages = build_packages(&[tx_info(&tx, 0, 1_000)]);
+
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].txns.len(), 1);
+        assert_eq!(packages[0].weight(), tx.weight().to_wu() as usize);
+    }
+
+    #[test]
+    fn test_build_packages_with_unrelated_transactions() {
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[], 101);
+
+        let packages = build_packages(&[tx_info(&tx_a, 0, 1_000), tx_info(&tx_b, 1, 2_000)]);
+
+        assert_eq!(packages.len(), 2);
+        // the packages are in the order the transactions were passed in
+        assert_eq!(packages[0].txns[0].txid, tx_a.compute_txid());
+        assert_eq!(packages[1].txns[0].txid, tx_b.compute_txid());
+        assert_eq!(packages[0].weight(), tx_a.weight().to_wu() as usize);
+        assert_eq!(packages[1].weight(), tx_b.weight().to_wu() as usize);
+    }
+
+    #[test]
+    fn test_build_packages_with_a_chain_of_transactions() {
+        // A <- B <- C
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[&tx_a], 0);
+        let tx_c = child_of(&[&tx_b], 0);
+
+        let packages = build_packages(&[
+            tx_info(&tx_a, 0, 1_000),
+            tx_info(&tx_b, 1, 1_000),
+            tx_info(&tx_c, 2, 1_000),
+        ]);
+
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].txns.len(), 3);
+        assert_eq!(
+            packages[0].weight(),
+            (tx_a.weight() + tx_b.weight() + tx_c.weight()).to_wu() as usize
+        );
+    }
+
+    #[test]
+    fn test_build_packages_with_sibling_transactions() {
+        // B and C both spend an output of A
+        let tx_a = child_of(&[], 100);
+        let tx_b = fake_tx(
+            &[spend_of(&tx_a, 0)],
+            &[(10_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+        let tx_c = fake_tx(
+            &[spend_of(&tx_a, 0)],
+            &[(20_000, script_for_address(ADDRESS_P2WPKH))],
+            0,
+            SEQUENCE_FINAL,
+        );
+
+        let packages = build_packages(&[
+            tx_info(&tx_a, 0, 1_000),
+            tx_info(&tx_b, 1, 1_000),
+            tx_info(&tx_c, 2, 1_000),
+        ]);
+
+        assert_eq!(packages.len(), 1);
+        assert_eq!(packages[0].txns.len(), 3);
+    }
+
+    #[test]
+    fn test_build_packages_with_a_parent_that_is_not_adjacent() {
+        // Bitcoin Core places the transactions of a package next to each
+        // other and build_packages assumes that. A child that is not next to
+        // its parent ends up in its own package.
+        let tx_a = child_of(&[], 100);
+        let tx_d = child_of(&[], 101);
+        let tx_b = child_of(&[&tx_a], 0);
+
+        let packages = build_packages(&[
+            tx_info(&tx_a, 0, 1_000),
+            tx_info(&tx_d, 1, 1_000),
+            tx_info(&tx_b, 2, 1_000),
+        ]);
+
+        assert_eq!(packages.len(), 3);
+    }
+
+    #[test]
+    fn test_build_packages_package_feerate() {
+        let tx_a = child_of(&[], 100);
+        let tx_b = child_of(&[&tx_a], 0);
+
+        let packages = build_packages(&[tx_info(&tx_a, 0, 1_000), tx_info(&tx_b, 1, 3_000)]);
+
+        assert_eq!(packages.len(), 1);
+        assert_eq!(
+            packages[0].feerate(),
+            4_000f32 / (tx_a.vsize() + tx_b.vsize()) as f32
+        );
+    }
     #[test]
     fn test_build_packages() {
         #[derive(Debug)]
