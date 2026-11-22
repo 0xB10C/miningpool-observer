@@ -32,7 +32,7 @@
         </thead>
         <tbody>
             {% for row in sanctioned_table %}
-            <tr">
+            <tr>
                 <th scope="row" class="text-start">{{ row.pool_name }}</th>
                 <td>{{ row.in_both + row.only_in_block }}</td>
                 <td class="{% if row.only_in_template > 0%}table-danger{%endif%}">{{ row.only_in_template }}</td>

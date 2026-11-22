@@ -49,6 +49,37 @@ fn assert_is_a_page(rendered: &str) {
     );
     assert!(rendered.contains("Satoshi:99.0.0"), "the node version");
     assert!(rendered.contains("A test footer"), "the configured footer");
+    assert_balanced_divs(rendered);
+    assert_no_tag_name_followed_by_a_quote(rendered);
+}
+
+/// Asserts that no tag is written like `<tr">`, where the stray quote makes
+/// the tag name `tr"`.
+fn assert_no_tag_name_followed_by_a_quote(rendered: &str) {
+    for (position, _) in rendered.match_indices('<') {
+        // The '<' is ASCII, so the rest starts at a char boundary.
+        let rest = &rendered[position + 1..];
+        let name_length = rest
+            .find(|c: char| !c.is_ascii_alphanumeric())
+            .unwrap_or(rest.len());
+        assert!(
+            name_length == 0 || !rest[name_length..].starts_with('"'),
+            "the tag <{}\" has a stray quote",
+            &rest[..name_length]
+        );
+    }
+}
+
+/// Asserts that the page opens as many divs as it closes. Catches a `<div>`
+/// that should be a `</div>` and a div closed with another tag.
+fn assert_balanced_divs(rendered: &str) {
+    let opened = rendered.matches("<div").count();
+    let closed = rendered.matches("</div>").count();
+    assert_eq!(
+        opened, closed,
+        "the page opens {} and closes {} divs",
+        opened, closed
+    );
 }
 
 fn block_hash_hex() -> String {
