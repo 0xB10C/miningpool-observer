@@ -1,4 +1,5 @@
 use std::convert::TryFrom;
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::{env, error, fmt, fs, io};
@@ -100,10 +101,35 @@ pub fn load_daemon_config() -> Result<DaemonConfig, ConfigError> {
     parse_daemon_config(&config_string)
 }
 
+/// Replaces a leading `~` in a path with the home directory taken from the
+/// `HOME` environment variable. A path that doesn't start with a `~` is
+/// returned unchanged, and so is a path like `~user/.bitcoin`, where the `~`
+/// refers to the home directory of another user.
+fn expand_home(path: PathBuf) -> PathBuf {
+    expand_home_with(path, env::var_os("HOME"))
+}
+
+fn expand_home_with(path: PathBuf, home: Option<OsString>) -> PathBuf {
+    let home = match home {
+        Some(home) => PathBuf::from(home),
+        // Without a home directory there is nothing to expand the `~` to.
+        None => return path,
+    };
+
+    // Paths that aren't valid UTF-8 are left alone.
+    let path_str = path.to_str().map(str::to_string);
+    match path_str {
+        Some(p) if p == "~" => home,
+        Some(p) if p.starts_with("~/") => home.join(&p["~/".len()..]),
+        _ => path,
+    }
+}
+
 pub fn parse_daemon_config(toml_str: &str) -> Result<DaemonConfig, ConfigError> {
     let config: DaemonTomlConfig = toml::from_str(toml_str)?;
 
     let rpc_auth: Auth = if let Some(rpc_cookie_file) = config.rpc_cookie_file {
+        let rpc_cookie_file = expand_home(rpc_cookie_file);
         if !rpc_cookie_file.exists() {
             return Err(ConfigError::CookieFileDoesNotExist);
         }
@@ -456,6 +482,104 @@ mod tests {
             // The cookie file is used even though the minimal config also sets
             // a rpc_user and a rpc_password.
             Auth::CookieFile(path) => assert_eq!(path, cookie_file.path),
+            other => panic!("expected a cookie file auth, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn expand_home_replaces_a_leading_tilde() {
+        let home = Some(OsString::from("/home/test"));
+        assert_eq!(
+            expand_home_with(PathBuf::from("~/.bitcoin/.cookie"), home.clone()),
+            PathBuf::from("/home/test/.bitcoin/.cookie")
+        );
+        assert_eq!(
+            expand_home_with(PathBuf::from("~"), home.clone()),
+            PathBuf::from("/home/test")
+        );
+        assert_eq!(
+            expand_home_with(PathBuf::from("~/"), home),
+            PathBuf::from("/home/test")
+        );
+    }
+
+    #[test]
+    fn expand_home_leaves_other_paths_alone() {
+        let home = Some(OsString::from("/home/test"));
+        // A `~` that isn't at the start of the path and a `~user` path, where
+        // the `~` refers to the home directory of another user, are not
+        // expanded.
+        for path in [
+            "/etc/bitcoin/.cookie",
+            ".bitcoin/.cookie",
+            "~foo/.bitcoin/.cookie",
+            "~foo",
+            "/home/~/.cookie",
+            "",
+        ]
+        .iter()
+        {
+            assert_eq!(
+                expand_home_with(PathBuf::from(path), home.clone()),
+                PathBuf::from(path),
+                "{}",
+                path
+            );
+        }
+    }
+
+    #[test]
+    fn expand_home_without_a_home_directory_leaves_the_path_alone() {
+        assert_eq!(
+            expand_home_with(PathBuf::from("~/.bitcoin/.cookie"), None),
+            PathBuf::from("~/.bitcoin/.cookie")
+        );
+    }
+
+    #[test]
+    fn expand_home_uses_the_home_environment_variable() {
+        // The test only reads HOME: setting it would be process global and
+        // could change what the other tests see.
+        assert_eq!(
+            expand_home(PathBuf::from("/etc/bitcoin/.cookie")),
+            PathBuf::from("/etc/bitcoin/.cookie")
+        );
+        match env::var_os("HOME") {
+            Some(home) => assert_eq!(
+                expand_home(PathBuf::from("~/.bitcoin/.cookie")),
+                PathBuf::from(home).join(".bitcoin/.cookie")
+            ),
+            None => println!("skipped the expansion: HOME is not set"),
+        }
+    }
+
+    #[test]
+    fn daemon_config_with_a_cookie_file_below_a_tilde_uses_it() {
+        // The cookie file is created in the real home directory: pointing HOME
+        // at a temporary directory would need the process global env::set_var.
+        let home = match env::var_os("HOME") {
+            Some(home) => PathBuf::from(home),
+            None => {
+                println!("skipped: HOME is not set");
+                return;
+            }
+        };
+        let name = format!(
+            "miningpool-observer-test-cookie-{}-home",
+            std::process::id()
+        );
+        let path = home.join(&name);
+        if fs::write(&path, b"__cookie__:password").is_err() {
+            println!("skipped: could not write to the home directory");
+            return;
+        }
+
+        let config = daemon_config_with(&format!(r#"rpc_cookie_file = "~/{}""#, name));
+        let parsed = parse_daemon_config(&config);
+        let _ = fs::remove_file(&path);
+
+        match parsed.expect("the daemon config should parse").rpc_auth {
+            Auth::CookieFile(cookie_file) => assert_eq!(cookie_file, path),
             other => panic!("expected a cookie file auth, got {:?}", other),
         }
     }
