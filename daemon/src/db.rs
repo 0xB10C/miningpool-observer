@@ -257,3 +257,365 @@ pub fn update_node_info(
         .execute(conn)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::{db_transaction_fixture, new_block_fixture, test_conn};
+    use miningpool_observer_shared::chrono;
+
+    /// Runs the body of a database test with a connection, or prints why it
+    /// was skipped and returns.
+    macro_rules! db_test {
+        ($conn:ident, $body:block) => {
+            match test_conn() {
+                Some(mut $conn) => $body,
+                None => return,
+            }
+        };
+    }
+
+    fn insert_test_block(hash_byte: u8, conn: &mut PgConnection) -> i64 {
+        insert_block(&new_block_fixture(hash_byte, 800_000), conn).unwrap()
+    }
+
+    fn transaction_in_db(tx_id: &[u8], conn: &mut PgConnection) -> Transaction {
+        use schema::transaction::dsl::*;
+        transaction
+            .filter(txid.eq(tx_id))
+            .first::<Transaction>(conn)
+            .unwrap()
+    }
+
+    #[test]
+    fn test_insert_block() {
+        db_test!(conn, {
+            let block_id = insert_block(&new_block_fixture(0x11, 800_000), &mut conn).unwrap();
+            assert!(block_id > 0);
+
+            // the block hash is the primary key, so the same block can't be
+            // inserted twice
+            assert!(insert_block(&new_block_fixture(0x11, 800_000), &mut conn).is_err());
+        })
+    }
+
+    #[test]
+    fn test_insert_transactions_merges_the_tags() {
+        db_test!(conn, {
+            let tx = db_transaction_fixture(0x21, vec![4110, 4140]);
+            insert_transactions(vec![tx.clone()], &mut conn).unwrap();
+            assert_eq!(
+                transaction_in_db(&tx.txid, &mut conn).tags,
+                vec![4110, 4140]
+            );
+
+            // inserting the same transaction with different tags merges them
+            let mut with_other_tags = tx.clone();
+            with_other_tags.tags = vec![4100, 4110];
+            insert_transactions(vec![with_other_tags], &mut conn).unwrap();
+            assert_eq!(
+                transaction_in_db(&tx.txid, &mut conn).tags,
+                vec![4100, 4110, 4140]
+            );
+
+            // inserting it with the tags it already has changes nothing
+            let mut with_same_tags = tx.clone();
+            with_same_tags.tags = vec![4100, 4110, 4140];
+            insert_transactions(vec![with_same_tags], &mut conn).unwrap();
+            assert_eq!(
+                transaction_in_db(&tx.txid, &mut conn).tags,
+                vec![4100, 4110, 4140]
+            );
+
+            let all = all_transactions(&mut conn).unwrap();
+            assert_eq!(all.len(), 1);
+            assert_eq!(all[0].txid, tx.txid);
+            assert_eq!(all[0].fee, 1_000);
+            assert_eq!(all[0].vsize, 250);
+        })
+    }
+
+    #[test]
+    fn test_update_transaction_tags() {
+        db_test!(conn, {
+            let tx = db_transaction_fixture(0x22, vec![4110]);
+            insert_transactions(vec![tx.clone()], &mut conn).unwrap();
+
+            update_transaction_tags(&vec![1100, 4110], &tx.txid, &mut conn).unwrap();
+            assert_eq!(
+                transaction_in_db(&tx.txid, &mut conn).tags,
+                vec![1100, 4110]
+            );
+        })
+    }
+
+    #[test]
+    fn test_replace_sanctioned_addresses() {
+        db_test!(conn, {
+            let old = vec![SanctionedAddress {
+                address: "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2".to_string(),
+            }];
+            replace_sanctioned_addresses(old, &mut conn).unwrap();
+            assert_eq!(sanctioned_addresses(&mut conn).unwrap().len(), 1);
+
+            let new = vec![
+                SanctionedAddress {
+                    address: "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4".to_string(),
+                },
+                SanctionedAddress {
+                    address: "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy".to_string(),
+                },
+            ];
+            replace_sanctioned_addresses(new, &mut conn).unwrap();
+
+            let mut addresses: Vec<String> = sanctioned_addresses(&mut conn)
+                .unwrap()
+                .iter()
+                .map(|a| a.address.clone())
+                .collect();
+            addresses.sort();
+            assert_eq!(
+                addresses,
+                vec![
+                    "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy".to_string(),
+                    "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4".to_string(),
+                ]
+            );
+        })
+    }
+
+    fn sanctioned_utxo_fixture(txid_byte: u8, vout: i32, amount: i64) -> SanctionedUtxo {
+        SanctionedUtxo {
+            txid: vec![txid_byte; 32],
+            vout,
+            script_pubkey: vec![0x00, 0x14, 0x42],
+            amount,
+            height: 800_000,
+        }
+    }
+
+    #[test]
+    fn test_sanctioned_utxos() {
+        db_test!(conn, {
+            clean_and_insert_sanctioned_utxos(
+                &[sanctioned_utxo_fixture(0x31, 0, 1_000)],
+                &mut conn,
+            )
+            .unwrap();
+            assert_eq!(get_sanctioned_utxos(&mut conn).unwrap().len(), 1);
+
+            // inserting a UTXO that is already there is ignored
+            insert_sanctioned_utxos(&[sanctioned_utxo_fixture(0x31, 0, 1_000)], &mut conn).unwrap();
+            assert_eq!(get_sanctioned_utxos(&mut conn).unwrap().len(), 1);
+
+            // the same txid with a different vout is a different UTXO
+            let second = sanctioned_utxo_fixture(0x31, 1, 2_000);
+            insert_sanctioned_utxos(&[second], &mut conn).unwrap();
+            assert_eq!(get_sanctioned_utxos(&mut conn).unwrap().len(), 2);
+
+            // cleaning and inserting replaces all of them
+            let third = sanctioned_utxo_fixture(0x32, 0, 3_000);
+            clean_and_insert_sanctioned_utxos(&[third], &mut conn).unwrap();
+            let utxos = get_sanctioned_utxos(&mut conn).unwrap();
+            assert_eq!(utxos.len(), 1);
+            assert_eq!(utxos[0].txid, vec![0x32; 32]);
+            assert_eq!(utxos[0].amount, 3_000);
+            assert_eq!(utxos[0].height, 800_000);
+        })
+    }
+
+    #[test]
+    fn test_insert_sanctioned_utxo_scan_info() {
+        db_test!(conn, {
+            let info = SanctionedUtxoScanInfo {
+                end_time: chrono::DateTime::from_timestamp(1_600_000_000, 0)
+                    .unwrap()
+                    .naive_utc(),
+                end_height: 800_000,
+                duration_seconds: 42,
+                utxo_amount: 1_000,
+                utxo_count: 7,
+            };
+            insert_sanctioned_utxo_scan_info(&info, &mut conn).unwrap();
+            // the end time is the primary key, inserting it again is ignored
+            insert_sanctioned_utxo_scan_info(&info, &mut conn).unwrap();
+
+            use schema::sanctioned_utxo_scan_info::dsl::*;
+            let infos = sanctioned_utxo_scan_info
+                .load::<SanctionedUtxoScanInfo>(&mut conn)
+                .unwrap();
+            assert_eq!(infos.len(), 1);
+            assert_eq!(infos[0].utxo_count, 7);
+        })
+    }
+
+    #[test]
+    fn test_insert_debug_template_selection_infos() {
+        db_test!(conn, {
+            let db_block_id = insert_test_block(0x41, &mut conn);
+            let info = DebugTemplateSelectionInfo {
+                block_id: db_block_id,
+                template_time: chrono::DateTime::from_timestamp(1_600_000_000, 0)
+                    .unwrap()
+                    .naive_utc(),
+                count_missing: 1,
+                count_shared: 2,
+                count_extra: 3,
+                selected: true,
+            };
+            insert_debug_template_selection_infos(vec![info.clone()], &mut conn).unwrap();
+            // the block id and template time are the primary key
+            insert_debug_template_selection_infos(vec![info], &mut conn).unwrap();
+
+            use schema::debug_template_selection::dsl::*;
+            let infos = debug_template_selection
+                .load::<DebugTemplateSelectionInfo>(&mut conn)
+                .unwrap();
+            assert_eq!(infos.len(), 1);
+            assert_eq!(infos[0].count_shared, 2);
+        })
+    }
+
+    #[test]
+    fn test_insert_transactions_only_in_block_and_template() {
+        db_test!(conn, {
+            let db_block_id = insert_test_block(0x51, &mut conn);
+            let in_block = db_transaction_fixture(0x52, vec![]);
+            let in_template = db_transaction_fixture(0x53, vec![]);
+            insert_transactions(vec![in_block.clone(), in_template.clone()], &mut conn).unwrap();
+
+            insert_transactions_only_in_block(
+                vec![TransactionOnlyInBlock {
+                    block_id: db_block_id,
+                    position: 3,
+                    transaction_txid: in_block.txid.clone(),
+                }],
+                &mut conn,
+            )
+            .unwrap();
+            insert_transactions_only_in_template(
+                vec![TransactionOnlyInTemplate {
+                    block_id: db_block_id,
+                    position: 4,
+                    mempool_age_seconds: 120,
+                    transaction_txid: in_template.txid.clone(),
+                }],
+                &mut conn,
+            )
+            .unwrap();
+
+            use schema::transaction_only_in_block::dsl as block_dsl;
+            let only_in_block = block_dsl::transaction_only_in_block
+                .load::<TransactionOnlyInBlock>(&mut conn)
+                .unwrap();
+            assert_eq!(only_in_block.len(), 1);
+            assert_eq!(only_in_block[0].position, 3);
+            assert_eq!(only_in_block[0].transaction_txid, in_block.txid);
+
+            use schema::transaction_only_in_template::dsl as template_dsl;
+            let only_in_template = template_dsl::transaction_only_in_template
+                .load::<TransactionOnlyInTemplate>(&mut conn)
+                .unwrap();
+            assert_eq!(only_in_template.len(), 1);
+            assert_eq!(only_in_template[0].position, 4);
+            assert_eq!(only_in_template[0].mempool_age_seconds, 120);
+        })
+    }
+
+    #[test]
+    fn test_insert_sanctioned_transaction_infos() {
+        db_test!(conn, {
+            let db_block_id = insert_test_block(0x61, &mut conn);
+            let tx = db_transaction_fixture(0x62, vec![]);
+            insert_transactions(vec![tx.clone()], &mut conn).unwrap();
+
+            insert_sanctioned_transaction_infos(
+                vec![SanctionedTransactionInfo {
+                    block_id: db_block_id,
+                    transaction_txid: tx.txid.clone(),
+                    in_block: true,
+                    in_template: false,
+                    addresses: vec!["1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2".to_string()],
+                }],
+                &mut conn,
+            )
+            .unwrap();
+
+            use schema::sanctioned_transaction_info::dsl::*;
+            let infos = sanctioned_transaction_info
+                .load::<SanctionedTransactionInfo>(&mut conn)
+                .unwrap();
+            assert_eq!(infos.len(), 1);
+            assert!(infos[0].in_block);
+            assert!(!infos[0].in_template);
+            assert_eq!(
+                infos[0].addresses,
+                vec!["1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2".to_string()]
+            );
+        })
+    }
+
+    #[test]
+    fn test_insert_conflicting_transactions() {
+        db_test!(conn, {
+            let db_block_id = insert_test_block(0x71, &mut conn);
+
+            insert_conflicting_transactions(
+                vec![ConflictingTransaction {
+                    block_id: db_block_id,
+                    template_txids: vec![vec![0x72; 32]],
+                    block_txids: vec![vec![0x73; 32]],
+                    conflicting_outpoints_txids: vec![vec![0x74; 32]],
+                    conflicting_outpoints_vouts: vec![1],
+                }],
+                &mut conn,
+            )
+            .unwrap();
+
+            use schema::conflicting_transactions::dsl::*;
+            let conflicts = conflicting_transactions
+                .load::<ConflictingTransaction>(&mut conn)
+                .unwrap();
+            assert_eq!(conflicts.len(), 1);
+            assert_eq!(conflicts[0].template_txids, vec![vec![0x72; 32]]);
+            assert_eq!(conflicts[0].conflicting_outpoints_vouts, vec![1]);
+        })
+    }
+
+    #[test]
+    fn test_unknown_pool_blocks_and_update_pool_name() {
+        db_test!(conn, {
+            let db_block_id = insert_test_block(0x81, &mut conn);
+
+            let unknown = unknown_pool_blocks(&mut conn).unwrap();
+            assert_eq!(unknown.len(), 1);
+            assert_eq!(unknown[0].id, db_block_id);
+            assert_eq!(unknown[0].pool_name, "Unknown");
+
+            update_pool_name_with_block_id(&mut conn, db_block_id, "Test Pool").unwrap();
+            assert!(unknown_pool_blocks(&mut conn).unwrap().is_empty());
+
+            use schema::block::dsl;
+            let updated = dsl::block
+                .filter(dsl::id.eq(db_block_id))
+                .first::<Block>(&mut conn)
+                .unwrap();
+            assert_eq!(updated.pool_name, "Test Pool");
+        })
+    }
+
+    #[test]
+    fn test_update_node_info() {
+        db_test!(conn, {
+            update_node_info("Satoshi 27.0.0", &mut conn).unwrap();
+
+            use schema::node_info::dsl::*;
+            let stored: String = node_info
+                .select(version)
+                .filter(id.eq(0))
+                .first(&mut conn)
+                .unwrap();
+            assert_eq!(stored, "Satoshi 27.0.0");
+        })
+    }
+}
