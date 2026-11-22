@@ -439,6 +439,26 @@ fn main_loop(
                 }
             };
 
+            // The block we just requested by height isn't necessarily the block the
+            // previous_template was built on either: a reorg can have replaced it.
+            // Comparing it to the previous_template would compare a template to a
+            // block from a different chain.
+            if bitcoin_block.header.prev_blockhash != previous_template.previous_block_hash {
+                log::warn!(
+                    target: processing::LOG_TARGET_PROCESSING,
+                    "Can't compare the previous_template to the missed block {}: the block at height {} isn't the block the template was built on. Was there a reorg?",
+                    hash_of_missed_block,
+                    previous_template.height,
+                );
+                metrics::RUNTIME_SKIPPED_BLOCK_EVENTS.inc();
+
+                // The templates we kept don't belong to any block we can process.
+                // Start over with the current template.
+                last_templates.clear();
+                last_templates.push_back(current_template);
+                continue;
+            }
+
             // TODO: Once Bitcoin Core v22 with getblock verbosity level 2 is released
             // and rust-bitcoincore-rpc has can get the block and fees in on RPC call,
             // then the above getblock call and this can be merged.
