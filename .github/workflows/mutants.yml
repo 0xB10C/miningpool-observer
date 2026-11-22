@@ -1,0 +1,31 @@
+# Mutation testing is slow, so it only runs when started by hand.
+name: Mutation tests
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  mutants:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - miningpool_observer_shared
+          - miningpool-observer-daemon
+          - miningpool-observer-web
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install cargo-mutants
+      run: cargo install cargo-mutants --locked
+    - name: Run cargo mutants
+      run: cargo mutants -p ${{ matrix.crate }} --jobs 2 --no-shuffle
+    - name: Upload results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: mutants-${{ matrix.crate }}
+        path: mutants.out

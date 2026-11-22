@@ -1,0 +1,46 @@
+# Configuration for cargo-mutants (https://mutants.rs).
+#
+# Run with:   cargo mutants -p <crate>
+# See docs/development.md for details.
+
+# Code that needs a running Bitcoin Core node, a PostgreSQL database, or runs
+# forever can't be exercised by the default `cargo test` run. Mutating it only
+# produces noise, so it is skipped.
+exclude_globs = [
+    "daemon/src/db.rs",
+    "daemon/src/metrics.rs",
+    "web/src/db.rs",
+    "web/src/handler.rs",
+    "shared/src/db_pool.rs",
+    "shared/src/schema.rs",
+]
+
+# Patterns are matched against the mutant description, which looks like
+# "daemon/src/main.rs:311:5: replace main_loop with ()" or
+# "daemon/src/main.rs:320:12: replace == with != in main_loop".
+exclude_re = [
+    # daemon: startup, RPC loops, background threads, and sleep durations
+    "daemon/src/main.rs.*\\bmain\\b",
+    "daemon/src/main.rs.*\\bmain_loop\\b",
+    "daemon/src/main.rs.*\\bprocess\\b",
+    "daemon/src/main.rs.*\\bstartup_db_mirgation\\b",
+    "daemon/src/main.rs.*\\blog_template_infos\\b",
+    "daemon/src/main.rs.*\\bscantxoutset_sanctioned_tx\\b",
+    "daemon/src/main.rs.*\\bstart_[a-z_]*_thread\\b",
+    "daemon/src/main.rs.*\\bretag_transactions\\b",
+    "daemon/src/main.rs.*\\bupdate_sanctioned_addresses\\b",
+    "daemon/src/main.rs.*\\bload_pool_identification_dataset\\b",
+    "daemon/src/main.rs.*\\bmempool_age_seconds\\b",
+    "daemon/src/main.rs.*\\b(WAIT_TIME|TIMEOUT)_[A-Z_]*\\b",
+    "daemon/src/processing.rs.*\\blog_processing_error\\b",
+    # web: startup and request handlers that need a database
+    "web/src/main.rs.*\\bmain\\b",
+    "web/src/ogimage.rs.*\\bogimage_[a-z_]*\\b",
+    # shared: file loading wrappers around the parsers, and the server thread
+    "shared/src/config.rs.*\\bload_daemon_config\\b",
+    "shared/src/config.rs.*\\bload_web_config\\b",
+    "shared/src/prometheus_metric_server.rs.*\\bstart_http_server\\b",
+]
+
+# Each mutant is built and tested from scratch, so give it some headroom.
+minimum_test_timeout = 120.0

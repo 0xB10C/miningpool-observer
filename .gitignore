@@ -15,3 +15,4 @@ daemon-config.toml
 web-config.toml
 
 .env
+mutants.out*/
