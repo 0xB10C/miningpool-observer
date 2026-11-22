@@ -28,8 +28,11 @@ pub struct MissingTransaction {
 }
 
 impl MissingTransaction {
+    /// Height of the newest block the transaction is missing from. This is
+    /// only used as a sort key. Returns 0 if the transaction isn't missing
+    /// from any block.
     pub fn max_height(&self) -> i32 {
-        return self.blocks.iter().map(|b| b.height).max().unwrap();
+        self.blocks.iter().map(|b| b.height).max().unwrap_or(0)
     }
 }
 
@@ -97,4 +100,41 @@ pub struct BlockWithTx {
     pub block: model::Block,
     pub txns_only_in_template: Vec<(model::TransactionOnlyInTemplate, model::Transaction)>,
     pub txns_only_in_block: Vec<(model::TransactionOnlyInBlock, model::Transaction)>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::{missing_transaction_block_info_fixture, transaction_fixture};
+
+    fn missing_transaction(heights: &[i32]) -> MissingTransaction {
+        MissingTransaction {
+            transaction: transaction_fixture(vec![]),
+            blocks: heights
+                .iter()
+                .map(|h| missing_transaction_block_info_fixture(*h))
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn test_missing_transaction_max_height() {
+        assert_eq!(missing_transaction(&[700_000]).max_height(), 700_000);
+        assert_eq!(
+            missing_transaction(&[700_000, 700_002, 700_001]).max_height(),
+            700_002
+        );
+        // the heights don't have to be sorted
+        assert_eq!(
+            missing_transaction(&[700_002, 700_000]).max_height(),
+            700_002
+        );
+    }
+
+    #[test]
+    fn test_missing_transaction_max_height_without_blocks() {
+        // A transaction that's missing from no block at all shouldn't panic.
+        // The max height is only used as a sort key.
+        assert_eq!(missing_transaction(&[]).max_height(), 0);
+    }
 }
