@@ -1647,6 +1647,7 @@ dependencies = [
  "actix-files",
  "actix-http",
  "actix-web",
+ "diesel_migrations",
  "hex",
  "log",
  "miningpool_observer_shared",

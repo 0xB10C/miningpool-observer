@@ -63,13 +63,13 @@ pub async fn templates_and_blocks(
         let (blocks, max_pages): (Vec<Block>, u32) =
             web::block(move || db::blocks_by_pool(&mut conn, page, &moved_mining_pool))
                 .await?
-                .map_err(actix_web::error::ErrorInternalServerError)?;
+                .map_err(error::db_error)?;
         ctx.insert("blocks", &blocks);
         ctx.insert("MAX_PAGES", &max_pages);
     } else {
         let (blocks, max_pages) = web::block(move || db::blocks(&mut conn, page))
             .await?
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(error::db_error)?;
         ctx.insert("blocks", &blocks);
         ctx.insert("MAX_PAGES", &max_pages);
     }
@@ -79,7 +79,7 @@ pub async fn templates_and_blocks(
     let mut conn = pool.get().expect("couldn't get db connection from pool");
     let pools = web::block(move || db::pools(&mut conn))
         .await?
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(error::db_error)?;
 
     ctx.insert("POOLS", &pools);
 
@@ -111,7 +111,7 @@ pub async fn single_template_and_block(
     let mut conn = pool.get().expect("couldn't get db connection from pool");
     let block_with_tx: BlockWithTx = web::block(move || db::block_with_tx(&hash, &mut conn))
         .await?
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(error::db_error)?;
     ctx.insert("block_with_tx", &block_with_tx);
 
     if block_with_tx.block.sanctioned_missing_tx > 0 {
@@ -119,7 +119,7 @@ pub async fn single_template_and_block(
         let sanctioned_missing_tx: Vec<MissingSanctionedTransaction> =
             web::block(move || db::missing_sanctioned_txns_for_block(&hash_clone, &mut conn))
                 .await?
-                .map_err(actix_web::error::ErrorInternalServerError)?;
+                .map_err(error::db_error)?;
         ctx.insert("sanctioned_missing_tx", &sanctioned_missing_tx);
     } else {
         let empty: &[model::MissingSanctionedTransaction] = &[];
@@ -148,7 +148,7 @@ pub async fn missing_sanctioned_transactions_rss(
     let blocks_with_missing_sanctioned =
         web::block(move || db::blocks_with_missing_sanctioned(&mut conn))
             .await?
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(error::db_error)?;
     ctx.insert(
         "blocks_with_missing_sanctioned",
         &blocks_with_missing_sanctioned,
@@ -178,7 +178,7 @@ pub async fn missing_sanctioned(
     let blocks_with_missing_sanctioned =
         web::block(move || db::blocks_with_missing_sanctioned(&mut conn))
             .await?
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(error::db_error)?;
     ctx.insert("blocks", &blocks_with_missing_sanctioned);
     ctx.insert("ENTRY_COUNT", &blocks_with_missing_sanctioned.len());
 
@@ -212,7 +212,7 @@ pub async fn missing_transactions(
     let (missing_transactions, max_pages) =
         web::block(move || db::missing_transactions(&mut conn, page))
             .await?
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(error::db_error)?;
     ctx.insert("missing_transactions", &missing_transactions);
     ctx.insert("MAX_PAGES", &max_pages);
     ctx.insert("CURRENT_PAGE", &page);
@@ -238,7 +238,7 @@ pub async fn single_missing_transaction(
     let mut conn = pool.get().expect("couldn't get db connection from pool");
     let missing_transaction = web::block(move || db::single_missing_transaction(&txid, &mut conn))
         .await?
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(error::db_error)?;
 
     ctx.insert("missing_transaction", &missing_transaction);
     let s = tmpl
@@ -269,7 +269,7 @@ pub async fn missing_transactions_rss(
     let (missing_transactions, max_pages) =
         web::block(move || db::missing_transactions(&mut conn, page))
             .await?
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(error::db_error)?;
     ctx.insert("missing_transactions", &missing_transactions);
     ctx.insert("MAX_PAGES", &max_pages);
     ctx.insert("CURRENT_PAGE", &page);
@@ -308,7 +308,7 @@ pub async fn conflicting_transactions(
     let (blocks_with_conflicting_transctions, max_pages) =
         web::block(move || db::blocks_with_conflicting_transactions(&mut conn, page))
             .await?
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(error::db_error)?;
 
     ctx.insert(
         "blocks_with_conflicting_transactions",
@@ -342,7 +342,7 @@ pub async fn single_block_with_conflicting_transactions(
     let single_block_with_conflicting_transactions =
         web::block(move || db::single_block_with_conflicting_transactions(&mut conn, &hash))
             .await?
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(error::db_error)?;
 
     ctx.insert(
         "single_block_with_conflicting_transactions",
@@ -389,7 +389,7 @@ pub async fn faq(
     let recent_sanctioned_utxo_scan_info =
         web::block(move || db::get_recent_sanctioned_utxo_scan_info(&mut conn))
             .await?
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(error::db_error)?;
     ctx.insert(
         "recent_sanctioned_utxo_scan_info",
         &recent_sanctioned_utxo_scan_info,
@@ -397,7 +397,7 @@ pub async fn faq(
     let mut conn = pool.get().expect("couldn't get db connection from pool");
     let sanctioned_addresses = web::block(move || db::sanctioned_addresses(&mut conn))
         .await?
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(error::db_error)?;
     ctx.insert("SANCTIONED_ADDRESSES", &sanctioned_addresses);
 
     let s = tmpl
@@ -452,7 +452,7 @@ pub async fn debug_utxoset_scans(
 
     let (scans, max_pages) = web::block(move || db::sanctioned_utxo_scan_infos(&mut conn, page))
         .await?
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(error::db_error)?;
 
     ctx.insert("scans", &scans);
     ctx.insert("MAX_PAGES", &max_pages);
@@ -482,7 +482,7 @@ pub async fn debug_unknown_pool_blocks(
     let mut conn = pool.get().expect("couldn't get db connection from pool");
     let unknown_pool_blocks = web::block(move || db::unknown_pool_blocks(&mut conn))
         .await?
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(error::db_error)?;
 
     ctx.insert("unknown_pool_blocks", &unknown_pool_blocks);
     let s = tmpl
@@ -510,7 +510,7 @@ pub async fn debug_fees_by_pool(
     let mut conn = pool.get().expect("couldn't get db connection from pool");
     let avg_fees = web::block(move || db::avg_fees_by_pool(&mut conn))
         .await?
-        .map_err(actix_web::error::ErrorInternalServerError)?;
+        .map_err(error::db_error)?;
 
     ctx.insert("avgfees", &avg_fees);
     let s = tmpl
@@ -547,7 +547,7 @@ pub async fn debug_template_selection_infos(
     let (template_selection_infos, max_pages): (Vec<DebugTemplateSelectionInfosAndBlock>, u32) =
         web::block(move || db::debug_template_selection_infos(&mut conn, page))
             .await?
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(error::db_error)?;
 
     ctx.insert("template_selection_infos", &template_selection_infos);
     ctx.insert("MAX_PAGES", &max_pages);
@@ -578,7 +578,7 @@ pub async fn debug_sanctioned_by_pool(
     let sanctioned_table: Vec<PoolSanctionedTableEntry> =
         web::block(move || db::debug_sanctioned_table(&mut conn))
             .await?
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(error::db_error)?;
 
     ctx.insert("sanctioned_table", &sanctioned_table);
     let s = tmpl
@@ -603,7 +603,7 @@ pub async fn debug_sanctioned_transactions_rss(
     let templates_and_blocks_with_sanctioned_tx: Vec<Block> =
         web::block(move || db::debug_templates_and_blocks_with_sanctioned_tx(&mut conn))
             .await?
-            .map_err(actix_web::error::ErrorInternalServerError)?;
+            .map_err(error::db_error)?;
     ctx.insert(
         "templates_and_blocks_with_sanctioned_tx",
         &templates_and_blocks_with_sanctioned_tx,
