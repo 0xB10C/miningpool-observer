@@ -42,13 +42,12 @@ mod processing;
 
 const WAIT_TIME_BETWEEN_TEMPLATE_QUERIES: time::Duration = time::Duration::from_secs(10);
 const WAIT_TIME_BETWEEN_CONNPOOL_GETCONNECTION: time::Duration = time::Duration::from_secs(1);
-const WAIT_TIME_BETWEEN_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 60 * 3); // 3 hours
-const WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 5); // 5 minutes
-const WAIT_TIME_BETWEEN_SANCTIONED_ADDRESS_UPDATES: time::Duration =
-    time::Duration::from_secs(60 * 60 * 24); // 1 day
+const WAIT_TIME_BETWEEN_UTXO_SET_SCANS: time::Duration = time::Duration::from_hours(3);
+const WAIT_TIME_BETWEEN_FAILED_UTXO_SET_SCANS: time::Duration = time::Duration::from_mins(5);
+const WAIT_TIME_BETWEEN_SANCTIONED_ADDRESS_UPDATES: time::Duration = time::Duration::from_hours(24);
 const WAIT_TIME_BETWEEN_POOL_IDENTIFICATOIN_DATASET_UPDATES: time::Duration =
-    time::Duration::from_secs(60 * 60 * 24); // 1 day
-const TIMEOUT_UTXO_SET_SCANS: time::Duration = time::Duration::from_secs(60 * 8); // 8 minutes
+    time::Duration::from_hours(24);
+const TIMEOUT_UTXO_SET_SCANS: time::Duration = time::Duration::from_mins(8);
 const MAX_OLD_TEMPLATES: usize = 15;
 const TIMEOUT_HTTP_GET_REQUEST: u64 = 10; // seconds
 
@@ -345,7 +344,6 @@ fn main_loop(
                     "Could not get the previous_template from last_templates (size: {}).",
                     last_templates.len()
                 ));
-                metrics::ERROR_PROCESSING.inc(); // TODO: this can be remove as log_processing_error already increases it
                 panic!("last_templates should not be empty.");
             }
         };
@@ -441,6 +439,26 @@ fn main_loop(
                 }
             };
 
+            // The block we just requested by height isn't necessarily the block the
+            // previous_template was built on either: a reorg can have replaced it.
+            // Comparing it to the previous_template would compare a template to a
+            // block from a different chain.
+            if bitcoin_block.header.prev_blockhash != previous_template.previous_block_hash {
+                log::warn!(
+                    target: processing::LOG_TARGET_PROCESSING,
+                    "Can't compare the previous_template to the missed block {}: the block at height {} isn't the block the template was built on. Was there a reorg?",
+                    hash_of_missed_block,
+                    previous_template.height,
+                );
+                metrics::RUNTIME_SKIPPED_BLOCK_EVENTS.inc();
+
+                // The templates we kept don't belong to any block we can process.
+                // Start over with the current template.
+                last_templates.clear();
+                last_templates.push_back(current_template);
+                continue;
+            }
+
             // TODO: Once Bitcoin Core v22 with getblock verbosity level 2 is released
             // and rust-bitcoincore-rpc has can get the block and fees in on RPC call,
             // then the above getblock call and this can be merged.
@@ -474,11 +492,14 @@ fn main_loop(
                 db_pool,
                 &bitcoin_block,
                 &block_tx_fees,
-                &mut last_templates,
+                &last_templates,
                 pools.clone(),
                 pool_identification_config.clone(),
             );
 
+            // The templates we kept belong to the block we just processed.
+            // Start over with the current template.
+            last_templates.clear();
             last_templates.push_back(current_template);
             continue;
         }
@@ -516,10 +537,15 @@ fn main_loop(
             db_pool,
             &bitcoin_block,
             &block_tx_fees,
-            &mut last_templates,
+            &last_templates,
             pools.clone(),
             pool_identification_config.clone(),
         );
+
+        // The templates we kept belong to the block we just processed. Start
+        // over with the current template.
+        last_templates.clear();
+        last_templates.push_back(current_template);
     }
 }
 
@@ -528,7 +554,7 @@ fn process(
     db_pool: &db_pool::PgPool,
     bitcoin_block: &Block,
     block_tx_fees: &GetBlockTxFeesResult,
-    last_templates: &mut VecDeque<GetBlockTemplateResult>,
+    last_templates: &VecDeque<GetBlockTemplateResult>,
     pools: model::SharedPoolIDData,
     pool_identification_config: PoolIdentificationConfig,
 ) {
@@ -778,8 +804,6 @@ fn process(
         log::warn!(target: processing::LOG_TARGET_PROCESSING, "Could not insert the debug_template_selection_infos into the database. Non-critical. Error: {}", e);
         return;
     }
-
-    last_templates.clear();
 }
 
 fn select_best_template_for_block(
