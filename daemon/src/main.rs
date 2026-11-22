@@ -344,7 +344,6 @@ fn main_loop(
                     "Could not get the previous_template from last_templates (size: {}).",
                     last_templates.len()
                 ));
-                metrics::ERROR_PROCESSING.inc(); // TODO: this can be remove as log_processing_error already increases it
                 panic!("last_templates should not be empty.");
             }
         };
