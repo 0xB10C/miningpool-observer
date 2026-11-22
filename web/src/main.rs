@@ -5,6 +5,10 @@ mod error;
 mod handler;
 mod model;
 mod ogimage;
+#[cfg(test)]
+mod templates_test;
+#[cfg(test)]
+mod test_util;
 mod util;
 
 use actix_files::Files;
