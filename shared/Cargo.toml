@@ -5,7 +5,7 @@ authors = ["0xb10c <0xb10c@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-log = "0.4"
+log = { version = "0.4", features = ["std"] }
 serde = "1"
 toml = "1.0"
 prometheus = "0.14.0"
