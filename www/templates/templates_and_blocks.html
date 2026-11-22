@@ -71,7 +71,7 @@
                             </a>
                         </div>
                     {% endfor %}
-                </p>
+                </div>
             </details>
 
             <div>
@@ -92,7 +92,7 @@
                         <a href="{{CONFIG.base_url}}/template-and-block/{{block.hash}}" class="stretched-link"></a>
                     </div>
                 {% endfor %}
-            <div>
+            </div>
 
             {% if CURRENT_POOL == "" %}
                 {{ pagination::pagination(MAX_PAGES=MAX_PAGES, CURRENT_PAGE=CURRENT_PAGE, QUERY_PAGE=QUERY_PAGE) }}

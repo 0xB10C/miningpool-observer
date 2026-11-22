@@ -6,7 +6,38 @@ use serde::Serialize;
 
 use std::convert::TryFrom;
 
+use crate::model::MissingTransaction;
 use crate::{db, error, util};
+
+/// The data the `svg/subpage_missing_transaction.svg` template renders.
+#[derive(Serialize)]
+struct MissingTransactionData {
+    block_count: usize,
+    txid: String,
+    feerate: f32,
+    size: i32,
+    fee: i64,
+    tags: Vec<String>,
+}
+
+fn missing_transaction_og_data(mt: &MissingTransaction) -> MissingTransactionData {
+    MissingTransactionData {
+        block_count: mt.blocks.len(),
+        txid: hex::encode(&mt.transaction.txid),
+        feerate: ((mt.transaction.fee as f64 / mt.transaction.vsize as f64) as f32).round(),
+        fee: mt.transaction.fee,
+        size: mt.transaction.vsize,
+        // Tag ids that we don't know about anymore (a tag can be deprecated
+        // and its id reused) are skipped rather than rendered.
+        tags: mt
+            .transaction
+            .tags
+            .iter()
+            .filter_map(|id| tags::TxTag::try_from(*id).ok())
+            .map(|tag| format_tag(&tag.value()))
+            .collect(),
+    }
+}
 
 fn format_tag(tag: &tags::Tag) -> String {
     let color = match tag.color {
@@ -34,34 +65,7 @@ pub async fn ogimage_missing_transaction(
         .await?
         .map_err(actix_web::error::ErrorInternalServerError)?;
 
-    #[derive(Serialize)]
-    struct Data {
-        block_count: usize,
-        txid: String,
-        feerate: f32,
-        size: i32,
-        fee: i64,
-        tags: Vec<String>,
-    }
-
-    ctx.insert(
-        "data",
-        &Data {
-            block_count: missing_transaction.blocks.len(),
-            txid: hex::encode(missing_transaction.transaction.txid),
-            feerate: ((missing_transaction.transaction.fee as f64
-                / missing_transaction.transaction.vsize as f64) as f32)
-                .round(),
-            fee: missing_transaction.transaction.fee,
-            size: missing_transaction.transaction.vsize,
-            tags: missing_transaction
-                .transaction
-                .tags
-                .iter()
-                .map(|id| format_tag(&tags::TxTag::try_from(*id).unwrap().value()))
-                .collect(),
-        },
-    );
+    ctx.insert("data", &missing_transaction_og_data(&missing_transaction));
     ctx.insert("config", config.get_ref());
 
     let s = tmpl
@@ -335,7 +339,10 @@ pub async fn ogimage_mainpage_index(
     }
 }
 
-fn render_and_encode(svg: &str, opts: &usvg::Options<'static>) -> Result<Vec<u8>, ImageError> {
+pub(crate) fn render_and_encode(
+    svg: &str,
+    opts: &usvg::Options<'static>,
+) -> Result<Vec<u8>, ImageError> {
     let rtree = usvg::Tree::from_str(svg, opts)?;
     let size = rtree.size().to_int_size();
     let mut pixmap = match Pixmap::new(size.width(), size.height()) {
@@ -383,5 +390,215 @@ impl std::error::Error for ImageError {
 impl From<usvg::Error> for ImageError {
     fn from(e: usvg::Error) -> Self {
         ImageError::UsvgError(e)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_util::{missing_transaction_block_info_fixture, transaction_fixture};
+    use std::convert::TryInto;
+
+    const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'];
+
+    fn tag(color: &'static str) -> tags::Tag {
+        tags::Tag {
+            name: "Test Tag".to_string(),
+            description: vec!["A tag used in the tests.".to_string()],
+            color,
+            text_color: tags::WHITE,
+        }
+    }
+
+    #[test]
+    fn test_format_tag() {
+        assert_eq!(
+            format_tag(&tag(tags::CYAN)),
+            "<tspan fill=\"#00a6d6\">Test Tag</tspan>"
+        );
+        assert_eq!(
+            format_tag(&tag(tags::YELLOW)),
+            "<tspan fill=\"#FFA500\">Test Tag</tspan>"
+        );
+        assert_eq!(
+            format_tag(&tag(tags::RED)),
+            "<tspan fill=\"#cb2821\">Test Tag</tspan>"
+        );
+    }
+
+    #[test]
+    fn test_format_tag_falls_back_to_black() {
+        // Colors without a mapping are rendered black.
+        assert_eq!(
+            format_tag(&tag(tags::GRAY)),
+            "<tspan fill=\"#000000\">Test Tag</tspan>"
+        );
+        assert_eq!(
+            format_tag(&tag(tags::GREEN)),
+            "<tspan fill=\"#000000\">Test Tag</tspan>"
+        );
+    }
+
+    #[test]
+    fn test_render_and_encode() {
+        let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">
+            <rect width="10" height="10" fill="#00a6d6"/>
+        </svg>"##;
+        let png = render_and_encode(svg, &usvg::Options::default()).unwrap();
+
+        assert_eq!(&png[..8], &PNG_SIGNATURE);
+        // The IHDR chunk starts at byte 8 and has the width and the height as
+        // big-endian u32 at byte 16 and 20.
+        assert_eq!(&png[12..16], b"IHDR");
+        assert_eq!(u32::from_be_bytes(png[16..20].try_into().unwrap()), 10);
+        assert_eq!(u32::from_be_bytes(png[20..24].try_into().unwrap()), 10);
+    }
+
+    #[test]
+    fn test_render_and_encode_malformed_svg() {
+        match render_and_encode("this is not an SVG", &usvg::Options::default()) {
+            Err(ImageError::UsvgError(_)) => (),
+            other => panic!("expected a UsvgError, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_render_and_encode_zero_sized_svg() {
+        // A zero-sized SVG would also make the Pixmap creation fail, but usvg
+        // already rejects it while parsing. Either way, this must not panic.
+        let svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0"></svg>"#;
+        match render_and_encode(svg, &usvg::Options::default()) {
+            Err(ImageError::UsvgError(usvg::Error::InvalidSize)) => (),
+            other => panic!("expected an InvalidSize error, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_image_error_display() {
+        let usvg_error = ImageError::from(usvg::Error::InvalidSize);
+        assert!(!usvg_error.to_string().is_empty());
+        assert!(!ImageError::PngEncodingError("oops".to_string())
+            .to_string()
+            .is_empty());
+        assert!(ImageError::PngEncodingError("oops".to_string())
+            .to_string()
+            .contains("oops"));
+        assert!(!ImageError::PixmapCreationError.to_string().is_empty());
+    }
+
+    #[test]
+    fn test_image_error_source() {
+        use std::error::Error;
+
+        // only the usvg error wraps another error
+        assert!(ImageError::from(usvg::Error::InvalidSize)
+            .source()
+            .is_some());
+        assert!(ImageError::PngEncodingError("oops".to_string())
+            .source()
+            .is_none());
+        assert!(ImageError::PixmapCreationError.source().is_none());
+    }
+
+    fn missing_transaction(tags: Vec<i32>) -> MissingTransaction {
+        MissingTransaction {
+            transaction: transaction_fixture(tags),
+            blocks: vec![
+                missing_transaction_block_info_fixture(700_000),
+                missing_transaction_block_info_fixture(700_001),
+            ],
+        }
+    }
+
+    #[test]
+    fn test_missing_transaction_og_data() {
+        let data =
+            missing_transaction_og_data(&missing_transaction(vec![tags::TxTag::Young as i32]));
+
+        assert_eq!(data.block_count, 2);
+        assert_eq!(data.txid, hex::encode(vec![0xaa; 32]));
+        assert_eq!(data.fee, 1000);
+        assert_eq!(data.size, 300);
+        // 1000 sat / 300 vByte = 3.33 sat/vByte, rounded to 3
+        assert_eq!(data.feerate, 3.0);
+        assert_eq!(data.tags, vec![format_tag(&tags::TxTag::Young.value())]);
+    }
+
+    #[test]
+    fn test_missing_transaction_og_data_skips_unknown_tags() {
+        // 3100 is a deprecated tag id. Transactions tagged with it are still
+        // in the database, but it can't be mapped to a tag anymore.
+        let data = missing_transaction_og_data(&missing_transaction(vec![
+            3100,
+            tags::TxTag::Coinbase as i32,
+        ]));
+
+        assert_eq!(data.tags, vec![format_tag(&tags::TxTag::Coinbase.value())]);
+    }
+
+    #[test]
+    fn test_missing_transaction_og_data_without_tags() {
+        let data = missing_transaction_og_data(&missing_transaction(vec![]));
+        assert!(data.tags.is_empty());
+    }
+
+    /// The OpenGraph images of the main pages are rendered without touching
+    /// the database. Requesting them has to return a PNG.
+    #[actix_web::test]
+    async fn test_mainpage_ogimage_handlers() {
+        use crate::test_util::{site_config, tera, usvg_options};
+        use actix_web::http::{header, StatusCode};
+        use actix_web::web::Data;
+        use actix_web::{test, App};
+
+        let app = test::init_service(
+            App::new()
+                .app_data(Data::new(tera()))
+                .app_data(Data::new(site_config()))
+                .app_data(Data::new(usvg_options()))
+                .route("/index.png", web::get().to(ogimage_mainpage_index))
+                .route("/faq.png", web::get().to(ogimage_mainpage_faq))
+                .route(
+                    "/template-and-block.png",
+                    web::get().to(ogimage_mainpage_templates_and_blocks),
+                )
+                .route(
+                    "/missing.png",
+                    web::get().to(ogimage_mainpage_missing_transactions),
+                )
+                .route(
+                    "/conflicting.png",
+                    web::get().to(ogimage_mainpage_conflicting_transactions),
+                )
+                .route(
+                    "/missing-sanctioned.png",
+                    web::get().to(ogimage_mainpage_sanctioned_transactions),
+                ),
+        )
+        .await;
+
+        for uri in [
+            "/index.png",
+            "/faq.png",
+            "/template-and-block.png",
+            "/missing.png",
+            "/conflicting.png",
+            "/missing-sanctioned.png",
+        ]
+        .iter()
+        {
+            let req = test::TestRequest::get().uri(uri).to_request();
+            let res = test::call_service(&app, req).await;
+
+            assert_eq!(res.status(), StatusCode::OK, "{}", uri);
+            assert_eq!(
+                res.headers().get(header::CONTENT_TYPE).unwrap(),
+                "image/png",
+                "{}",
+                uri
+            );
+            let body = test::read_body(res).await;
+            assert_eq!(&body[..8], &PNG_SIGNATURE, "{}", uri);
+        }
     }
 }
