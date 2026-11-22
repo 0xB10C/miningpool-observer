@@ -5,6 +5,8 @@ mod db;
 mod db_test;
 mod error;
 mod handler;
+#[cfg(test)]
+mod handler_test;
 mod model;
 mod ogimage;
 #[cfg(test)]

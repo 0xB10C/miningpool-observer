@@ -1,4 +1,5 @@
 use miningpool_observer_shared::config;
+use miningpool_observer_shared::diesel;
 use tera::Tera;
 
 use actix_web::{
@@ -9,6 +10,19 @@ use actix_web::{
 pub fn template_error(e: tera::Error) -> actix_web::Error {
     log::error!("Template Error: {}", e);
     actix_web::error::ErrorInternalServerError("Template Error")
+}
+
+/// Turns a database error into a response error. A query for a block hash or
+/// a txid that isn't in the database answers with a 404 instead of a 500: a
+/// visitor asking for something we don't have isn't a server error.
+pub fn db_error(e: diesel::result::Error) -> actix_web::Error {
+    match e {
+        diesel::result::Error::NotFound => actix_web::error::ErrorNotFound("Not found"),
+        e => {
+            log::error!("Database Error: {}", e);
+            actix_web::error::ErrorInternalServerError("Database Error")
+        }
+    }
 }
 
 pub fn unauthorized<B>(res: ServiceResponse<B>) -> Result<ErrorHandlerResponse<BoxBody>> {
@@ -208,5 +222,42 @@ mod tests {
 
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
         assert_eq!(body_of(res).await, "Page not found");
+    }
+}
+
+/// The tests of [`db_error`] live in their own module: the module above
+/// imports actix_web::test, which shadows the #[test] attribute.
+#[cfg(test)]
+mod db_error_tests {
+    use super::*;
+    use actix_web::http::StatusCode;
+
+    #[test]
+    fn test_db_error_answers_a_missing_row_with_a_404() {
+        // A visitor asking for a block or a transaction we don't have isn't a
+        // server error.
+        let not_found = db_error(diesel::result::Error::NotFound);
+        assert_eq!(
+            not_found.as_response_error().status_code(),
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(not_found.to_string(), "Not found");
+    }
+
+    #[test]
+    fn test_db_error_answers_other_errors_with_a_500() {
+        let broken = db_error(diesel::result::Error::BrokenTransactionManager);
+        assert_eq!(
+            broken.as_response_error().status_code(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+        assert_eq!(broken.to_string(), "Database Error");
+
+        let rollback = db_error(diesel::result::Error::RollbackTransaction);
+        assert_eq!(
+            rollback.as_response_error().status_code(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+        assert_eq!(rollback.to_string(), "Database Error");
     }
 }

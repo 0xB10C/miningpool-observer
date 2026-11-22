@@ -3,6 +3,7 @@
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use miningpool_observer_shared::chrono::NaiveDateTime;
 use miningpool_observer_shared::config::WebSiteConfig;
+use miningpool_observer_shared::db_pool;
 use miningpool_observer_shared::diesel::pg::PgConnection;
 use miningpool_observer_shared::diesel::prelude::*;
 use miningpool_observer_shared::model::{
@@ -212,22 +213,11 @@ pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!("../migrations/");
 /// The connection is in a test transaction: nothing a test writes is committed
 /// and tests don't see each others writes.
 pub fn test_conn() -> Option<PgConnection> {
-    let url = match std::env::var("TEST_DATABASE_URL") {
-        Ok(url) => url,
-        Err(_) => {
-            println!("skipped: TEST_DATABASE_URL not set");
-            return None;
-        }
+    let url = match test_database_url() {
+        Some(url) => url,
+        None => return None,
     };
-
-    // The migrations only need to run once per test binary. Running them from
-    // multiple threads at the same time can fail.
-    MIGRATIONS_RUN.call_once(|| {
-        let mut conn =
-            PgConnection::establish(&url).expect("should be able to connect to TEST_DATABASE_URL");
-        conn.run_pending_migrations(MIGRATIONS)
-            .expect("should be able to run the migrations");
-    });
+    run_migrations_once(&url);
 
     let mut conn =
         PgConnection::establish(&url).expect("should be able to connect to TEST_DATABASE_URL");
@@ -237,6 +227,45 @@ pub fn test_conn() -> Option<PgConnection> {
 }
 
 static MIGRATIONS_RUN: std::sync::Once = std::sync::Once::new();
+
+/// The URL of the test database. Returns None and prints a note when
+/// TEST_DATABASE_URL isn't set.
+fn test_database_url() -> Option<String> {
+    match std::env::var("TEST_DATABASE_URL") {
+        Ok(url) => Some(url),
+        Err(_) => {
+            println!("skipped: TEST_DATABASE_URL not set");
+            None
+        }
+    }
+}
+
+/// The migrations only need to run once per test binary. Running them from
+/// multiple threads at the same time can fail.
+fn run_migrations_once(url: &str) {
+    MIGRATIONS_RUN.call_once(|| {
+        let mut conn =
+            PgConnection::establish(url).expect("should be able to connect to TEST_DATABASE_URL");
+        conn.run_pending_migrations(MIGRATIONS)
+            .expect("should be able to run the migrations");
+    });
+}
+
+/// A connection pool for the database in TEST_DATABASE_URL, with the
+/// migrations applied. Returns None and prints a note when the variable isn't
+/// set, so the tests using it can skip themselves.
+///
+/// The request handlers get their connections from a pool, so they can't run
+/// on the test transaction [`test_conn`] returns. Only use this for requests
+/// that don't write to the database, otherwise they disturb the other tests.
+pub fn test_pool() -> Option<db_pool::PgPool> {
+    let url = match test_database_url() {
+        Some(url) => url,
+        None => return None,
+    };
+    run_migrations_once(&url);
+    Some(db_pool::new(&url).expect("should be able to build a connection pool"))
+}
 
 /// A block to insert into the database. Has the same values as
 /// [`block_fixture`], but no id: the database assigns that.
